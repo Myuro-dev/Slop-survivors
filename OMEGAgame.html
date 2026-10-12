@@ -15750,6 +15750,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- Rifts ---------- */
+  const NOT_FIRST = ['z'];   // The Robot Wars is too hard as a first rift.
   function nextBossIn() { for (let i = run.ev; i < EVENTS.length; i++) if (EVENTS[i].kind === 'boss') return EVENTS[i].t - run.t; return Infinity; }
   function updatePortal(dt) {
     const p = run.portal;
@@ -15764,7 +15765,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Never during a boss, right before one, or at the very end of the night.
     if (run.portalT > 0 || run.boss || run.t > DAWN - 50 || nextBossIn() < 35) return false;
     run.portalT = rnd(70, 105);
-    const fresh = ZONES.filter(z => !run.seen.includes(z.id)), pool = fresh.length ? fresh : ZONES;
+    // Some rifts are too tough to be a run's first: they only open once you've been through another one.
+    const fresh = ZONES.filter(z => !run.seen.includes(z.id) && !(run.rifts === 0 && NOT_FIRST.includes(z.id))), pool = fresh.length ? fresh : ZONES;
     const def = pool[Math.floor(Math.random() * pool.length)];
     const a = Math.random() * TAU, R = Math.min(W, H) * .32 + 60;
     run.portal = { x: P.x + Math.cos(a) * R, y: P.y + Math.sin(a) * R, def, life: 28 };
