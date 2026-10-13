@@ -15014,10 +15014,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- World helpers ---------- */
+  // Screens bigger than 1920×1080 (in CSS pixels) zoom the camera in, so every screen shows about the same slice of
+  // the world: enemies spawn just as close and look just as big on a 1440p or 4K monitor as on a 1080p one.
+  // W and H are the visible world size; dpr is canvas pixels per world unit (render resolution × zoom).
+  const VIEW_W = 1920, VIEW_H = 1080;
+  let zoom = 1;
   function resize() {
-    dpr = Math.max(.75, Math.min(devicePixelRatio || 1, 2, Math.sqrt(2.3e6 / (innerWidth * innerHeight))));
-    W = innerWidth; H = innerHeight;
-    cv.width = W * dpr; cv.height = H * dpr;
+    const rdpr = Math.max(.75, Math.min(devicePixelRatio || 1, 2, Math.sqrt(2.3e6 / (innerWidth * innerHeight))));
+    zoom = Math.max(1, Math.min(2.5, innerWidth / VIEW_W, innerHeight / VIEW_H));
+    W = innerWidth / zoom; H = innerHeight / zoom; dpr = rdpr * zoom;
+    cv.width = Math.round(innerWidth * rdpr); cv.height = Math.round(innerHeight * rdpr);
   }
   addEventListener('resize', resize); resize();
 
@@ -16918,7 +16924,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     return c;
   }
   function drawZoneFloor(zd) {
-    const sc = Math.min(dpr, 1);
+    const sc = Math.min(dpr, 1.25);   // zoomed-in big screens get slightly sharper floor chunks
     if (chunkDef !== zd || chunkScale !== sc) {
       for (const c of chunks.values()) if (chunkPool.length < 8) chunkPool.push(c);
       chunks.clear(); chunkDef = zd; chunkScale = sc;
