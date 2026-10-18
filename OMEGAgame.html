@@ -128,6 +128,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .newbest { color: var(--gold); font-weight: 600; }
 .tally { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; font-size: 14px; color: var(--muted); }
 .tally b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.arena { display: grid; gap: 10px; justify-items: center; width: 100%; }
+.arena .arow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.arena .btn.ghost.sel { border-color: var(--glow); color: var(--glow); box-shadow: 0 0 0 1px var(--glow) inset; }
+.arena label { font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 .fledbar { position: relative; display: block; width: min(320px, 100%); height: 18px; margin: 10px auto 0; border-radius: 9px; background: rgba(255,255,255,.08); overflow: hidden; }
 .fledbar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ff9a3a, #ffe27a); border-radius: 9px; }
 .fledbar b { position: relative; display: block; text-align: center; font-size: 12px; line-height: 18px; color: #1a1408; }
@@ -807,7 +811,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     luna:   { hp: 1000, sp: 58,  dmg: 16, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
     stag:   { hp: 9500, sp: 40,  dmg: 24, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
     queen:  { hp: 18000, sp: 52,  dmg: 28, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
-    eclipse: { hp: 150000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
+    eclipse: { hp: 110000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
   };
   // Spawn mix by run time (seconds).
   const MIX = [
@@ -17481,7 +17485,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* ---------- State ---------- */
   let run = null, S = null, state = 'title', shake = 0, hurtT = 0, warp = null;
-  let plague = [], allies = [], rfx = [], traps = [], lances = [], frosts = [], hazards = [], foes = [], motes = [], shots = [], bullets = [], strikes = [], parts = [], pops = [], banners = [], beams = [], rings = [], shrooms = [];
+  let burns = [], plague = [], allies = [], rfx = [], traps = [], lances = [], frosts = [], hazards = [], foes = [], motes = [], shots = [], bullets = [], strikes = [], parts = [], pops = [], banners = [], beams = [], rings = [], shrooms = [];
   const P = { x: 0, y: 0, r: 13, inv: 0, face: { x: 1, y: 0 }, moving: false, hop: 0, amp: 0, rot: 0, spin: 0, squish: 0, blink: 3, slowT: 0, ant: { x: 0, y: -26, vx: 0, vy: 0 } };
   const cam = { x: 0, y: 0 };
   const keys = new Set();
@@ -17524,7 +17528,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     run = { t: 0, lv: 1, xp: 0, need: needFor(1), kills: 0, dmg: 0, dmgBy: {}, bosses: 0, chests: 0, weapons: {}, passives: {}, rerolls: 2, hp: 100, pending: 0, ev: 0, spawnAcc: 0, boss: null, start: true, regenAcc: 0, zone: null, saved: null, portal: null, portalT: rnd(45, 70), seen: [], rifts: 0, minis: 0, relic: null, clock: 0, finale: null };
     recalc();
     foes = []; motes = []; shots = []; bullets = []; strikes = []; parts = []; pops = []; banners = []; beams = []; rings = [];
-    traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = []; pendingRelic = null;
+    traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = []; burns = []; pendingRelic = null;
     P.x = 0; P.y = 0; P.inv = 0; P.slowT = 0; P.spin = 0; P.squish = 0; cam.x = 0; cam.y = 0; hazards = [];
     renderLoadout();
     openLevel();
@@ -17855,7 +17859,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   function hurt(dmg) {
-    if (P.inv > 0) return;
+    if (P.inv > 0 || run.god) return;
     if (pv('ward') && run.wardT <= 0) {
       run.wardT = 16 - 2 * pv('ward'); P.inv = .6;
       pops.push({ x: P.x, y: P.y - 30, txt: 'Blocked', col: '#cfe6ff', life: 0, ttl: .8, big: true });
@@ -17887,7 +17891,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   function withSrc(src, fn) { const was = dsrc; tagNew(); dsrc = src; fn(); tagNew(); dsrc = was; }
   function hit(e, dmg, kb, sx, sy) {
-    if (e.dead) return;
+    if (e.dead || e.blink) return;
     let crit = false;
     if (dmg > 0 && e.markT > run.clock) dmg *= 1.25;
     if (dmg > 0 && S.brute && (e.heavy || e.boss || e.elite)) dmg *= 1 + S.brute;
@@ -18014,6 +18018,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   };
 
   /* ---------- Bosses ---------- */
+  // Enemy burning ground (left by the Eclipse Moth): hurts Hexel while standing in it, at most 18 pools.
+  function addBurn(x, y, r) {
+    burns.push({ x, y, r, life: 6.5, max: 6.5, seed: Math.random() * 9 });
+    if (burns.length > 18) burns.shift();
+  }
   function ringBullets(e, n, sp, off = 0) {
     snd.fx('shoot');
     for (let i = 0; i < n; i++) {
@@ -18052,6 +18061,29 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         }
       }
     } else if (e.kind === 'eclipse') {
+      // Blink: every few seconds it vanishes (can't be hit), a shimmer marks where it will reappear 260–400 px from Hexel,
+      // and it leaves a pool of burning ground behind. It also drops burning ground under itself as it hunts.
+      const phB = e.hp > e.max * .66 ? 1 : e.hp > e.max * .33 ? 2 : 3;
+      if (e.blink) {
+        e.blink.t -= dt;
+        if (e.blink.t <= 0) {
+          e.x = e.blink.x; e.y = e.blink.y; e.blink = null;
+          burst(e.x, e.y, '#ffe8b0', 30, 300); rings.push({ x: e.x, y: e.y, r: 120, life: 0, ttl: .45, col: '255,210,120' });
+          ringBullets(e, 12, 140, Math.random()); shake = Math.max(shake, 6);
+        }
+        return;
+      }
+      e.tp = (e.tp ?? 5) - dt;
+      if (e.tp <= 0) {
+        e.tp = [0, 6, 4.5, 3.5][phB];
+        const a = Math.random() * TAU, d = rnd(260, 400);
+        e.blink = { t: .6, x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d };
+        addBurn(e.x, e.y, 95);
+        burst(e.x, e.y, '#ffb33b', 24, 260); snd.fx('warn');
+        return;
+      }
+      e.bt = (e.bt ?? 2) - dt;
+      if (e.bt <= 0) { e.bt = [0, 2.6, 1.9, 1.3][phB]; addBurn(e.x, e.y, 70); }
       // Phase 1: bullet rings and moth summons. Phase 2 (below 2/3): the corona flares, sweeping rays of fire and
       // ghost summons. Phase 3 (below 1/3): totality, stars fall around Hexel and it hunts faster with double rings.
       const ph = e.hp > e.max * .66 ? 1 : e.hp > e.max * .33 ? 2 : 3;
@@ -18900,7 +18932,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     return false;
   }
   function enterZone(def, p) {
-    run.portal = null; run.seen.push(def.id); run.rifts++; traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = [];
+    run.portal = null; run.seen.push(def.id); run.rifts++; traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = []; burns = [];
     // The meadow waits, frozen, while you are away.
     run.saved = { foes, motes, bullets, strikes, hazards, shots, x: p.x, y: p.y };
     foes = []; motes = []; bullets = []; strikes = []; hazards = []; shots = [];
@@ -18916,7 +18948,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Glow left in the rift comes home with you, and so does an unopened chest.
     let xp = 0; const chests = [];
     for (const m of motes) { if (m.kind === 'xp') xp += m.v; if (m.kind === 'chest') chests.push(m); }
-    traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = [];
+    traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = []; burns = [];
     foes = sv.foes; motes = sv.motes; bullets = []; strikes = sv.strikes; hazards = sv.hazards; shots = sv.shots;
     run.zone = null; run.saved = null; run.boss = null;
     P.x = sv.x; P.y = sv.y; cam.x = P.x; cam.y = P.y; P.inv = 2;
@@ -19240,6 +19272,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if ((e.x - P.x) ** 2 + (e.y - P.y) ** 2 < (e.r + P.r - 3) ** 2) { hurt(e.dmg); break; }
       if (e.segs && e.segs.some(q => (q.x - P.x) ** 2 + (q.y - P.y) ** 2 < (e.r * .85 + P.r - 3) ** 2)) { hurt(e.dmg); break; }
     }
+    if (burns.length) {
+      run.burnT = (run.burnT || 0) - dt;
+      let inFire = false;
+      for (const b of burns) { b.life -= dt; if (b.life > .4 && b.max - b.life > .5 && (P.x - b.x) ** 2 + (P.y - b.y) ** 2 < (b.r * .9) ** 2) inFire = true; }
+      if (inFire && run.burnT <= 0) { run.burnT = .5; hurt(7); }
+      burns = burns.filter(b => b.life > 0);
+    }
     for (const hz of hazards) {
       hz.t -= dt;
       if (hz.t > 0) continue;
@@ -19431,7 +19470,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       ctx.fillStyle = white ? '#fff' : '#c8b8e8';
       for (let i = 0; i < 5; i++) { const a = i * 1.3 + e.seed; ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * s * .5, e.y - s * .1 + Math.sin(a) * s * .35, 2.2, 0, TAU); ctx.fill(); }
     }
-    else if (e.kind === 'eclipse') drawEclipse(e, now);
+    else if (e.kind === 'eclipse') { if (e.blink) ctx.globalAlpha = Math.max(.05, e.blink.t / .6 * .6); drawEclipse(e, now); ctx.globalAlpha = 1; }
     else if (e.kind === 'stag') drawBeetle(e.x, e.y, s, e.ang, white ? '#fff' : '#5a2f2a', '#c07a5a', true);
     else if (e.kind === 'luna') drawMoth(e.x, e.y, s, white ? '#fff' : '#8fd8a4', white ? '#fff' : '#d8f0d0', flap, e);
     else if (e.kind === 'queen') { if (e.tele) ctx.globalAlpha = .4 + .3 * Math.sin(now * 30); drawMoth(e.x, e.y, s, white ? '#fff' : '#6b3f8f', white ? '#fff' : '#2a1838', flap, e); ctx.globalAlpha = 1; }
@@ -19497,6 +19536,30 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   function drawTelegraphs(now) {
+    for (const b of burns) {
+      if (!onScreen(b, b.r + 20)) continue;
+      const k = Math.min(1, (b.max - b.life) / .5, b.life / .6), warm = b.max - b.life < .5;
+      ctx.globalAlpha = .55 * k; ctx.fillStyle = '#2a0c06';
+      ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r * .62, 0, 0, TAU); ctx.fill();
+      ctx.globalAlpha = (warm ? .35 : .6) * k; ctx.fillStyle = '#ff5a1a';
+      ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r * .82, b.r * .5, 0, 0, TAU); ctx.fill();
+      ctx.globalAlpha = .9 * k; ctx.strokeStyle = '#ffb040'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r * .62, 0, 0, TAU); ctx.stroke();
+      for (let i = 0; i < 7; i++) {
+        const a = i / 7 * TAU + b.seed, fx = b.x + Math.cos(a) * b.r * .55, fy = b.y + Math.sin(a) * b.r * .32;
+        const h = (16 + 10 * Math.sin(now * 12 + i * 2 + b.seed)) * k;
+        if (!(h > 0)) continue;
+        ctx.fillStyle = i % 2 ? '#ffd24a' : '#ff7a2a';
+        ctx.beginPath(); ctx.moveTo(fx - 6, fy); ctx.quadraticCurveTo(fx, fy - h * 1.5, fx + 6, fy); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    for (const e of foes) if (e.kind === 'eclipse' && e.blink) {
+      const k = 1 - e.blink.t / .6;
+      ctx.strokeStyle = `rgba(255,226,140,${.4 + .5 * k})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(e.blink.x, e.blink.y, 30 + 60 * (1 - k), 0, TAU); ctx.stroke();
+      ctx.fillStyle = `rgba(255,220,120,${.1 + .2 * k})`; ctx.beginPath(); ctx.arc(e.blink.x, e.blink.y, 70, 0, TAU); ctx.fill();
+    }
     for (const hz of hazards) {
       const k = 1 - hz.t / (hz.T || .9);
       ctx.fillStyle = `rgba(${hz.col || '255,120,60'},${.08 + .15 * k + .08 * Math.sin(now * 30)})`;
@@ -20525,6 +20588,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     zone: { get: () => run && run.zone }, hit: { value: (e, d) => hit(e, d, 0, e.x, e.y) }, step: { value: ms => step(ms) }, Z: { value: Z },
     // Times floor-chunk rendering for a zone: fj.chunkBench('zerg') → avg/max ms over n random chunks.
     plague: { get: () => plague },
+    burns: { get: () => burns },
     chunkBench: { value: (id, n = 12) => { const zd = ZONES.find(z => z.id === id), ts = []; for (let i = 0; i < n; i++) { const t0 = performance.now(); const c = renderChunk(zd, (Math.random() * 40 - 20) | 0, (Math.random() * 40 - 20) | 0, Math.min(dpr, 1)); c.getContext('2d').getImageData(0, 0, 1, 1); ts.push(performance.now() - t0); chunkPool.length < 8 && chunkPool.push(c); } return { id, avg: +(ts.reduce((x, y) => x + y) / n).toFixed(1), max: +Math.max(...ts).toFixed(1) }; } },
     relic: { value: (id, minis) => { run.relic = newRelic(id); if (minis != null) run.minis = minis; allies = []; renderLoadout(); } },
     finale: { value: () => { run.t = DAWN; } } });
@@ -20579,6 +20643,51 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       exitZone(); foes = [];
     }
     state = 'title';
+  }
+  // Boss arena (index.html#arena): pick a main-map boss and a build, then fight it right away. Rifts are off, and the
+  // night clock starts 2 s before the boss arrives. "God mode" ignores all damage. Game over goes back to the picker.
+  if (location.hash === '#arena') {
+    const BOSSES = { luna: 'Great Luna Moth (2:00)', stag: 'Stag Beetle (5:00)', queen: 'Moth Queen (8:00)', eclipse: 'Eclipse Moth (dawn)' };
+    // Builds: [level, weapons [id, lv, evolved], charms, relic [zone, guardians beaten] or null]
+    const BUILDS = {
+      luna: { typical: [15, [['bolt', 4], ['flame', 3], ['thorn', 3]], { net: 1, wings: 1 }, null],
+        strong: [22, [['bolt', 6], ['flame', 5], ['thorn', 5], ['moon', 4]], { ember: 2, steady: 2, net: 1 }, ['homm', 1]] },
+      stag: { typical: [38, [['lance', 6], ['flame', 6], ['star', 5], ['slam', 5], ['wisp', 6]], { keen: 2, steady: 2, net: 2, heart: 1 }, ['bay', 1]],
+        strong: [46, [['lance', 6, 1], ['wisp', 6, 1], ['flame', 7], ['star', 6], ['slam', 6], ['hammer', 5]], { keen: 4, ember: 3, net: 3, steady: 3, linger: 2, clover: 1 }, ['homm', 2]] },
+      queen: { typical: [58, [['lance', 7, 1], ['flame', 7], ['star', 7], ['slam', 7], ['wisp', 7, 1], ['hammer', 6]], { keen: 3, ember: 2, net: 3, steady: 3, heart: 2, wax: 2 }, ['bay', 3]],
+        strong: [68, [['lance', 8, 1], ['wisp', 8, 1], ['hammer', 8, 1], ['flame', 8], ['star', 8], ['slam', 8]], { ember: 5, keen: 5, net: 4, steady: 4, heart: 3, wax: 3 }, ['bay', 4]] },
+      eclipse: { typical: [75, [['lance', 8, 1], ['flame', 8], ['star', 8], ['slam', 8], ['wisp', 8, 1], ['hammer', 8]], { keen: 3, ember: 3, net: 3, steady: 3, heart: 3, wax: 2 }, ['bay', 3]],
+        strong: [90, [['bow', 8, 1], ['hammer', 8, 1], ['lance', 8, 1], ['nova', 8, 1], ['star', 8], ['slam', 8]], { ember: 5, keen: 5, net: 5, steady: 5, gold: 5, bell: 5 }, ['homm', 4]] },
+    };
+    let pick = { boss: 'luna', build: 'typical', god: false };
+    const panel = document.createElement('div'); panel.className = 'arena';
+    const btns = (key, opts) => `<div class="arow">${Object.entries(opts).map(([k, v]) => `<button class="btn ghost${pick[key] === k ? ' sel' : ''}" data-${key}="${k}">${v}</button>`).join('')}</div>`;
+    const paint = () => {
+      panel.innerHTML = '<span class="eyebrow">Boss arena</span>' + btns('boss', BOSSES) + btns('build', { typical: 'Typical build for that time', strong: 'Strong build' })
+        + `<label><input type="checkbox" id="arenaGod" ${pick.god ? 'checked' : ''}> God mode (take no damage)</label><button class="btn" id="arenaGo">Fight!</button>`;
+      for (const b of panel.querySelectorAll('[data-boss]')) b.onclick = () => { pick.boss = b.dataset.boss; paint(); };
+      for (const b of panel.querySelectorAll('[data-build]')) b.onclick = () => { pick.build = b.dataset.build; paint(); };
+      panel.querySelector('#arenaGod').onchange = ev => { pick.god = ev.target.checked; };
+      panel.querySelector('#arenaGo').onclick = startArena;
+    };
+    const startArena = () => {
+      const [lv, weps, pas, relic] = BUILDS[pick.boss][pick.build];
+      newRun();
+      run.start = false; run.lv = lv; run.need = needFor(lv); run.xp = 0; run.pending = 0;
+      run.weapons = {}; for (const [id, wl, evo] of weps) run.weapons[id] = Object.assign(newWeapon(), { lv: wl, evo: !!evo });
+      run.passives = { ...pas }; recalc(); run.hp = S.maxHp; run.god = pick.god;
+      if (relic) { run.relic = newRelic(relic[0]); run.minis = relic[1]; }
+      run.portalT = 1e9;
+      if (pick.boss === 'eclipse') { run.t = DAWN - 2; run.ev = EVENTS.length; }
+      else { const i = EVENTS.findIndex(ev => ev.kind === 'boss' && ev.boss === pick.boss); run.t = EVENTS[i].t - 2; run.ev = i; }
+      state = 'play'; show(null); snd.muffle(false); snd.mode('play'); renderLoadout();
+      banner(`Arena: ${BOSSES[pick.boss]} · ${pick.build} build${pick.god ? ' · god mode' : ''}`, '#ffe27a');
+    };
+    paint();
+    $('newRun').hidden = true; $('newRun').before(panel);
+    for (const el of document.querySelectorAll('#title .card > p, #title .legend')) el.hidden = true;
+    // Game over (or winning) returns to the arena picker.
+    const ag = $('again'), ag2 = ag.cloneNode(true); ag.replaceWith(ag2); ag2.textContent = 'Back to the arena'; ag2.addEventListener('click', () => location.reload());
   }
   if (location.hash === '#tour') {
     const SEG = 20;
