@@ -60,6 +60,8 @@ body { background: var(--night); color: var(--ink); font-family: var(--body); ov
 }
 .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(24,32,64,.8); border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
 .chip b { color: var(--glow); font-weight: 600; }
+.lvbuild { display: grid; gap: 6px; justify-items: center; width: 100%; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.lvbuild-h { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .chip.w { border-color: rgba(159,216,255,.5); }
 .chip.evo { border-color: rgba(217,184,255,.8); color: var(--evo); box-shadow: 0 0 10px rgba(217,184,255,.25); }
 .chip.relic { border-color: rgba(255,179,59,.85); color: var(--gold); box-shadow: 0 0 12px rgba(255,179,59,.3); }
@@ -190,6 +192,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   <div class="card">
     <span class="eyebrow" id="lvEyebrow">Level 2</span>
     <h2 id="lvTitle">Level up!</h2>
+    <div class="lvbuild" id="lvBuild" hidden>
+      <span class="lvbuild-h" id="lvBuildHead">Your build</span>
+      <div class="loadout inline" id="lvLoadout"></div>
+    </div>
     <div class="picks" id="picks"></div>
     <div class="row">
       <button class="btn ghost" id="reroll">Reroll</button>
@@ -797,10 +803,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     bomber: { hp: 35,   sp: 56,  dmg: 8,  xp: 3, r: 13 },              // bursts into a delayed blast when killed
     centi:  { hp: 240,  sp: 72,  dmg: 14, xp: 14, r: 13, heavy: true }, // long body that also hurts
     brood:  { hp: 90,   sp: 40,  dmg: 12, xp: 5, r: 21 },              // splits into moths
-    luna:   { hp: 1100, sp: 58,  dmg: 16, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
-    stag:   { hp: 3200, sp: 40,  dmg: 24, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
-    queen:  { hp: 7500, sp: 52,  dmg: 28, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
-    eclipse: { hp: 40000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
+    luna:   { hp: 1200, sp: 58,  dmg: 16, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
+    stag:   { hp: 9500, sp: 40,  dmg: 24, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
+    queen:  { hp: 18000, sp: 52,  dmg: 28, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
+    eclipse: { hp: 200000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
   };
   // Spawn mix by run time (seconds).
   const MIX = [
@@ -13474,7 +13480,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     };
 
     return {
-      id: 'spire', name: 'The Spire', nod: 'Slay the Spire', portal: '220,60,70', bg: '#231912', dark: .35, dim: .12,
+      id: 'spire', name: 'The Ascent', nod: 'Slay the Spire', portal: '220,60,70', bg: '#231912', dark: .35, dim: .12,
       ground, under, ambient,
       mix: { louse: 4.5, cultist: 1.6, slime: 1.4, sentry: .8 },
       target: 1,
@@ -17571,6 +17577,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('lvEyebrow').textContent = run.start ? 'The meadow is quiet, for now' : `Level ${run.lv - run.pending + 1}`;
     $('lvTitle').textContent = run.start ? 'Choose your first light' : 'Level up!';
     $('skip').hidden = run.start;
+    // Show the current build under the cards, so picks can be weighed against what you already carry.
+    const nW = Object.keys(run.weapons).length, nP = Object.keys(run.passives).length;
+    $('lvBuild').hidden = run.start || !(nW + nP);
+    $('lvBuildHead').textContent = `Your build · weapons ${nW}/${SLOTS} · charms ${nP}/${SLOTS}`;
+    $('lvLoadout').innerHTML = chips();
     rollOffers();
     show('level');
   }
@@ -17777,8 +17788,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const zd = run.zone ? (kind === 'boss' ? run.zone.def.boss : run.zone.def.foes[kind]) : null;
     const f = zd || FOES[kind];
     // Rift foes are a touch tougher; rift guardians grow with how deep into the night you are.
-    const hpMul = zd ? (kind === 'boss' ? 1 + run.t / 400 : (1 + run.t / 60 * .35) * 1.1) * riftK(RIFT_HP) : f.boss ? 1 : 1 + run.t / 60 * .35;
-    const e = { kind, x, y, hp: f.hp * hpMul, max: f.hp * hpMul, sp: f.sp * rnd(.92, 1.08) * (1 + .04 * (run.passives.dusk || 0)), dmg: zd ? f.dmg * riftK(RIFT_DMG) : f.dmg, xp: f.xp, r: zd ? f.r * 1.15 : f.r, heavy: !!f.heavy, boss: !!f.boss || (!!zd && kind === 'boss'), def: zd,
+    const hpMul = zd ? (kind === 'boss' ? 1 + run.t / 400 : (1 + run.t / 60 * .35) * 1.1) * riftK(RIFT_HP) : f.boss ? 1 : 1 + run.t / 60 * .35 + .04 * (run.t / 60) ** 2;
+    const e = { kind, x, y, hp: f.hp * hpMul, max: f.hp * hpMul, sp: f.sp * rnd(.92, 1.08) * (1 + .04 * (run.passives.dusk || 0)), dmg: zd ? f.dmg * riftK(RIFT_DMG) : f.boss ? f.dmg : f.dmg * (1 + .03 * run.t / 60), xp: f.xp, r: zd ? f.r * 1.15 : f.r, heavy: !!f.heavy, boss: !!f.boss || (!!zd && kind === 'boss'), def: zd,
       kx: 0, ky: 0, flash: 0, seed: Math.random() * 6, ph: 0, ang: 0, cds: {}, t1: 2, t2: 5, t3: 9, mode: 'walk', mt: 2.5 };
     foes.push(e);
     if (zd && zd.init) zoneCall(() => zd.init(e, Z));
@@ -17831,7 +17842,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, ttl: rnd(.4, .8), col });
     }
   }
-  const banner = (txt, col, big) => banners.push({ txt, col, life: 0, ttl: big ? 3 : 2.2, big });
+  // At most 4 banners on screen; the oldest makes way, so a busy moment never fills a phone screen with text.
+  const banner = (txt, col, big) => { banners.push({ txt, col, life: 0, ttl: big ? 3 : 2.2, big }); if (banners.length > 4) banners.shift(); };
 
   function heal(n) {
     const before = run.hp;
@@ -17905,7 +17917,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           if (run.relic && run.minis === RELIC_MEGA) { banner(`Your relic awakens: ${RELICS[run.relic.id].mega}!`, '#ffb33b', true); snd.fx('evolve'); renderLoadout(); } if (run.zone) { run.zone.exit = { x: e.x, y: e.y - 90 }; banner('The way home opens', '#cfe0ff'); } }
         else run.bosses++;
         run.boss = null; snd.setBoss(false);
-        for (let i = 0; i < 30; i++) dropXp(e.x + rnd(-60, 60), e.y + rnd(-60, 60), 10);
+        // Main-map bosses are tougher now and pay out more glow (rift guardians keep the old 30 × 10).
+        const bv = e.def ? 10 : { luna: 15, stag: 40, queen: 80 }[e.kind] || 10;
+        for (let i = 0; i < 30; i++) dropXp(e.x + rnd(-60, 60), e.y + rnd(-60, 60), bv);
         banner((e.def || FOES[e.kind]).name + ' falls', '#ffe27a', true);
         shake = Math.max(shake, 14);
       }
@@ -18012,9 +18026,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   function bossAI(e, dt) {
     e.t1 -= dt; e.t2 -= dt; e.t3 -= dt;
+    const hurt50 = e.hp < e.max * .5;
     if (e.kind === 'luna') {
-      chase(e, dt, e.sp);
-      if (e.t1 <= 0) { e.t1 = 3.2; ringBullets(e, 14, 150, Math.random()); }
+      chase(e, dt, e.sp * (hurt50 ? 1.2 : 1));
+      if (e.t1 <= 0) { e.t1 = hurt50 ? 2.3 : 2.9; ringBullets(e, hurt50 ? 18 : 15, 150, Math.random()); }
       if (e.t2 <= 0) { e.t2 = 7; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; spawnFoe('moth', e.x + Math.cos(a) * 70, e.y + Math.sin(a) * 70); } }
     } else if (e.kind === 'stag') {
       e.mt -= dt;
@@ -18026,12 +18041,36 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       } else {
         e.x += e.cdir.x * 560 * dt; e.y += e.cdir.y * 560 * dt;
         if (Math.random() < dt * 20) burst(e.x - e.cdir.x * 40, e.y - e.cdir.y * 40, '#6a5040', 2, 80);
-        if (e.mt <= 0) { e.mode = 'walk'; e.mt = rnd(2, 3); ringBullets(e, 10, 120, Math.random()); }
+        if (e.mt <= 0) {
+          ringBullets(e, 14, 130, Math.random());
+          // Wounded, it wheels around and charges again at once.
+          if (hurt50 && !e.second) { e.second = true; e.mode = 'aim'; e.mt = .5; const d = Math.hypot(P.x - e.x, P.y - e.y) || 1; e.cdir = { x: (P.x - e.x) / d, y: (P.y - e.y) / d }; e.ang = Math.atan2(e.cdir.y, e.cdir.x); }
+          else { e.second = false; e.mode = 'walk'; e.mt = rnd(1.6, 2.4); }
+        }
       }
     } else if (e.kind === 'eclipse') {
-      chase(e, dt, e.sp);
-      if (e.t1 <= 0) { e.t1 = 1.8; e.spin = (e.spin || 0) + .3; ringBullets(e, 18, 160, e.spin); }
-      if (e.t2 <= 0) { e.t2 = 4.5; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; spawnFoe('moth', e.x + Math.cos(a) * 110, e.y + Math.sin(a) * 110); } }
+      // Phase 1: bullet rings and moth summons. Phase 2 (below 2/3): the corona flares, sweeping rays of fire and
+      // ghost summons. Phase 3 (below 1/3): totality, stars fall around Hexel and it hunts faster with double rings.
+      const ph = e.hp > e.max * .66 ? 1 : e.hp > e.max * .33 ? 2 : 3;
+      if (ph >= 2 && !e.p2) { e.p2 = true; banner('The corona flares!', '#ffb33b', true); shake = Math.max(shake, 10); snd.fx('boss'); }
+      if (ph >= 3 && !e.p3) { e.p3 = true; banner('Totality! The sky goes black', '#c9a0ff', true); shake = Math.max(shake, 12); snd.fx('boss'); }
+      chase(e, dt, e.sp * (ph === 3 ? 1.35 : 1));
+      if (e.t1 <= 0) { e.t1 = ph === 1 ? 1.8 : 1.5; e.spin = (e.spin || 0) + .3; ringBullets(e, ph === 1 ? 18 : 22, 160, e.spin); if (ph === 3) ringBullets(e, 14, 110, e.spin + .2); }
+      if (e.t2 <= 0) { e.t2 = 4.5; const kind = ph === 1 ? 'moth' : ph === 2 ? 'ghost' : 'bomber'; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; spawnFoe(kind, e.x + Math.cos(a) * 110, e.y + Math.sin(a) * 110); } }
+      if (ph >= 2) {
+        e.t4 = (e.t4 ?? 2) - dt;
+        if (e.t4 <= 0) {
+          // Rays of fire: four (six in totality) lines of telegraphed blasts reaching out from the moth.
+          e.t4 = ph === 3 ? 4 : 5; e.ray = (e.ray || 0) + .5;
+          const n = ph === 3 ? 6 : 4;
+          for (let k = 0; k < n; k++) { const a = e.ray + k * TAU / n; for (let d = 90; d <= 660; d += 64) hazards.push({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, t: 1 + d / 2200, T: 1 + d / 2200, r: 34, dmg: 12, col: '255,170,80' }); }
+          snd.fx('warn');
+        }
+      }
+      if (ph === 3) {
+        e.t5 = (e.t5 ?? 1) - dt;
+        if (e.t5 <= 0) { e.t5 = 1.1; for (let k = 0; k < 3; k++) { const a = Math.random() * TAU, d = Math.random() * 170; hazards.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, t: 1.1, T: 1.1, r: 58, dmg: 14, col: '200,130,255' }); } }
+      }
     } else if (e.kind === 'queen') {
       if (e.tele) {
         e.tele.t -= dt;
@@ -18039,10 +18078,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       } else chase(e, dt, e.sp);
       if (e.t1 <= 0) {
         e.t1 = .16; e.spin = (e.spin || 0) + .41;
-        for (let k = 0; k < 3; k++) { const a = e.spin + k * TAU / 3; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 135, vy: Math.sin(a) * 135, r: 6, dmg: 9, life: 5 }); }
+        const arms = hurt50 ? 4 : 3;
+        for (let k = 0; k < arms; k++) { const a = e.spin + k * TAU / arms; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, r: 6, dmg: 9, life: 5 }); }
       }
-      if (e.t2 <= 0) { e.t2 = 6; for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; spawnFoe('ghost', e.x + Math.cos(a) * 90, e.y + Math.sin(a) * 90); } }
-      if (e.t3 <= 0 && !e.tele) { e.t3 = 10; const a = Math.random() * TAU; e.tele = { x: P.x + Math.cos(a) * 220, y: P.y + Math.sin(a) * 220, t: .9 }; }
+      if (e.t2 <= 0) { e.t2 = hurt50 ? 5 : 6; for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; spawnFoe('ghost', e.x + Math.cos(a) * 90, e.y + Math.sin(a) * 90); } }
+      if (e.t3 <= 0 && !e.tele) { e.t3 = hurt50 ? 8 : 10; const a = Math.random() * TAU; e.tele = { x: P.x + Math.cos(a) * 220, y: P.y + Math.sin(a) * 220, t: .9 }; }
     }
   }
 
@@ -18815,7 +18855,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- The finale: at dawn the Eclipse Moth rises; banish it within FINALE_TIME seconds for the true ending ---------- */
-  const FINALE_TIME = 20;
+  const FINALE_TIME = 60;
   function startFinale() {
     for (const e of foes) if (e.boss && !e.dead) { e.gone = true; burst(e.x, e.y, '#ffe8b0', 40, 300); }
     const a = Math.random() * TAU;
@@ -18824,7 +18864,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     run.boss = b; run.finale = { t: 0, boss: b }; run.portal = null;
     snd.fx('boss'); snd.setBoss(true);
     banner('The Eclipse Moth swallows the sunrise!', '#ffb33b', true);
-    banner('Banish it within 20 seconds', '#ffe27a');
+    banner(`Banish it within ${FINALE_TIME} seconds`, '#ffe27a');
     shake = Math.max(shake, 12);
   }
 
@@ -20341,11 +20381,28 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       ctx.textAlign = 'center';
       let by = H * .3;
+      // Banners shrink to fit the screen width, down to ~70% size, then wrap onto extra lines (phones in portrait).
+      const maxW = W - 32;
       for (const b of banners) {
         const k = b.life / b.ttl;
         ctx.globalAlpha = Math.min(1, (1 - k) * 3, b.life * 5);
-        ctx.font = `800 ${b.big ? 34 : 24}px Grandstander, system-ui, sans-serif`; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(5,8,16,.65)'; ctx.strokeText(b.txt, W / 2, by); ctx.fillStyle = b.col;
-        ctx.fillText(b.txt, W / 2, by); by += b.big ? 44 : 34;
+        const base = b.big ? 34 : 24;
+        let size = base;
+        const setF = sz => { ctx.font = `800 ${sz}px Grandstander, system-ui, sans-serif`; };
+        setF(size);
+        let lines = [b.txt];
+        const w0 = ctx.measureText(b.txt).width;
+        if (w0 > maxW) {
+          size = Math.max(Math.round(base * .7), Math.floor(base * maxW / w0)); setF(size);
+          if (ctx.measureText(b.txt).width > maxW) {
+            lines = []; let cur = '';
+            for (const word of b.txt.split(' ')) { const t = cur ? cur + ' ' + word : word; if (cur && ctx.measureText(t).width > maxW) { lines.push(cur); cur = word; } else cur = t; }
+            if (cur) lines.push(cur);
+          }
+        }
+        ctx.lineWidth = Math.max(3, size * .16); ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(5,8,16,.65)'; ctx.fillStyle = b.col;
+        for (const ln of lines) { ctx.strokeText(ln, W / 2, by); ctx.fillText(ln, W / 2, by); by += size * 1.25; }
+        by += size * .05 + 4;
       }
       ctx.globalAlpha = 1;
     }
