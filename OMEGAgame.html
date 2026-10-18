@@ -60,8 +60,10 @@ body { background: var(--night); color: var(--ink); font-family: var(--body); ov
 }
 .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(24,32,64,.8); border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
 .chip b { color: var(--glow); font-weight: 600; }
-.lvbuild { display: grid; gap: 6px; justify-items: center; width: 100%; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.lvbuild-h { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+/* During a level-up the build bar at the bottom stays sharp above the blurred overlay, and the cards leave room for it. */
+.loadout.above { z-index: 4; }
+.loadout.above .chip { background: rgba(14,20,44,.96); }
+#level { padding-bottom: 120px; }
 .chip.w { border-color: rgba(159,216,255,.5); }
 .chip.evo { border-color: rgba(217,184,255,.8); color: var(--evo); box-shadow: 0 0 10px rgba(217,184,255,.25); }
 .chip.relic { border-color: rgba(255,179,59,.85); color: var(--gold); box-shadow: 0 0 12px rgba(255,179,59,.3); }
@@ -192,10 +194,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   <div class="card">
     <span class="eyebrow" id="lvEyebrow">Level 2</span>
     <h2 id="lvTitle">Level up!</h2>
-    <div class="lvbuild" id="lvBuild" hidden>
-      <span class="lvbuild-h" id="lvBuildHead">Your build</span>
-      <div class="loadout inline" id="lvLoadout"></div>
-    </div>
     <div class="picks" id="picks"></div>
     <div class="row">
       <button class="btn ghost" id="reroll">Reroll</button>
@@ -17577,11 +17575,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('lvEyebrow').textContent = run.start ? 'The meadow is quiet, for now' : `Level ${run.lv - run.pending + 1}`;
     $('lvTitle').textContent = run.start ? 'Choose your first light' : 'Level up!';
     $('skip').hidden = run.start;
-    // Show the current build under the cards, so picks can be weighed against what you already carry.
-    const nW = Object.keys(run.weapons).length, nP = Object.keys(run.passives).length;
-    $('lvBuild').hidden = run.start || !(nW + nP);
-    $('lvBuildHead').textContent = `Your build · weapons ${nW}/${SLOTS} · charms ${nP}/${SLOTS}`;
-    $('lvLoadout').innerHTML = chips();
     rollOffers();
     show('level');
   }
@@ -17687,6 +17680,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   /* ---------- Overlays & HUD ---------- */
   function show(id) {
     for (const o of ['title', 'level', 'chest', 'pause', 'over']) $(o).hidden = o !== id;
+    $('loadout').classList.toggle('above', id === 'level');
   }
   function chips() {
     if (!run) return '';
