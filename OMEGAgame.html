@@ -64,6 +64,7 @@ body { background: var(--night); color: var(--ink); font-family: var(--body); ov
 .loadout.above { z-index: 4; }
 .loadout.above .chip { background: rgba(14,20,44,.96); }
 #level { padding-bottom: 120px; }
+@media (max-width: 520px) { .loadout.above .chip { font-size: 11px; padding: 3px 8px; } }
 .chip.w { border-color: rgba(159,216,255,.5); }
 .chip.evo { border-color: rgba(217,184,255,.8); color: var(--evo); box-shadow: 0 0 10px rgba(217,184,255,.25); }
 .chip.relic { border-color: rgba(255,179,59,.85); color: var(--gold); box-shadow: 0 0 12px rgba(255,179,59,.3); }
@@ -17688,6 +17689,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function show(id) {
     for (const o of ['title', 'level', 'chest', 'pause', 'over']) $(o).hidden = o !== id;
     $('loadout').classList.toggle('above', id === 'level');
+    // Leave exactly enough room under the cards for the build bar, however many rows of chips it wraps into.
+    if (id === 'level') requestAnimationFrame(() => { $('level').style.paddingBottom = ($('loadout').offsetHeight + 20) + 'px'; });
   }
   function chips() {
     if (!run) return '';
@@ -17781,7 +17784,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   let zoom = 1;
   function resize() {
     const rdpr = Math.max(.75, Math.min(devicePixelRatio || 1, 2, Math.sqrt(2.3e6 / (innerWidth * innerHeight))));
-    zoom = Math.max(1, Math.min(2.5, innerWidth / VIEW_W, innerHeight / VIEW_H));
+    // Small screens (phones) zoom out so the short side shows at least 540 world units (never below 68% scale):
+    // a portrait phone used to see only ~15% of what a 1080p screen sees, with enemies spawning half as far away.
+    const short = Math.min(innerWidth, innerHeight);
+    zoom = short < 540 ? Math.max(.68, short / 540) : Math.max(1, Math.min(2.5, innerWidth / VIEW_W, innerHeight / VIEW_H));
     W = innerWidth / zoom; H = innerHeight / zoom; dpr = rdpr * zoom;
     cv.width = Math.round(innerWidth * rdpr); cv.height = Math.round(innerHeight * rdpr);
   }
@@ -20442,10 +20448,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       if (joy) {
         ctx.strokeStyle = 'rgba(233,236,245,.3)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 45, 0, TAU); ctx.stroke();
+        // The joystick lives in CSS pixels; the screen transform is in world units, so divide by the zoom.
+        const zx = joy.ox / zoom, zy = joy.oy / zoom;
+        ctx.beginPath(); ctx.arc(zx, zy, 45 / zoom, 0, TAU); ctx.stroke();
         let jx = joy.x - joy.ox, jy = joy.y - joy.oy; const l = Math.hypot(jx, jy);
         if (l > 45) { jx *= 45 / l; jy *= 45 / l; }
-        ctx.fillStyle = 'rgba(233,236,245,.25)'; ctx.beginPath(); ctx.arc(joy.ox + jx, joy.oy + jy, 18, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(233,236,245,.25)'; ctx.beginPath(); ctx.arc(zx + jx / zoom, zy + jy / zoom, 18 / zoom, 0, TAU); ctx.fill();
       }
       ctx.textAlign = 'center';
       let by = H * .3;
@@ -20602,10 +20610,49 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const only = location.hash.split(':')[1], pick = only ? only.split(',') : null;
     const page = document.createElement('div');
     page.style.cssText = 'position:fixed;inset:0;z-index:20;overflow:auto;background:#0b0f18;color:#e8ecf6;font-family:"Bricolage Grotesque",system-ui,sans-serif;padding:20px 16px 60px';
-    page.innerHTML = '<h1 style="font-family:Grandstander,system-ui;font-size:34px;margin:0 0 4px;color:#ffe27a">Bestiary</h1><p style="margin:0 0 18px;color:#9aa3c2">Every rift enemy and guardian, drawn by the game itself (big ones are shrunk a little to fit their box).</p>';
+    page.innerHTML = '<h1 style="font-family:Grandstander,system-ui;font-size:34px;margin:0 0 4px;color:#ffe27a">Bestiary</h1><p style="margin:0 0 18px;color:#9aa3c2">Every enemy and boss of the night meadow and the rifts, drawn by the game itself (big ones are shrunk a little to fit their box). HP and DMG are base values before night-time and rift scaling; DMG is contact damage.</p>';
     document.body.appendChild(page);
     newRun();
     for (const o of document.querySelectorAll('.overlay')) o.hidden = true;
+    // The night meadow first: main-map foes are drawn by drawFoe onto the game canvas, then copied into the page.
+    if (!pick || pick.includes('meadow')) {
+      const list = [['moth'], ['dust'], ['wasp'], ['beetle'], ['ghost'], ['mosq'], ['locust'], ['spider'], ['bomber'], ['centi'], ['brood'], ['beetle', 'golden beetle (elite)', true],
+        ['luna', null, false, true], ['stag', null, false, true], ['queen', null, false, true], ['eclipse', null, false, true]];
+      const cells = list.map(([k, label, elite, boss]) => {
+        const e = spawnFoe(k, P.x + 160, P.y);
+        if (elite) { e.elite = true; e.r = 26; }
+        if (k === 'centi') e.segs = Array.from({ length: 8 }, (_, i) => ({ x: e.x + (i + 1) * 13, y: e.y + Math.sin(i * .8) * 6 }));
+        e.ang = Math.PI;
+        const base = elite ? { hp: FOES.beetle.hp * 9, dmg: 20 } : FOES[k];
+        return { e, base, label: label || (boss ? FOES[k].name : k), boss, w: boss ? 360 : 200, sc: boss ? Math.min(1.2, 92 / e.r) : Math.min(2.2, 44 / e.r) };
+      });
+      foes = [];
+      const sec = document.createElement('section'); sec.style.cssText = 'margin:0 0 26px';
+      sec.innerHTML = '<h2 style="font-family:Grandstander,system-ui;font-size:22px;margin:0 0 2px;color:#ffe27a">The Night Meadow</h2><div style="color:#9aa3c2;font-size:13px;margin-bottom:6px">main map · id <code>meadow</code></div>';
+      const reg = cells.filter(c => !c.boss), rows = [reg.slice(0, 6), reg.slice(6), cells.filter(c => c.boss)];
+      for (const row of rows) {
+        const H2 = 300, W2 = row.reduce((t, c) => t + c.w, 0);
+        const out = document.createElement('canvas'); out.width = W2; out.height = H2 + 46; out.style.cssText = 'max-width:100%;border-radius:10px;display:block;margin-bottom:8px';
+        const g = out.getContext('2d'); g.fillStyle = '#1c2a2a'; g.fillRect(0, 0, out.width, out.height);
+        let x = 0;
+        for (const c of row) {
+          const cw = c.w, ch = H2, cx = Math.min(cv.width, cw * 2) / 2, cy = ch / 2 + 10;
+          ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cw * 2, ch * 2);
+          ctx.save(); ctx.translate(cx, cy); ctx.scale(c.sc, c.sc); ctx.translate(-c.e.x, -c.e.y);
+          ctx.globalAlpha = .55; ctx.drawImage(SHADOW, c.e.x - c.e.r * 1.3, c.e.y - c.e.r * .15, c.e.r * 2.6, c.e.r * 1.2); ctx.globalAlpha = 1;
+          drawFoe(c.e, 1.3); ctx.restore(); ctx.globalAlpha = 1;
+          g.drawImage(cv, cx - cw / 2, cy - ch / 2 - 10, cw, ch, x, 0, cw, ch);
+          if (x) { g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x, 8, 1, H2 + 10); }
+          g.font = '600 15px "Bricolage Grotesque", system-ui'; g.textAlign = 'center';
+          g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x + 6, H2 + 2, cw - 12, 20);
+          g.fillStyle = c.boss ? '#ffd27a' : '#f2f4fb'; g.fillText(c.label, x + cw / 2, H2 + 17);
+          g.font = '500 13px "Bricolage Grotesque", system-ui'; g.fillStyle = '#9aa3c2'; g.fillText(`HP ${c.base.hp.toLocaleString()} · DMG ${c.base.dmg}`, x + cw / 2, H2 + 38);
+          x += cw;
+        }
+        sec.appendChild(out);
+      }
+      page.appendChild(sec);
+    }
     const draw1 = (g, e, cx, cy, k) => {
       g.save(); g.translate(cx, cy); g.scale(k, k); g.translate(-e.x, -e.y);
       g.globalAlpha = .55; g.drawImage(SHADOW, e.x - e.r * 1.6, e.y - e.r * .2, e.r * 3.2, e.r * 1.5); g.globalAlpha = 1;
@@ -20624,7 +20671,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const W2 = cells.reduce((a, c) => a + c.w, 0), H2 = 300;
       const sec = document.createElement('section'); sec.style.cssText = 'margin:0 0 26px';
       sec.innerHTML = `<h2 style="font-family:Grandstander,system-ui;font-size:22px;margin:0 0 2px;color:rgb(${d.portal})">${d.name}</h2><div style="color:#9aa3c2;font-size:13px;margin-bottom:6px">${d.nod} · id <code>${d.id}</code></div>`;
-      const cv = document.createElement('canvas'); cv.width = W2; cv.height = H2 + 26; cv.style.cssText = 'max-width:100%;border-radius:10px;display:block';
+      const cv = document.createElement('canvas'); cv.width = W2; cv.height = H2 + 46; cv.style.cssText = 'max-width:100%;border-radius:10px;display:block';
       const g = cv.getContext('2d'); softenInk(g);
       g.fillStyle = d.bg; g.fillRect(0, 0, cv.width, cv.height);
       g.fillStyle = 'rgba(6,8,16,.25)'; g.fillRect(0, 0, cv.width, cv.height);
@@ -20637,6 +20684,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         g.font = '600 15px "Bricolage Grotesque", system-ui'; g.textAlign = 'center';
         g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x + 6, H2 + 2, c.w - 12, 20);
         g.fillStyle = c.boss ? '#ffd27a' : '#f2f4fb'; g.fillText(c.boss ? c.k : c.k, x + c.w / 2, H2 + 17);
+        { const bd = c.e.def || {}; g.font = '500 13px "Bricolage Grotesque", system-ui'; g.fillStyle = '#9aa3c2'; g.fillText(`HP ${(bd.hp || 0).toLocaleString()} · DMG ${bd.dmg || 0}`, x + c.w / 2, H2 + 38); }
         x += c.w;
       }
       sec.appendChild(cv); page.appendChild(sec);
