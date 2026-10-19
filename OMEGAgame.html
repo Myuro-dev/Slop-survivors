@@ -809,9 +809,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     bomber: { hp: 35,   sp: 56,  dmg: 8,  xp: 3, r: 13 },              // bursts into a delayed blast when killed
     centi:  { hp: 240,  sp: 72,  dmg: 14, xp: 14, r: 13, heavy: true }, // long body that also hurts
     brood:  { hp: 90,   sp: 40,  dmg: 12, xp: 5, r: 21 },              // splits into moths
-    luna:   { hp: 1000, sp: 58,  dmg: 16, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
-    stag:   { hp: 9500, sp: 40,  dmg: 24, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
-    queen:  { hp: 18000, sp: 52,  dmg: 28, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
+    luna:   { hp: 1200, sp: 58,  dmg: 16, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
+    stag:   { hp: 13680, sp: 40,  dmg: 24, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
+    queen:  { hp: 21600, sp: 52,  dmg: 28, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
     eclipse: { hp: 110000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
   };
   // Spawn mix by run time (seconds).
@@ -17801,7 +17801,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const zd = run.zone ? (kind === 'boss' ? run.zone.def.boss : run.zone.def.foes[kind]) : null;
     const f = zd || FOES[kind];
     // Rift foes are a touch tougher; rift guardians grow with how deep into the night you are.
-    const hpMul = zd ? (kind === 'boss' ? 1 + run.t / 400 : (1 + run.t / 60 * .35) * 1.1) * riftK(RIFT_HP) : f.boss ? 1 : 1 + run.t / 60 * .35 + .04 * (run.t / 60) ** 2;
+    const hpMul = zd ? (kind === 'boss' ? (1 + run.t / 400) * riftK(RIFT_BOSS_HP) : (1 + run.t / 60 * .35) * 1.1 * riftK(RIFT_HP)) : f.boss ? 1 : 1 + run.t / 60 * .35 + .04 * (run.t / 60) ** 2;
     const e = { kind, x, y, hp: f.hp * hpMul, max: f.hp * hpMul, sp: f.sp * rnd(.92, 1.08) * (1 + .04 * (run.passives.dusk || 0)), dmg: zd ? f.dmg * riftK(RIFT_DMG) : f.dmg, xp: f.xp, r: zd ? f.r * 1.15 : f.r, heavy: !!f.heavy, boss: !!f.boss || (!!zd && kind === 'boss'), def: zd,
       kx: 0, ky: 0, flash: 0, seed: Math.random() * 6, ph: 0, ang: 0, cds: {}, t1: 2, t2: 5, t3: 9, mode: 'walk', mt: 2.5 };
     foes.push(e);
@@ -17943,8 +17943,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (e.kind === 'brood') for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + e.seed, m = spawnFoe('moth', e.x + Math.cos(a) * 18, e.y + Math.sin(a) * 18); m.kx = Math.cos(a) * 160; m.ky = Math.sin(a) * 160; }
     if (e.kind === 'centi') for (const q of e.segs || []) burst(q.x, q.y, '#a0603a', 4, 120);
     const r = Math.random();
-    if (r < .012) motes.push({ kind: 'heal', x: e.x, y: e.y, bob: Math.random() * 6 });
-    else if (r < .0145) motes.push({ kind: 'moon', x: e.x, y: e.y, bob: Math.random() * 6 });
+    // Honey drops: 1.2% per kill in rifts, halved to 0.6% on the main map so late meadow fights stay dangerous.
+    if (r < (run.zone ? .012 : .006)) motes.push({ kind: 'heal', x: e.x, y: e.y, bob: Math.random() * 6 });
+    else if (r >= .012 && r < .0145) motes.push({ kind: 'moon', x: e.x, y: e.y, bob: Math.random() * 6 });
   }
 
   function dropXp(x, y, v) {
@@ -18912,7 +18913,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   /* ---------- Rifts ---------- */
   // Rift difficulty also climbs with how many rifts you have entered this run (on top of the night-clock scaling):
   // the first is gentler, later ones get meaner. Index = rifts entered - 1 (the current rift), capped at the last entry.
-  const RIFT_HP = [.75, .9, 1, 1.1, 1.2], RIFT_DMG = [.8, .9, 1, 1.1, 1.15];
+  // Guardians climb much steeper from the 3rd rift on (builds snowball much faster than the night clock).
+  const RIFT_HP = [.75, .9, 1, 1.1, 1.2], RIFT_BOSS_HP = [.75, .9, 1.4, 2, 2.6, 3.2], RIFT_DMG = [.8, .9, 1, 1.1, 1.15];
   const riftK = tbl => run && run.zone ? tbl[Math.max(0, Math.min(tbl.length - 1, run.rifts - 1))] : 1;
   const NOT_FIRST = ['z', 'moo2'];   // The Robot Wars and The Antaran Deep are too hard as a first rift.
   function nextBossIn() { for (let i = run.ev; i < EVENTS.length; i++) if (EVENTS[i].kind === 'boss') return EVENTS[i].t - run.t; return Infinity; }
