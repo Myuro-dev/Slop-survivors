@@ -63,7 +63,8 @@ body { background: var(--night); color: var(--ink); font-family: var(--body); ov
 /* During a level-up the build bar at the bottom stays sharp above the blurred overlay, and the cards leave room for it. */
 .loadout.above { z-index: 4; }
 .loadout.above .chip { background: rgba(14,20,44,.96); }
-#level { padding-bottom: 120px; }
+/* While leveling up, the bar sits on its own dark strip under the overlay instead of floating over the cards. */
+.loadout.above { background: rgba(8, 12, 24, .92); padding-top: 8px; border-top: 1px solid var(--line); }
 @media (max-width: 520px) { .loadout.above .chip { font-size: 11px; padding: 3px 8px; } }
 .chip.w { border-color: rgba(159,216,255,.5); }
 .chip.evo { border-color: rgba(217,184,255,.8); color: var(--evo); box-shadow: 0 0 10px rgba(217,184,255,.25); }
@@ -17686,11 +17687,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- Overlays & HUD ---------- */
+  const fitLevel = () => { if (!$('level').hidden) $('level').style.bottom = $('loadout').offsetHeight + 'px'; };
+  addEventListener('resize', fitLevel);
   function show(id) {
     for (const o of ['title', 'level', 'chest', 'pause', 'over']) $(o).hidden = o !== id;
     $('loadout').classList.toggle('above', id === 'level');
     // Leave exactly enough room under the cards for the build bar, however many rows of chips it wraps into.
-    if (id === 'level') requestAnimationFrame(() => { $('level').style.paddingBottom = ($('loadout').offsetHeight + 20) + 'px'; });
+    // The level-up overlay ends at the top of the build bar, so cards and buttons can never scroll underneath it.
+    if (id === 'level') requestAnimationFrame(fitLevel); else $('level').style.bottom = '';
   }
   function chips() {
     if (!run) return '';
