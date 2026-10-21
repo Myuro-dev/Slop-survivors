@@ -298,6 +298,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Choir pads and war drums come in as the night deepens and when a boss is on the field.
   const snd = (() => {
     const AC = window.AudioContext || window.webkitAudioContext;
+    const LOW_POWER = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const prefs = { music: true, sfx: true, musicVol: .8, sfxVol: .8 };
     try { Object.assign(prefs, JSON.parse(localStorage.getItem('fjt-audio') || '{}')); } catch {}
     const save = () => { try { localStorage.setItem('fjt-audio', JSON.stringify(prefs)); } catch {} };
@@ -333,11 +334,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     function init() {
       if (!AC) return;
       if (ac) { if (ac.state === 'suspended' && !document.hidden) ac.resume(); return; }
-      ac = new AC();
+      // Phones and tablets get a bigger audio buffer (fewer crackles when the device is busy), a shorter reverb and a
+      // longer scheduling look-ahead; desktops keep the low-latency defaults.
+      try { ac = new AC(LOW_POWER ? { latencyHint: 'playback' } : undefined); } catch { ac = new AC(); }
       const comp = ac.createDynamicsCompressor();
       comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 4; comp.connect(ac.destination);
       const master = ac.createGain(); master.gain.value = .9; master.connect(comp);
-      const verb = ac.createConvolver(); verb.buffer = impulse(4.5); verb.connect(master);
+      const verb = ac.createConvolver(); verb.buffer = impulse(LOW_POWER ? 2 : 4.5); verb.connect(master);
       verbIn = ac.createGain(); verbIn.connect(verb);
       musicIn = ac.createBiquadFilter(); musicIn.type = 'lowpass'; musicIn.frequency.value = 18000;
       musicOut = ac.createGain(); musicOut.gain.value = mGain();
@@ -398,7 +401,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 4;
       lp.connect(g); g.connect(dest);
       if (dest === sfxOut) { const w = ac.createGain(); w.gain.value = .8; g.connect(w); w.connect(sfxWet); }
-      for (const m of notes) for (const det of [-9, 0, 9]) {
+      for (const m of notes) for (const det of LOW_POWER ? [-7, 7] : [-9, 0, 9]) {
         const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = det;
         o.connect(lp); o.start(t); o.stop(t + dur + .1);
       }
@@ -481,10 +484,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     /* Instrument kit handed to rift zone music (`A` in zone modules). Every input is sanitised so a bad value can't throw. */
     const ok = (...v) => v.every(x => typeof x === 'number' && Number.isFinite(x));
     const WAVES = ['square', 'sawtooth', 'triangle', 'sine'];
+    // Phones: cap the number of zone-music oscillators alive at once; extra notes are skipped instead of crackling.
+    let liveVoices = 0;
+    const VOICE_CAP = 40, busy = () => LOW_POWER && liveVoices > VOICE_CAP;
+    const track = node => { liveVoices++; node.onended = () => liveVoices--; };
     function mtone(t, m, dur, vol, o = {}) {
-      if (!ok(t, m, dur, vol) || dur <= 0 || vol <= 0) return;
+      if (!ok(t, m, dur, vol) || dur <= 0 || vol <= 0 || busy()) return;
       vol = Math.min(.3, vol); dur = Math.min(dur, 20);
-      const osc = ac.createOscillator(); osc.type = WAVES.includes(o.type) ? o.type : 'square';
+      const osc = ac.createOscillator(); osc.type = WAVES.includes(o.type) ? o.type : 'square'; track(osc);
       osc.frequency.setValueAtTime(mtof(m), t);
       if (ok(o.glide)) osc.frequency.exponentialRampToValueAtTime(mtof(o.glide), t + dur);
       if (ok(o.detune)) osc.detune.value = o.detune;
@@ -515,15 +522,15 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         ok(o.f) && o.f > 0 ? o.f : 1000, ok(o.q) ? o.q : 1, ok(o.f2) && o.f2 > 0 ? o.f2 : 0, musicIn);
     }
     function zpad(notes, t, dur, vol, o = {}) {
-      if (!Array.isArray(notes) || !ok(t, dur, vol) || dur <= 0 || vol <= 0) return;
+      if (!Array.isArray(notes) || !ok(t, dur, vol) || dur <= 0 || vol <= 0 || busy()) return;
       const g = ac.createGain(), v = Math.min(.06, vol);
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + dur * .4); g.gain.linearRampToValueAtTime(0, t + dur);
       const lp = ac.createBiquadFilter(); lp.type = 'lowpass';
       lp.frequency.value = ok(o.cutoff) && o.cutoff > 0 ? o.cutoff : 900; lp.Q.value = ok(o.q) ? o.q : 4;
       lp.connect(g); g.connect(musicIn);
       const type = WAVES.includes(o.type) ? o.type : 'sawtooth', det = ok(o.detune) ? o.detune : 9;
-      for (const m of notes.slice(0, 6)) if (ok(m)) for (const d of [-det, 0, det]) {
-        const os = ac.createOscillator(); os.type = type; os.frequency.value = mtof(m); os.detune.value = d;
+      for (const m of notes.slice(0, 6)) if (ok(m)) for (const d of LOW_POWER ? [-det, det] : [-det, 0, det]) {
+        const os = ac.createOscillator(); os.type = type; os.frequency.value = mtof(m); os.detune.value = d; track(os);
         os.connect(lp); os.start(t); os.stop(t + dur + .1);
       }
     }
@@ -556,7 +563,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     function tick() {
       if (!ac || ac.state !== 'running') return;
       if (nextT < ac.currentTime) nextT = ac.currentTime + .05;
-      while (nextT < ac.currentTime + .3) {
+      while (nextT < ac.currentTime + (LOW_POWER ? .6 : .3)) {
         if (zoneMusic) {
           A.boss = boss; A.inten = inten;
           try { zoneMusic.step(step, nextT, A); } catch (err) { if (zoneErr++ < 3) console.error('Till Dawn: zone music error', err); }
@@ -656,7 +663,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
     function fx(name) {
       if (!ac || ac.state !== 'running' || !sGain()) return;
-      const t = ac.currentTime;
+      // Starting a hair in the future avoids clicks when the main thread is late (sounds would begin mid-wave).
+      const t = ac.currentTime + (LOW_POWER ? .04 : .01);
       if (GAP[name] && last[name] && t - last[name] < GAP[name]) return;
       last[name] = t;
       FX[name](t);
