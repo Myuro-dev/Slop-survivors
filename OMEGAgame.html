@@ -374,11 +374,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     function init() {
       if (!AC) return;
       if (ac) { if (ac.state === 'suspended' && !document.hidden) ac.resume(); return; }
-      // Phones and tablets get a bigger audio buffer (fewer crackles when the device is busy), a shorter reverb and a
-      // longer scheduling look-ahead; desktops keep the low-latency defaults.
-      try { ac = new AC(LOW_POWER ? { latencyHint: 'playback' } : undefined); } catch { ac = new AC(); }
+      // Every device gets a bigger audio buffer ('playback' instead of the ~10 ms 'interactive' default): with the tiny
+      // buffer a busy frame starved the audio thread and sound effects crackled, on PCs too. Phones also get a shorter
+      // reverb and a longer scheduling look-ahead.
+      try { ac = new AC({ latencyHint: 'playback' }); } catch { ac = new AC(); }
       const comp = ac.createDynamicsCompressor();
-      comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 4; comp.connect(ac.destination);
+      comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 4;
+      // A fast limiter after the compressor so a pile-up of effects can never clip the output.
+      const lim = ac.createDynamicsCompressor();
+      lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .001; lim.release.value = .1;
+      comp.connect(lim); lim.connect(ac.destination);
       const master = ac.createGain(); master.gain.value = .9; master.connect(comp);
       const verb = ac.createConvolver(); verb.buffer = impulse(LOW_POWER ? 2 : 4.5); verb.connect(master);
       verbIn = ac.createGain(); verbIn.connect(verb);
@@ -460,7 +465,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       o.connect(g); if (dest) g.connect(dest); else { out(g, wet); trackSfx(o); }
       o.start(t); o.stop(t + a + d + .05);
     }
-    // Phones: count live sound-effect voices so fx() can skip minor sounds when too many are already playing.
+    // Count live sound-effect voices so fx() can skip minor sounds when too many are already playing.
     let liveSfx = 0;
     const trackSfx = node => { liveSfx++; node.onended = () => liveSfx--; };
     function nz(t, d, vol, type, f, q, f2, dest = null) {
@@ -709,10 +714,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     function fx(name) {
       if (!ac || ac.state !== 'running' || !sGain()) return;
       // Starting a hair in the future avoids clicks when the main thread is late (sounds would begin mid-wave).
-      const t = ac.currentTime + (LOW_POWER ? .04 : .01);
-      // Phones: frequent sounds repeat less often, and minor ones are dropped when ~18 effect voices are already playing.
+      const t = ac.currentTime + (LOW_POWER ? .04 : .025);
+      // Phones: frequent sounds repeat less often. Minor sounds are dropped while ~18 (phones) or ~30 (desktop) effect voices play.
       if (GAP[name] && last[name] && t - last[name] < GAP[name] * (LOW_POWER ? 2.2 : 1)) return;
-      if (LOW_POWER && liveSfx > 18 && !FX_KEY.has(name)) return;
+      if (liveSfx > (LOW_POWER ? 18 : 30) && !FX_KEY.has(name)) return;
       last[name] = t;
       FX[name](t);
     }
