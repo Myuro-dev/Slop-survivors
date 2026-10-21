@@ -93,6 +93,8 @@ kbd { font: 600 12px var(--body); border: 1px solid var(--line); border-bottom-w
 }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); box-shadow: none; font-size: 15px; padding: 8px 18px; }
 .btn.ghost:disabled { opacity: .4; cursor: default; }
+.overbtns { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.overbtns .btn { width: min(260px, 100%); }
 .btn:hover:not(:disabled) { transform: translateY(-2px); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
@@ -271,7 +273,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       <div class="lbform"><input id="lbName" maxlength="16" placeholder="Your name" autocomplete="nickname" aria-label="Your name for the leaderboard"><button class="btn ghost" id="lbSend">Submit score</button></div>
       <span class="lbstatus" id="lbStatus"></span>
     </div>
-    <button class="btn" id="again">Try another night</button>
+    <div class="overbtns"><button class="btn" id="again">Try another night</button><button class="btn ghost" id="overBoards">Leaderboards</button><button class="btn ghost" id="toMenu">Main menu</button></div>
     <span class="sub" id="bestOver"></span>
   </div>
 </div>
@@ -21848,10 +21850,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   $('newRun').addEventListener('click', newRun);
   $('openBoards').addEventListener('click', () => { $('boards').hidden = false; renderBoards(); });
+  $('overBoards').addEventListener('click', () => { $('boards').hidden = false; renderBoards(); });
   $('closeBoards').addEventListener('click', () => { $('boards').hidden = true; });
   $('lbSend').addEventListener('click', lbSubmit);
   $('lbName').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') lbSubmit(); });
   $('again').addEventListener('click', newRun);
+  $('toMenu').addEventListener('click', () => { if (location.hash === '#arena') return location.reload(); state = 'title'; show('title'); renderLoadout(); snd.mode('title'); });
   $('reroll').addEventListener('click', () => { if (run.rerolls > 0) { run.rerolls--; rollOffers(); } });
   $('skip').addEventListener('click', () => choose(null));
   $('chestOk').addEventListener('click', resume);
