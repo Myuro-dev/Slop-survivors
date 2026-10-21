@@ -348,7 +348,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const musicSend = ac.createGain(); musicSend.gain.value = .6; musicOut.connect(musicSend); musicSend.connect(verbIn);
       sfxOut = ac.createGain(); sfxOut.gain.value = sGain(); sfxOut.connect(master);
       sfxWet = ac.createGain(); sfxWet.gain.value = sGain() / SFX_VOL; sfxWet.connect(verbIn);
-      const sfxSend = ac.createGain(); sfxSend.gain.value = .2; sfxOut.connect(sfxSend); sfxSend.connect(verbIn);
+      const sfxSend = ac.createGain(); sfxSend.gain.value = LOW_POWER ? .08 : .2; sfxOut.connect(sfxSend); sfxSend.connect(verbIn);
       noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
       const nd = noiseBuf.getChannelData(0);
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -409,6 +409,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
     function out(node, wet) {
       node.connect(sfxOut);
+      if (wet && LOW_POWER) wet *= .4;
       if (wet) { const w = ac.createGain(); w.gain.value = wet; node.connect(w); w.connect(sfxWet); }
     }
     function tn(type, f1, f2, t, a, d, vol, wet = 0, dest = null) {
@@ -416,16 +417,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       o.frequency.setValueAtTime(f1, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + a + d);
       const g = ac.createGain();
       g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d);
-      o.connect(g); if (dest) g.connect(dest); else out(g, wet);
+      o.connect(g); if (dest) g.connect(dest); else { out(g, wet); trackSfx(o); }
       o.start(t); o.stop(t + a + d + .05);
     }
+    // Phones: count live sound-effect voices so fx() can skip minor sounds when too many are already playing.
+    let liveSfx = 0;
+    const trackSfx = node => { liveSfx++; node.onended = () => liveSfx--; };
     function nz(t, d, vol, type, f, q, f2, dest = null) {
       const s = ac.createBufferSource(); s.buffer = noiseBuf;
       const fl = ac.createBiquadFilter(); fl.type = type; fl.Q.value = q;
       fl.frequency.setValueAtTime(f, t); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + d);
       const g = ac.createGain();
       g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + d);
-      s.connect(fl); fl.connect(g); if (dest) g.connect(dest); else out(g, 0);
+      s.connect(fl); fl.connect(g); if (dest) g.connect(dest); else { out(g, 0); trackSfx(s); }
       s.start(t, Math.random() * 1.5, d + .05);
     }
     function tom(t, f, vol, dest = musicIn) {
@@ -625,6 +629,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
     }
 
+    const FX_KEY = new Set(['boss', 'bossdown', 'level', 'evolve', 'chestdrop', 'revive', 'death', 'dawn', 'hurt', 'warn', 'rift']);
     const GAP = { hit: .035, kill: .03, xp: .03, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2 };
     const PENT = [74, 77, 79, 81, 84, 86, 89, 91, 93, 96];
     const FX = {
@@ -665,7 +670,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (!ac || ac.state !== 'running' || !sGain()) return;
       // Starting a hair in the future avoids clicks when the main thread is late (sounds would begin mid-wave).
       const t = ac.currentTime + (LOW_POWER ? .04 : .01);
-      if (GAP[name] && last[name] && t - last[name] < GAP[name]) return;
+      // Phones: frequent sounds repeat less often, and minor ones are dropped when ~18 effect voices are already playing.
+      if (GAP[name] && last[name] && t - last[name] < GAP[name] * (LOW_POWER ? 2.2 : 1)) return;
+      if (LOW_POWER && liveSfx > 18 && !FX_KEY.has(name)) return;
       last[name] = t;
       FX[name](t);
     }
@@ -19746,7 +19753,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         r.pick = ((r.pick || 0) + 1) % 3;
         for (let i = 0; i < n; i++) {
           const a = base + (i - (n - 1) / 2) * spread, kind = mega && i === (n - 1) / 2 ? ['gold', 'red', 'blue'][r.pick] : null;
-          shots.push({ type: 'card', x: P.x, y: P.y, a, sp: 900 * S.projSp, dist: 0, max: 760 * S.area, dmg: (kind === 'blue' ? 2 : kind ? 1.5 : 1) * (mega ? 40 : 34) * pow, hit: new Set(), life: 1, kind, spin: Math.random() * TAU });
+          shots.push({ type: 'card', x: P.x, y: P.y, a, sp: 460 * S.projSp, dist: 0, max: 760 * S.area, dmg: (kind === 'blue' ? 2 : kind ? 1.5 : 1) * (mega ? 40 : 34) * pow, hit: new Set(), life: 1, kind, spin: Math.random() * TAU });
         }
         snd.fx('moon');
         break;
