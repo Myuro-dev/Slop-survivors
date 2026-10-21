@@ -134,6 +134,26 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .arena .arow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .arena .btn.ghost.sel { border-color: var(--glow); color: var(--glow); box-shadow: 0 0 0 1px var(--glow) inset; }
 .arena label { font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+/* Leaderboards */
+#openBoards { margin-top: -4px; }
+#boards { z-index: 6; background: rgba(8, 12, 24, .95); }
+.lbtabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.lbtabs .btn.ghost.sel { border-color: var(--glow); color: var(--glow); box-shadow: 0 0 0 1px var(--glow) inset; }
+.lbnote { font-size: 13px; color: var(--muted); min-height: 1em; }
+.lblist { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 480px; display: grid; gap: 4px; text-align: left; }
+.lblist li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .04); font-size: 14px; }
+.lblist li.me { background: rgba(255, 226, 122, .12); box-shadow: 0 0 0 1px rgba(255, 226, 122, .45) inset; }
+.lblist .rk { color: var(--muted); font-variant-numeric: tabular-nums; }
+.lblist .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lblist .nm small { display: block; color: var(--muted); font-size: 11px; }
+.lblist .vl { font-weight: 700; font-variant-numeric: tabular-nums; }
+.lblist li:nth-child(1) .rk { color: #ffd24a; } .lblist li:nth-child(2) .rk { color: #d8dde8; } .lblist li:nth-child(3) .rk { color: #e0a070; }
+.lbme { font-size: 13px; color: var(--muted); }
+.lbsubmit { display: grid; gap: 8px; justify-items: center; width: 100%; max-width: 420px; }
+.lbform { display: flex; gap: 8px; width: 100%; justify-content: center; }
+.lbform input { flex: 1; min-width: 0; max-width: 220px; font: inherit; font-size: 15px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(14, 20, 44, .9); color: var(--ink); }
+.lbbest { color: var(--glow); font-weight: 700; font-size: 14px; }
+.lbstatus { font-size: 13px; color: var(--muted); min-height: 1em; }
 .fledbar { position: relative; display: block; width: min(320px, 100%); height: 18px; margin: 10px auto 0; border-radius: 9px; background: rgba(255,255,255,.08); overflow: hidden; }
 .fledbar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ff9a3a, #ffe27a); border-radius: 9px; }
 .fledbar b { position: relative; display: block; text-align: center; font-size: 12px; line-height: 18px; color: #1a1408; }
@@ -194,6 +214,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <p class="keys">Move with <kbd>WASD</kbd> or the arrow keys, or drag anywhere. <kbd>Esc</kbd> pauses, <kbd>M</kbd> music, <kbd>N</kbd> sound.</p>
     <p class="sub">A weapon at level 6 plus its paired charm evolves when you open a boss chest.</p>
     <button class="btn" id="newRun">Begin the night</button>
+    <button class="btn ghost" id="openBoards">Leaderboards</button>
     <div class="vol"><button class="btn ghost aud-music">Music: on</button><input type="range" min="0" max="100" class="vol-music" aria-label="Music volume"><button class="btn ghost aud-sfx">Sound: on</button><input type="range" min="0" max="100" class="vol-sfx" aria-label="Sound volume"></div>
     <span class="sub" id="bestTitle"></span>
   </div>
@@ -245,8 +266,25 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <span class="newbest" id="newbest" hidden>Longest night yet!</span>
     <div class="loadout inline" id="finalLoadout"></div>
     <div class="dmgstats" id="dmgStats" hidden></div>
+    <div class="lbsubmit" id="lbSubmit" hidden>
+      <span class="lbbest" id="lbBest" hidden></span>
+      <div class="lbform"><input id="lbName" maxlength="16" placeholder="Your name" autocomplete="nickname" aria-label="Your name for the leaderboard"><button class="btn ghost" id="lbSend">Submit score</button></div>
+      <span class="lbstatus" id="lbStatus"></span>
+    </div>
     <button class="btn" id="again">Try another night</button>
     <span class="sub" id="bestOver"></span>
+  </div>
+</div>
+
+<div class="overlay" id="boards" hidden>
+  <div class="card">
+    <span class="eyebrow" id="lbSeason">Leaderboards</span>
+    <h2>Hall of Fame</h2>
+    <div class="lbtabs" id="lbTabs"></div>
+    <div class="lbnote" id="lbNote"></div>
+    <ol class="lblist" id="lbList"></ol>
+    <div class="lbme" id="lbMe"></div>
+    <button class="btn" id="closeBoards">Back</button>
   </div>
 </div>
 
@@ -18845,6 +18883,112 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     show('pause'); $('resume').focus();
   }
 
+  /* ---------- Leaderboards ----------
+     Four boards: fastest Eclipse banish, most damage, most moths, highest level. Every finished normal run is kept in a
+     local Hall of Fame (top 10 per board on this device); with LB_URL set, it can also be submitted to the online
+     board (a Cloudflare Worker, see server/). Debug, arena, tour, bestiary and god-mode runs are never ranked. */
+  const GAME_VERSION = '2026.10';
+  const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
+  const BOARDS = {
+    banish: { label: 'Fastest banish', fmt: v => v.toFixed(1) + ' s', key: 'banish_t', low: true, only: r => r.banished },
+    damage: { label: 'Most damage', fmt: v => Math.round(v).toLocaleString(), key: 'dmg' },
+    kills: { label: 'Most moths', fmt: v => Math.round(v).toLocaleString(), key: 'kills' },
+    level: { label: 'Highest level', fmt: v => 'Lv ' + v, key: 'lv' },
+  };
+  const isRanked = () => !/^#(debug|arena|tour|bestiary)/.test(location.hash) && !run.god;
+  const lbStore = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+  let lastScore = null;
+  function scoreOf(how) {
+    const build = { w: Object.fromEntries(Object.entries(run.weapons).map(([id, w]) => [id, [w.lv, w.evo ? 1 : 0]])), p: run.passives };
+    return { version: GAME_VERSION, banished: how === 'perfect', banish_t: how === 'perfect' ? +run.finale.t.toFixed(2) : null,
+      dmg: Math.round(run.dmg), kills: run.kills, lv: run.lv, survived: +Math.min(DAWN, run.t).toFixed(1), clock: +run.clock.toFixed(1),
+      rifts: run.rifts, relic: run.relic ? run.relic.id : null, build: JSON.stringify(build), created: Date.now() };
+  }
+  // Keep this device's top 10 per board; returns the boards where the run placed, e.g. { damage: 2 }.
+  function recordLocal(sc) {
+    const hof = lbStore.get('fjr-hof', {}), placed = {};
+    for (const [id, b] of Object.entries(BOARDS)) {
+      if (b.only && !b.only(sc)) continue;
+      const list = (hof[id] || []).concat([{ ...sc, name: lbStore.get('fjr-name', '') || 'You' }]);
+      list.sort((a, b2) => b.low ? a[b.key] - b2[b.key] : b2[b.key] - a[b.key]);
+      hof[id] = list.slice(0, 10);
+      const at = hof[id].findIndex(r => r.created === sc.created);
+      if (at >= 0) placed[id] = at + 1;
+    }
+    lbStore.set('fjr-hof', hof);
+    return placed;
+  }
+  const relicName = id => id && RELICS[id] ? RELICS[id].name : '';
+  async function lbFetch(path, opt) {
+    if (!LB_URL) throw new Error('offline');
+    const res = await fetch(LB_URL + path, { ...opt, headers: { 'Content-Type': 'application/json' } });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
+    return body;
+  }
+  function lbOnOver(how) {
+    const box = $('lbSubmit');
+    lastScore = null; box.hidden = true;
+    if (!isRanked()) return;
+    lastScore = scoreOf(how);
+    const placed = recordLocal(lastScore), best = Object.entries(placed).filter(([, n]) => n <= 3);
+    $('lbBest').hidden = !best.length;
+    $('lbBest').textContent = best.length ? 'Personal best! ' + best.map(([id, n]) => `${BOARDS[id].label} #${n}`).join(' · ') : '';
+    $('lbName').value = lbStore.get('fjr-name', '');
+    $('lbStatus').textContent = LB_URL ? '' : 'Saved to this device\'s Hall of Fame.';
+    $('lbSend').hidden = !LB_URL; $('lbName').hidden = !LB_URL;
+    $('lbSend').disabled = false; box.hidden = false;
+  }
+  async function lbSubmit() {
+    if (!lastScore) return;
+    const name = $('lbName').value.trim().replace(/\s+/g, ' ');
+    if (!/^[A-Za-z0-9 _-]{3,16}$/.test(name)) { $('lbStatus').textContent = 'Names are 3–16 letters, digits, spaces, _ or -.'; return; }
+    lbStore.set('fjr-name', name);
+    $('lbSend').disabled = true; $('lbStatus').textContent = 'Submitting…';
+    try {
+      const r = await lbFetch('/runs', { method: 'POST', body: JSON.stringify({ ...lastScore, name }) });
+      const ranks = Object.entries(r.ranks || {}).map(([id, n]) => `${BOARDS[id].label} #${n}`);
+      $('lbStatus').textContent = 'Submitted! ' + ranks.join(' · ');
+      lastScore = null;
+    } catch (err) {
+      $('lbSend').disabled = false;
+      $('lbStatus').textContent = err.message === 'offline' || err instanceof TypeError ? 'Leaderboard is offline right now; your run is saved on this device.' : 'Score rejected: ' + err.message;
+    }
+  }
+  let lbTab = 'banish';
+  async function renderBoards() {
+    $('lbSeason').textContent = 'Season ' + GAME_VERSION;
+    $('lbTabs').innerHTML = '';
+    for (const [id, b] of Object.entries(BOARDS)) {
+      const t = document.createElement('button'); t.className = 'btn ghost' + (id === lbTab ? ' sel' : ''); t.textContent = b.label;
+      t.onclick = () => { lbTab = id; renderBoards(); }; $('lbTabs').appendChild(t);
+    }
+    const b = BOARDS[lbTab], me = lbStore.get('fjr-name', '');
+    const fill = (rows, note) => {
+      $('lbNote').textContent = note; const ol = $('lbList'); ol.innerHTML = '';
+      if (!rows.length) { const li = document.createElement('li'); li.textContent = lbTab === 'banish' ? 'No banished Eclipse Moths yet.' : 'No runs yet.'; ol.appendChild(li); }
+      rows.forEach((r, i) => {
+        const li = document.createElement('li'); if (me && r.name && r.name.toLowerCase() === me.toLowerCase()) li.className = 'me';
+        const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = '#' + (i + 1);
+        const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name || 'You';
+        const sm = document.createElement('small'); sm.textContent = [relicName(r.relic), r.created ? new Date(r.created).toLocaleDateString() : ''].filter(Boolean).join(' · '); nm.appendChild(sm);
+        const vl = document.createElement('span'); vl.className = 'vl'; vl.textContent = b.fmt(r[b.key]);
+        li.append(rk, nm, vl); ol.appendChild(li);
+      });
+    };
+    $('lbMe').textContent = '';
+    if (!LB_URL) { fill(lbStore.get('fjr-hof', {})[lbTab] || [], 'Your best runs on this device. (Online boards are not connected yet.)'); return; }
+    $('lbNote').textContent = 'Loading…';
+    try {
+      const tab = lbTab, top = await lbFetch(`/top?board=${tab}&version=${encodeURIComponent(GAME_VERSION)}`);
+      if (tab !== lbTab) return;
+      fill(top.rows || [], 'Top 50 players this season.');
+      if (me) {
+        const m = await lbFetch(`/me?board=${tab}&version=${encodeURIComponent(GAME_VERSION)}&name=${encodeURIComponent(me)}`).catch(() => null);
+        if (m && m.best && tab === lbTab) $('lbMe').textContent = `Your best: ${b.fmt(m.best[b.key])} (rank #${m.rank})`;
+      }
+    } catch { fill(lbStore.get('fjr-hof', {})[lbTab] || [], 'Online board unavailable; showing your best runs on this device.'); }
+  }
   function gameOver(win, how) {
     state = 'over';
     $('hud').hidden = true;
@@ -18873,6 +19017,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('tally').innerHTML = `<span>Level <b>${run.lv}</b></span><span>Moths <b>${run.kills}</b></span><span>Bosses <b>${run.bosses}</b></span><span>Rifts <b>${run.rifts}</b></span><span>Rift guardians <b>${run.minis}</b></span><span>Damage <b>${Math.round(run.dmg).toLocaleString()}</b></span>`;
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
+    lbOnOver(how);
     renderLoadout();
     showBest();
     show('over');
@@ -21702,6 +21847,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   cv.addEventListener('pointercancel', endJoy);
 
   $('newRun').addEventListener('click', newRun);
+  $('openBoards').addEventListener('click', () => { $('boards').hidden = false; renderBoards(); });
+  $('closeBoards').addEventListener('click', () => { $('boards').hidden = true; });
+  $('lbSend').addEventListener('click', lbSubmit);
+  $('lbName').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') lbSubmit(); });
   $('again').addEventListener('click', newRun);
   $('reroll').addEventListener('click', () => { if (run.rerolls > 0) { run.rerolls--; rollOffers(); } });
   $('skip').addEventListener('click', () => choose(null));
