@@ -138,7 +138,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .arena label { font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 /* Leaderboards */
 #openBoards { margin-top: -4px; }
-#boards { z-index: 6; background: rgba(8, 12, 24, .95); }
+#boards { z-index: 6; background: rgba(8, 12, 24, .95); place-items: start center; padding-top: max(24px, 5vh); }
 .lbseason { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .lbarrow { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; width: 30px; height: 30px; font-size: 18px; line-height: 1; cursor: pointer; padding: 0; }
 .lbarrow:hover { border-color: var(--glow); color: var(--glow); }
@@ -19018,7 +19018,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     try {
       const tab = lbTab, ver = lbVer, top = await lbFetch(`/top?board=${tab}&version=${encodeURIComponent(ver)}`);
       if (tab !== lbTab || ver !== lbVer) return;
-      fill(top.rows || [], ver === GAME_VERSION ? 'Top 50 players this season.' : `Final standings of season ${ver}.`);
+      fill((top.rows || []).slice(0, 10), ver === GAME_VERSION ? 'Top 10 players this season.' : `Final standings of season ${ver}.`);
       if (me) {
         const m = await lbFetch(`/me?board=${tab}&version=${encodeURIComponent(ver)}&name=${encodeURIComponent(me)}`).catch(() => null);
         if (m && m.best && tab === lbTab && ver === lbVer) $('lbMe').textContent = `Your best: ${b.fmt(m.best[b.key])} (rank #${m.rank})`;
