@@ -139,6 +139,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 /* Leaderboards */
 #openBoards { margin-top: -4px; }
 #boards { z-index: 6; background: rgba(8, 12, 24, .95); }
+.lbseason { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.lbarrow { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; width: 30px; height: 30px; font-size: 18px; line-height: 1; cursor: pointer; padding: 0; }
+.lbarrow:hover { border-color: var(--glow); color: var(--glow); }
 .lbtabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .lbtabs .btn.ghost.sel { border-color: var(--glow); color: var(--glow); box-shadow: 0 0 0 1px var(--glow) inset; }
 .lbnote { font-size: 13px; color: var(--muted); min-height: 1em; }
@@ -280,7 +283,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 <div class="overlay" id="boards" hidden>
   <div class="card">
-    <span class="eyebrow" id="lbSeason">Leaderboards</span>
+    <div class="lbseason"><button class="lbarrow" id="lbOlder" aria-label="Older season" hidden>‹</button><span class="eyebrow" id="lbSeason">Leaderboards</span><button class="lbarrow" id="lbNewer" aria-label="Newer season" hidden>›</button></div>
     <h2>Hall of Fame</h2>
     <div class="lbtabs" id="lbTabs"></div>
     <div class="lbnote" id="lbNote"></div>
@@ -675,19 +678,23 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
 
     const FX_KEY = new Set(['boss', 'bossdown', 'level', 'evolve', 'chestdrop', 'revive', 'death', 'dawn', 'hurt', 'warn', 'rift']);
-    const GAP = { hit: .035, kill: .03, xp: .03, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2 };
-    const PENT = [74, 77, 79, 81, 84, 86, 89, 91, 93, 96];
+    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2 };
+    const PENT = [74, 77, 79, 81, 84, 86, 88, 89];
     const FX = {
-      hit: t => nz(t, .025, .045, 'bandpass', rnd(1800, 2800), 2),
-      kill: t => { tn('triangle', rnd(420, 640), 140, t, .002, .08, .07); nz(t, .04, .035, 'highpass', 3000, .7); },
+      // Hits and kills are soft tonal taps. They used to be tiny bursts of 2-3 kHz noise, which at ~30 per second in a
+      // busy fight piled up into a continuous crackle.
+      hit: t => tn('sine', rnd(520, 680), 300, t, .004, .045, .03),
+      kill: t => tn('triangle', rnd(420, 640), 160, t, .004, .09, .055),
       xp: t => {
         xpStreak = t - xpLast < .5 ? Math.min(xpStreak + 1, PENT.length - 1) : 0; xpLast = t;
         const m = PENT[xpStreak];
-        tn('sine', mtof(m), 0, t, .003, .16, .05); tn('sine', mtof(m + 12), 0, t, .002, .07, .015);
+        // A soft 12 ms attack and no high octave sparkle: the old 2-3 ms starts at up to ~4 kHz, retriggered ~30 times a
+        // second while collecting glow, sounded like crackling.
+        tn('sine', mtof(m), 0, t, .012, .14, .04);
       },
       bolt: t => tn('square', rnd(1300, 1600), 450, t, .002, .05, .018),
       moon: t => nz(t, .28, .05, 'bandpass', 500, 3, 2600),
-      chain: t => { for (let i = 0; i < 5; i++) nz(t + i * .022, .025, .05, 'highpass', 2500 + i * 300, .5); tn('sawtooth', 120, 60, t, .002, .14, .03); },
+      chain: t => { nz(t, .12, .04, 'bandpass', 1400, 1.5, 600); tn('sawtooth', 120, 60, t, .004, .14, .03); },
       star: t => { nz(t, .3, .1, 'lowpass', 1200, .7, 150); tn('sine', 160, 45, t, .003, .28, .1); },
       nova: t => { tn('sine', 120, 28, t, .005, 1, .28, .5); nz(t, 1, .14, 'lowpass', 3000, .5, 90); tn('triangle', mtof(86), mtof(74), t, .01, .6, .03, .8); },
       bite: t => tn('triangle', 800, 1200, t, .002, .035, .02),
@@ -870,9 +877,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     bomber: { hp: 35,   sp: 56,  dmg: 8,  xp: 3, r: 13 },              // bursts into a delayed blast when killed
     centi:  { hp: 240,  sp: 72,  dmg: 14, xp: 14, r: 13, heavy: true }, // long body that also hurts
     brood:  { hp: 90,   sp: 40,  dmg: 12, xp: 5, r: 21 },              // splits into moths
-    luna:   { hp: 1200, sp: 58,  dmg: 16, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
-    stag:   { hp: 13680, sp: 40,  dmg: 24, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
-    queen:  { hp: 21600, sp: 52,  dmg: 28, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
+    rhino:  { hp: 110,  sp: 38,  dmg: 18, xp: 6, r: 17, heavy: true }, // aims, then charges in a straight line
+    cricket: { hp: 45,  sp: 58,  dmg: 10, xp: 4, r: 12 },              // crouches, then pounces onto a marked spot
+    snail:  { hp: 1400, sp: 26,  dmg: 14, xp: 40, r: 19, heavy: true, trail: true }, // rare and super tanky: leaves a slowing acid trail
+    ember:  { hp: 320,  sp: 34,  dmg: 14, xp: 14, r: 17, heavy: true, trail: true }, // rare: drops patches of burning ground
+    luna:   { hp: 1500, sp: 58,  dmg: 20, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
+    stag:   { hp: 16400, sp: 40,  dmg: 30, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
+    queen:  { hp: 26000, sp: 52,  dmg: 34, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
     eclipse: { hp: 110000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
   };
   // Spawn mix by run time (seconds).
@@ -880,12 +891,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     [0,   { moth: 1 }],
     [35,  { moth: 5, mosq: 1 }],
     [60,  { moth: 3, wasp: 1, mosq: 1 }],
-    [120, { moth: 3, dust: 2, wasp: 1, locust: 1 }],
-    [180, { moth: 2, dust: 2, wasp: 1, locust: 1, bomber: 1, mosq: 1 }],
-    [240, { dust: 3, wasp: 2, beetle: 1, spider: 1, bomber: 1, brood: 1 }],
-    [360, { dust: 2, wasp: 2, beetle: 2, ghost: 2, spider: 1, centi: .4, brood: 1, locust: 1 }],
-    [480, { dust: 2, wasp: 2, beetle: 2, ghost: 3, spider: 2, centi: .6, bomber: 1, mosq: 1 }],
+    [120, { moth: 3, dust: 2, wasp: 1, locust: 1, rhino: .6 }],
+    [180, { moth: 2, dust: 2, wasp: 1, locust: 1, bomber: 1, mosq: 1, rhino: 1, cricket: 1 }],
+    [240, { dust: 3, wasp: 2, beetle: 1, spider: 1, bomber: 1, brood: 1, rhino: 1, cricket: 1, snail: .25 }],
+    [360, { dust: 2, wasp: 2, beetle: 2, ghost: 2, spider: 1, centi: .4, brood: 1, locust: 1, rhino: 1.2, cricket: 1.2, snail: .3, ember: .25 }],
+    [480, { dust: 2, wasp: 2, beetle: 2, ghost: 3, spider: 2, centi: .6, bomber: 1, mosq: 1, rhino: 1.4, cricket: 1.4, snail: .3, ember: .35 }],
   ];
+  // Ground-trail foes (snail, ember) are tanky but rare: at most 2 alive (3 after 8:00), so the meadow never fills with pools.
+  const trailCap = () => run.t >= 480 ? 3 : 2;
   const EVENTS = [
     { t: 45, kind: 'ring' }, { t: 75, kind: 'elite' }, { t: 100, kind: 'stampede' }, { t: 120, kind: 'boss', boss: 'luna' },
     { t: 165, kind: 'ring' }, { t: 210, kind: 'elite' }, { t: 230, kind: 'stampede' }, { t: 285, kind: 'ring' }, { t: 300, kind: 'boss', boss: 'stag' },
@@ -18962,9 +18975,25 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       $('lbStatus').textContent = err.message === 'offline' || err instanceof TypeError ? 'Leaderboard is offline right now; your run is saved on this device.' : 'Score rejected: ' + err.message;
     }
   }
-  let lbTab = 'banish';
+  // Seasons: the boards open on the current season (GAME_VERSION); the ‹ › arrows step through past seasons, whose
+  // final standings stay readable. The season list comes from the server once per opening of the panel.
+  let lbTab = 'banish', lbVer = GAME_VERSION, lbSeasons = null;
+  function paintSeason() {
+    const list = lbSeasons || [GAME_VERSION], i = list.indexOf(lbVer);
+    $('lbSeason').textContent = 'Season ' + lbVer + (lbVer === GAME_VERSION ? '' : ' (past)');
+    $('lbOlder').hidden = !(i >= 0 && i < list.length - 1);
+    $('lbNewer').hidden = !(i > 0);
+  }
+  async function openBoards() {
+    $('boards').hidden = false; lbVer = GAME_VERSION; lbSeasons = null; renderBoards();
+    if (!LB_URL) return;
+    const r = await lbFetch('/seasons').catch(() => null);
+    if (!r || !r.seasons) return;
+    const vs = r.seasons.map(x => x.version).filter(v => v !== GAME_VERSION);
+    lbSeasons = [GAME_VERSION, ...vs]; paintSeason();
+  }
   async function renderBoards() {
-    $('lbSeason').textContent = 'Season ' + GAME_VERSION;
+    paintSeason();
     $('lbTabs').innerHTML = '';
     for (const [id, b] of Object.entries(BOARDS)) {
       const t = document.createElement('button'); t.className = 'btn ghost' + (id === lbTab ? ' sel' : ''); t.textContent = b.label;
@@ -18987,12 +19016,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (!LB_URL) { fill(lbStore.get('fjr-hof', {})[lbTab] || [], 'Your best runs on this device. (Online boards are not connected yet.)'); return; }
     $('lbNote').textContent = 'Loading…';
     try {
-      const tab = lbTab, top = await lbFetch(`/top?board=${tab}&version=${encodeURIComponent(GAME_VERSION)}`);
-      if (tab !== lbTab) return;
-      fill(top.rows || [], 'Top 50 players this season.');
+      const tab = lbTab, ver = lbVer, top = await lbFetch(`/top?board=${tab}&version=${encodeURIComponent(ver)}`);
+      if (tab !== lbTab || ver !== lbVer) return;
+      fill(top.rows || [], ver === GAME_VERSION ? 'Top 50 players this season.' : `Final standings of season ${ver}.`);
       if (me) {
-        const m = await lbFetch(`/me?board=${tab}&version=${encodeURIComponent(GAME_VERSION)}&name=${encodeURIComponent(me)}`).catch(() => null);
-        if (m && m.best && tab === lbTab) $('lbMe').textContent = `Your best: ${b.fmt(m.best[b.key])} (rank #${m.rank})`;
+        const m = await lbFetch(`/me?board=${tab}&version=${encodeURIComponent(ver)}&name=${encodeURIComponent(me)}`).catch(() => null);
+        if (m && m.best && tab === lbTab && ver === lbVer) $('lbMe').textContent = `Your best: ${b.fmt(m.best[b.key])} (rank #${m.rank})`;
       }
     } catch { fill(lbStore.get('fjr-hof', {})[lbTab] || [], 'Online board unavailable; showing your best runs on this device.'); }
   }
@@ -19175,7 +19204,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (pv('bell') && (run.bellKills = (run.bellKills || 0) + 1) >= 34 - 4 * pv('bell')) { run.bellKills = 0; withSrc('p:bell', ringBell); }
     if (e.def && e.def.death) zoneCall(() => e.def.death(e, Z));
     snd.fx(e.boss ? 'bossdown' : e.elite ? 'chestdrop' : 'kill');
-    const col = { ghost: '#cfe0ff', wasp: '#ffcf5a', beetle: '#6f8ac0', stag: '#6f8ac0', locust: '#8ac060', spider: '#8a7090', bomber: '#ff8a50', centi: '#a0603a', mosq: '#9a90a0', brood: '#a090b8' }[e.kind] || '#b8a888';
+    const col = { ghost: '#cfe0ff', wasp: '#ffcf5a', beetle: '#6f8ac0', stag: '#6f8ac0', locust: '#8ac060', spider: '#8a7090', bomber: '#ff8a50', centi: '#a0603a', mosq: '#9a90a0', brood: '#a090b8', rhino: '#7a6448', cricket: '#7a5a30', snail: '#8adf5a', ember: '#ff7a3a' }[e.kind] || '#b8a888';
     burst(e.x, e.y, col, e.boss ? 80 : 7, e.boss ? 420 : 160);
     if (e.boss || e.elite) {
       motes.push({ kind: 'chest', x: e.x, y: e.y, boss: e.boss, bob: 0, relic: e.def && e.boss && run.zone ? run.zone.def.id : null });
@@ -19194,13 +19223,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       return;
     }
     dropXp(e.x, e.y, e.xp);
-    if (e.kind === 'bomber') hazards.push({ x: e.x, y: e.y, t: .9, r: 70, dmg: 10, foes: true });
+    if (e.kind === 'bomber') hazards.push({ x: e.x, y: e.y, t: .9, r: 70, dmg: 16, foes: true });
+    if (e.kind === 'snail') addBurn(e.x, e.y, 70, { kind: 'acid', life: 6, dmg: 7 });
+    if (e.kind === 'ember') addBurn(e.x, e.y, 85, { life: 6, dmg: 9 });
     if (e.kind === 'brood') for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + e.seed, m = spawnFoe('moth', e.x + Math.cos(a) * 18, e.y + Math.sin(a) * 18); m.kx = Math.cos(a) * 160; m.ky = Math.sin(a) * 160; }
     if (e.kind === 'centi') for (const q of e.segs || []) burst(q.x, q.y, '#a0603a', 4, 120);
     const r = Math.random();
-    // Honey drops: 1.2% per kill in rifts, halved to 0.6% on the main map so late meadow fights stay dangerous.
-    if (r < (run.zone ? .012 : .006)) motes.push({ kind: 'heal', x: e.x, y: e.y, bob: Math.random() * 6 });
-    else if (r >= .012 && r < .0145) motes.push({ kind: 'moon', x: e.x, y: e.y, bob: Math.random() * 6 });
+    // Honey drops: 1.2% per kill in rifts, 0.35% on the main map so late meadow fights stay dangerous and defensive
+    // weapons matter. Full moons: 0.25% in rifts, 0.15% on the main map.
+    if (r < (run.zone ? .012 : .0035)) motes.push({ kind: 'heal', x: e.x, y: e.y, bob: Math.random() * 6 });
+    else if (r >= .012 && r < .012 + (run.zone ? .0025 : .0015)) motes.push({ kind: 'moon', x: e.x, y: e.y, bob: Math.random() * 6 });
   }
 
   function dropXp(x, y, v) {
@@ -19280,18 +19312,23 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   };
 
   /* ---------- Bosses ---------- */
-  // Enemy burning ground (left by the Eclipse Moth): hurts Hexel while standing in it, at most 18 pools.
-  function addBurn(x, y, r) {
-    burns.push({ x, y, r, life: 6.5, max: 6.5, seed: Math.random() * 9 });
-    if (burns.length > 18) burns.shift();
+  // Enemy ground pools: burning ground (Eclipse Moth, ember beetles, the wounded Moth Queen) and acid (snails).
+  // Standing in one hurts Hexel (the worst pool counts, every 0.5 s); acid also slows. At most 24 pools.
+  function addBurn(x, y, r, o = {}) {
+    const life = o.life || 6.5;
+    burns.push({ x, y, r, life, max: life, seed: Math.random() * 9, kind: o.kind || 'fire', dmg: o.dmg || 7 });
+    if (burns.length > 24) burns.shift();
   }
-  function ringBullets(e, n, sp, off = 0) {
+  function ringBullets(e, n, sp, off = 0, dmg = 8) {
     snd.fx('shoot');
     for (let i = 0; i < n; i++) {
       const a = off + i / n * TAU;
-      bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 7, dmg: 8, life: 6 });
+      bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 7, dmg, life: 6 });
     }
   }
+  // A telegraphed ground strike: a marked circle that lands when t runs out.
+  const strikeAt = (x, y, r, dmg, t, col) => hazards.push({ x, y, r, dmg, t, T: t, col });
+  const dirTo = e => { const d = Math.hypot(P.x - e.x, P.y - e.y) || 1; return { x: (P.x - e.x) / d, y: (P.y - e.y) / d }; };
   function chase(e, dt, sp) {
     if (e.slowT > 0) sp *= .6;
     const dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy) || 1;
@@ -19303,24 +19340,50 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const hurt50 = e.hp < e.max * .5;
     if (e.kind === 'luna') {
       chase(e, dt, e.sp * (hurt50 ? 1.2 : 1));
-      if (e.t1 <= 0) { e.t1 = hurt50 ? 2.3 : 2.9; ringBullets(e, hurt50 ? 18 : 15, 150, Math.random()); }
+      if (e.t1 <= 0) { e.t1 = hurt50 ? 2.3 : 2.9; ringBullets(e, hurt50 ? 18 : 15, 150, Math.random(), 10); }
       if (e.t2 <= 0) { e.t2 = 7; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; spawnFoe('moth', e.x + Math.cos(a) * 70, e.y + Math.sin(a) * 70); } }
+      // Moon dust: glowing spores settle on and around Hexel, then burst.
+      e.t4 = (e.t4 ?? 4) - dt;
+      if (e.t4 <= 0) {
+        e.t4 = hurt50 ? 4.5 : 6; const n = hurt50 ? 7 : 5;
+        strikeAt(P.x, P.y, 48, 18, 1.1, '170,240,190');
+        for (let i = 1; i < n; i++) { const a = Math.random() * TAU, d = rnd(60, 160); strikeAt(P.x + Math.cos(a) * d, P.y + Math.sin(a) * d, 48, 18, 1.1 + i * .05, '170,240,190'); }
+      }
+      // Wounded: a gust of its wings throws a fan of scales straight at Hexel.
+      if (hurt50) {
+        e.t5 = (e.t5 ?? 3) - dt;
+        if (e.t5 <= 0) { e.t5 = 5; snd.fx('shoot'); const a0 = Math.atan2(P.y - e.y, P.x - e.x); for (let i = -4; i <= 4; i++) { const a = a0 + i * .11; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, r: 7, dmg: 10, life: 4 }); } }
+      }
     } else if (e.kind === 'stag') {
       e.mt -= dt;
+      const dP = Math.hypot(P.x - e.x, P.y - e.y);
+      e.t4 = (e.t4 ?? 0) - dt;
       if (e.mode === 'walk') {
         chase(e, dt, e.sp);
-        if (e.mt <= 0) { e.mode = 'aim'; e.mt = .8; const d = Math.hypot(P.x - e.x, P.y - e.y) || 1; e.cdir = { x: (P.x - e.x) / d, y: (P.y - e.y) / d }; e.ang = Math.atan2(e.cdir.y, e.cdir.x); }
+        // Stomp: standing next to it is punished. It rears up (the ring around it) and slams the ground.
+        if (dP < 180 && e.t4 <= 0) { e.mode = 'rear'; e.rt = .7; e.t4 = 4; strikeAt(e.x, e.y, 175, 26, .7, '255,120,80'); }
+        else if (e.mt <= 0) { e.mode = 'aim'; e.mt = .8; e.cdir = dirTo(e); e.ang = Math.atan2(e.cdir.y, e.cdir.x); }
+      } else if (e.mode === 'rear') {
+        if ((e.rt -= dt) <= 0) { e.mode = 'walk'; e.mt = Math.max(e.mt, .6); shake = Math.max(shake, 8); ringBullets(e, 10, 120, Math.random(), 11); }
       } else if (e.mode === 'aim') {
-        if (e.mt <= 0) { e.mode = 'charge'; e.mt = .9; snd.fx('charge'); shake = Math.max(shake, 4); }
+        if (e.mt <= 0) { e.mode = 'charge'; e.mt = .9; e.rockT = 0; snd.fx('charge'); shake = Math.max(shake, 4); }
       } else {
         e.x += e.cdir.x * 560 * dt; e.y += e.cdir.y * 560 * dt;
         if (Math.random() < dt * 20) burst(e.x - e.cdir.x * 40, e.y - e.cdir.y * 40, '#6a5040', 2, 80);
+        // Its charge shakes rocks loose: they fall along the path behind it.
+        if ((e.rockT -= dt) <= 0) { e.rockT = .18; const px = -e.cdir.y, py = e.cdir.x, o = rnd(-60, 60); strikeAt(e.x + px * o, e.y + py * o, 42, 18, .75, '200,160,110'); }
         if (e.mt <= 0) {
-          ringBullets(e, 14, 130, Math.random());
+          ringBullets(e, 14, 130, Math.random(), 11);
           // Wounded, it wheels around and charges again at once.
-          if (hurt50 && !e.second) { e.second = true; e.mode = 'aim'; e.mt = .5; const d = Math.hypot(P.x - e.x, P.y - e.y) || 1; e.cdir = { x: (P.x - e.x) / d, y: (P.y - e.y) / d }; e.ang = Math.atan2(e.cdir.y, e.cdir.x); }
+          if (hurt50 && !e.second) { e.second = true; e.mode = 'aim'; e.mt = .5; e.cdir = dirTo(e); e.ang = Math.atan2(e.cdir.y, e.cdir.x); }
           else { e.second = false; e.mode = 'walk'; e.mt = rnd(1.6, 2.4); }
         }
+      }
+      // Tremor: a crack runs through the ground from the beetle toward Hexel, erupting along a line (three lines when wounded).
+      if (e.mode === 'walk' && e.t2 <= 0) {
+        e.t2 = hurt50 ? 6 : 8; const u = dirTo(e);
+        for (let i = 1; i <= 8; i++) strikeAt(e.x + u.x * i * 70, e.y + u.y * i * 70, 44, 20, .6 + i * .08, '230,150,90');
+        if (hurt50) for (const k of [-1, 1]) { const a = Math.atan2(u.y, u.x) + k * .45; for (let i = 2; i <= 7; i++) strikeAt(e.x + Math.cos(a) * i * 70, e.y + Math.sin(a) * i * 70, 40, 20, .7 + i * .08, '230,150,90'); }
       }
     } else if (e.kind === 'eclipse') {
       // Blink: every few seconds it vanishes (can't be hit), a shimmer marks where it will reappear 260–400 px from Hexel,
@@ -19371,13 +19434,25 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     } else if (e.kind === 'queen') {
       if (e.tele) {
         e.tele.t -= dt;
-        if (e.tele.t <= 0) { burst(e.x, e.y, '#b48ad8', 30, 260); e.x = e.tele.x; e.y = e.tele.y; e.tele = null; ringBullets(e, 18, 170); shake = Math.max(shake, 6); }
+        if (e.tele.t <= 0) { burst(e.x, e.y, '#b48ad8', 30, 260); e.x = e.tele.x; e.y = e.tele.y; e.tele = null; ringBullets(e, 18, 170, 0, 11); shake = Math.max(shake, 6); }
       } else chase(e, dt, e.sp);
       if (e.t1 <= 0) {
         e.t1 = .16; e.spin = (e.spin || 0) + .41;
         const arms = hurt50 ? 4 : 3;
-        for (let k = 0; k < arms; k++) { const a = e.spin + k * TAU / arms; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, r: 6, dmg: 9, life: 5 }); }
+        for (let k = 0; k < arms; k++) { const a = e.spin + k * TAU / arms; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, r: 6, dmg: 11, life: 5 }); }
       }
+      // Royal cage: the ground under Hexel and a ring around it is marked, with one gap to escape through. She casts
+      // three in a row: each new cage closes around wherever Hexel is when the last one lands, a little faster each time.
+      e.t4 = (e.t4 ?? 6) - dt;
+      if (e.t4 <= 0 && !e.cages) { e.t4 = hurt50 ? 10 : 12; e.cages = 3; e.cageT = 0; banner('The Queen closes her cage!', '#c9a0ff'); }
+      if (e.cages && (e.cageT -= dt) <= 0) {
+        const land = [1.3, 1.15, 1.0][3 - e.cages], gap = Math.random() * TAU, n = 14;
+        strikeAt(P.x, P.y, 80, 24, land, '200,120,255');
+        for (let i = 0; i < n; i++) { const a = gap + (i + 1.5) / (n + 2) * TAU; strikeAt(P.x + Math.cos(a) * 150, P.y + Math.sin(a) * 150, 42, 24, land, '200,120,255'); }
+        snd.fx('warn'); e.cages--; e.cageT = land;
+      }
+      // Wounded: she lays a trail of burning scales as she flies.
+      if (hurt50) { e.t5 = (e.t5 ?? 1) - dt; if (e.t5 <= 0) { e.t5 = 1.6; addBurn(e.x, e.y, 56, { life: 5, dmg: 8 }); } }
       if (e.t2 <= 0) { e.t2 = hurt50 ? 5 : 6; for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; spawnFoe('ghost', e.x + Math.cos(a) * 90, e.y + Math.sin(a) * 90); } }
       if (e.t3 <= 0 && !e.tele) { e.t3 = hurt50 ? 8 : 10; const a = Math.random() * TAU; e.tele = { x: P.x + Math.cos(a) * 220, y: P.y + Math.sin(a) * 220, t: .9 }; }
     }
@@ -20303,7 +20378,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     while (run.spawnAcc >= 1) {
       run.spawnAcc--;
       if (alive >= target || run.finale) continue;
-      const k = pickKind(), e = spawnEdge(k); alive++;
+      let k = pickKind();
+      if (!zone && FOES[k] && FOES[k].trail && foes.filter(f => !f.dead && !f.def && FOES[f.kind] && FOES[f.kind].trail).length >= trailCap()) k = 'dust';
+      const e = spawnEdge(k); alive++;
       if (k === 'mosq') for (let i = 0; i < 5; i++) { spawnFoe('mosq', e.x + rnd(-40, 40), e.y + rnd(-40, 40)); alive++; }
     }
 
@@ -20342,6 +20419,30 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
             e.mt -= dt; sp = 0;
             if (e.mt <= 0) { const a = Math.atan2(dy, dx) + rnd(-.3, .3); e.hx = Math.cos(a) * 330; e.hy = Math.sin(a) * 330; e.hopT = .42; e.mt = rnd(.5, 1.1); }
           }
+        } else if (e.kind === 'rhino') {
+          // Walk in, stop and aim (a red lane shows where), then charge straight through.
+          e.mt -= dt;
+          if (e.mode === 'aim') { sp = 0; ux = e.cdir.x; uy = e.cdir.y; if (e.mt <= 0) { e.mode = 'charge'; e.mt = .7; } }
+          else if (e.mode === 'charge') { sp = 480; ux = e.cdir.x; uy = e.cdir.y; if (Math.random() < dt * 14) burst(e.x, e.y, '#8a7458', 1, 60); if (e.mt <= 0) { e.mode = 'walk'; e.mt = rnd(2.4, 3.4); } }
+          else if (e.mt <= 0 && d < 400) { e.mode = 'aim'; e.mt = .75; e.cdir = { x: ux, y: uy }; }
+        } else if (e.kind === 'cricket') {
+          // Crouch while a landing ring marks where you stand, then pounce onto it; the landing hits the ground.
+          e.mt -= dt;
+          if (e.mode === 'crouch') { sp = 0; if (e.mt <= 0) { e.mode = 'leap'; e.mt = .55; e.air = true; e.lx = e.x; e.ly = e.y; } }
+          else if (e.mode === 'leap') {
+            sp = 0; const k = 1 - Math.max(0, e.mt) / .55;
+            e.x = e.lx + (e.jx - e.lx) * k; e.y = e.ly + (e.jy - e.ly) * k; e.lift = Math.sin(Math.PI * k) * 46;
+            ux = e.jx - e.lx; uy = e.jy - e.ly;
+            if (e.mt <= 0) { e.mode = 'walk'; e.mt = rnd(1.8, 2.8); e.air = false; e.lift = 0; }
+          }
+          else if (e.mt <= 0 && d < 300) { e.mode = 'crouch'; e.mt = .45; e.jx = P.x; e.jy = P.y; strikeAt(P.x, P.y, 52, 22, 1, '170,230,90'); }
+        } else if (e.kind === 'snail' || e.kind === 'ember') {
+          // Slow and tanky; it leaves its ground behind it as it crawls.
+          e.t1 -= dt;
+          if (e.t1 <= 0) {
+            if (e.kind === 'snail') { e.t1 = .75; addBurn(e.x, e.y, 34, { kind: 'acid', life: 4.5, dmg: 6 }); }
+            else { e.t1 = 2.4; addBurn(e.x, e.y, 48, { life: 5, dmg: 8 }); }
+          }
         } else if (e.kind === 'spider') {
           // Hold a range, circle and spit.
           const want = d > 240 ? 1 : d < 170 ? -1 : 0, s = Math.sin(e.seed) > 0 ? 1 : -1;
@@ -20356,7 +20457,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         }
         if (e.slowT > 0) sp *= e.frozen ? .12 : .5;
         e.x += (ux * sp + e.kx) * dt; e.y += (uy * sp + e.ky) * dt;
-        e.ang = e.kind === 'locust' ? (e.hopT > 0 ? Math.atan2(e.hy, e.hx) : Math.atan2(dy, dx)) : Math.atan2(uy, ux);
+        e.ang = e.kind === 'locust' ? (e.hopT > 0 ? Math.atan2(e.hy, e.hx) : Math.atan2(dy, dx)) : e.kind === 'cricket' && e.mode === 'crouch' ? Math.atan2(e.jy - e.y, e.jx - e.x) : Math.atan2(uy, ux);
         if (e.kind === 'centi') {
           // The body follows the head's path.
           e.trail = e.trail || [];
@@ -20564,15 +20665,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     bullets = bullets.filter(b => b.life > 0);
 
     if (P.inv <= 0) for (const e of foes) {
-      if (e.dead) continue;
+      if (e.dead || e.air) continue;
       if ((e.x - P.x) ** 2 + (e.y - P.y) ** 2 < (e.r + P.r - 3) ** 2) { hurt(e.dmg); break; }
       if (e.segs && e.segs.some(q => (q.x - P.x) ** 2 + (q.y - P.y) ** 2 < (e.r * .85 + P.r - 3) ** 2)) { hurt(e.dmg); break; }
     }
     if (burns.length) {
       run.burnT = (run.burnT || 0) - dt;
-      let inFire = false;
-      for (const b of burns) { b.life -= dt; if (b.life > .4 && b.max - b.life > .5 && (P.x - b.x) ** 2 + (P.y - b.y) ** 2 < (b.r * .9) ** 2) inFire = true; }
-      if (inFire && run.burnT <= 0) { run.burnT = .5; hurt(7); }
+      let inFire = 0, inAcid = false;
+      for (const b of burns) { b.life -= dt; if (b.life > .4 && b.max - b.life > .5 && (P.x - b.x) ** 2 + (P.y - b.y) ** 2 < (b.r * .9) ** 2) { inFire = Math.max(inFire, b.dmg); if (b.kind === 'acid') inAcid = true; } }
+      if (inAcid) P.slowT = Math.max(P.slowT, .35);
+      if (inFire && run.burnT <= 0) { run.burnT = .5; hurt(inFire); }
       burns = burns.filter(b => b.life > 0);
     }
     for (const hz of hazards) {
@@ -20761,6 +20863,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       ctx.fillStyle = `rgba(255,200,90,${.4 + .4 * Math.sin(now * 8 + e.seed)})`; ctx.beginPath(); ctx.arc(e.x - Math.cos(e.ang) * s * .5, e.y - Math.sin(e.ang) * s * .5, s * .25, 0, TAU); ctx.fill();
     }
     else if (e.kind === 'centi') drawCenti(e, now, white);
+    else if (e.kind === 'rhino') {
+      const j = e.mode === 'aim' ? Math.sin(now * 70) * 2 : 0, ca = Math.cos(e.ang), sa = Math.sin(e.ang), x = e.x + j;
+      drawBeetle(x, e.y, s, e.ang, white ? '#fff' : '#5a4630', '#c8a878');
+      // the horn
+      ctx.fillStyle = white ? '#fff' : '#e8d8b0';
+      ctx.beginPath(); ctx.moveTo(x + ca * s * 1.05 - sa * s * .2, e.y + sa * s * 1.05 + ca * s * .2); ctx.lineTo(x + ca * s * 1.85, e.y + sa * s * 1.85 - s * .25); ctx.lineTo(x + ca * s * 1.05 + sa * s * .2, e.y + sa * s * 1.05 - ca * s * .2); ctx.fill();
+    }
+    else if (e.kind === 'cricket') drawCricket(e, now, white);
+    else if (e.kind === 'snail') drawSnail(e, now, white);
+    else if (e.kind === 'ember') {
+      drawBeetle(e.x, e.y, s, e.ang, white ? '#fff' : '#3a1a12', '#ff9a4a');
+      if (!white) { ctx.fillStyle = `rgba(255,140,50,${.5 + .35 * Math.sin(now * 6 + e.seed)})`; for (let i = 0; i < 3; i++) { const a = e.ang + Math.PI + (i - 1) * .6; ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * s * .45, e.y + Math.sin(a) * s * .45, s * .16, 0, TAU); ctx.fill(); } }
+    }
     else if (e.kind === 'brood') {
       drawMoth(e.x, e.y, s, white ? '#fff' : '#6e5f84', white ? '#fff' : '#3a304a', flap, e);
       ctx.fillStyle = white ? '#fff' : '#c8b8e8';
@@ -20796,6 +20911,40 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = white ? '#fff' : '#6a9a40'; ctx.beginPath(); ctx.ellipse(0, 0, s * 1.15, s * .45, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = white ? '#fff' : '#86b856'; ctx.beginPath(); ctx.ellipse(-s * .2, 0, s * .8, s * .25, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = white ? '#fff' : '#557a34'; ctx.beginPath(); ctx.arc(s * 1, 0, s * .38, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  function drawCricket(e, now, white) {
+    const s = e.r, lift = e.lift || 0, crouch = e.mode === 'crouch';
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + 4, s * (.9 - lift / 120), s * .35, 0, 0, TAU); ctx.fill();
+    ctx.save(); ctx.translate(e.x, e.y - lift); ctx.rotate(e.ang);
+    if (crouch) ctx.scale(1.1, .85);
+    ctx.strokeStyle = white ? '#fff' : '#3a2410'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const k of [-1, 1]) { ctx.moveTo(-s * .1, k * s * .3); ctx.lineTo(-s * .5, k * s * (crouch ? 1.2 : .9)); ctx.lineTo(-s * 1.3, k * s * .4); }
+    ctx.stroke();
+    ctx.lineWidth = 1.2; ctx.beginPath();
+    for (const k of [-1, 1]) { ctx.moveTo(s * 1.1, k * s * .15); ctx.quadraticCurveTo(s * 2, k * s * .6, s * 2.6, k * s * (.3 + .1 * Math.sin(now * 8 + e.seed))); }
+    ctx.stroke();
+    ctx.fillStyle = white ? '#fff' : '#7a5228'; ctx.beginPath(); ctx.ellipse(0, 0, s * 1.15, s * .48, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = white ? '#fff' : '#a87a3c'; ctx.beginPath(); ctx.ellipse(-s * .25, 0, s * .8, s * .28, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = white ? '#fff' : '#4e3216'; ctx.beginPath(); ctx.arc(s * .95, 0, s * .4, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  function drawSnail(e, now, white) {
+    const s = e.r, f = Math.cos(e.ang) >= 0 ? 1 : -1, wob = Math.sin(now * 3 + e.seed) * .06;
+    ctx.save(); ctx.translate(e.x, e.y); ctx.scale(f, 1);
+    // slimy foot and head with eye stalks
+    ctx.fillStyle = white ? '#fff' : '#7aa85a';
+    ctx.beginPath(); ctx.ellipse(s * .1, s * .45, s * 1.35 * (1 + wob), s * .38, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s * 1.05, s * .05, s * .38, s * .45, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = white ? '#fff' : '#5a8a3e'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(s * 1.05, -s * .2); ctx.lineTo(s * 1.25, -s * .8); ctx.moveTo(s * .9, -s * .2); ctx.lineTo(s * .85, -s * .75); ctx.stroke();
+    ctx.fillStyle = white ? '#fff' : '#1e2a12'; ctx.beginPath(); ctx.arc(s * 1.25, -s * .82, 2.5, 0, TAU); ctx.arc(s * .85, -s * .77, 2.5, 0, TAU); ctx.fill();
+    // the spiral shell
+    ctx.fillStyle = white ? '#fff' : '#6a4a2a'; ctx.beginPath(); ctx.arc(-s * .15, -s * .15, s * .82, 0, TAU); ctx.fill();
+    ctx.strokeStyle = white ? '#fff' : '#c8a058'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); for (let a = 0; a < TAU * 2.2; a += .2) { const rr = s * .7 * (1 - a / (TAU * 2.4)), px = -s * .15 + Math.cos(a) * rr, py = -s * .15 + Math.sin(a) * rr; a ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.stroke();
+    if (!white) { ctx.fillStyle = 'rgba(184,255,106,.55)'; ctx.beginPath(); ctx.arc(-s * .4, -s * .55, s * .16, 0, TAU); ctx.fill(); }
     ctx.restore();
   }
   function drawSpider(e, now, white) {
@@ -20835,6 +20984,22 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (const b of burns) {
       if (!onScreen(b, b.r + 20)) continue;
       const k = Math.min(1, (b.max - b.life) / .5, b.life / .6), warm = b.max - b.life < .5;
+      if (b.kind === 'acid') {
+        // Snail acid: a glossy green puddle with rising bubbles.
+        ctx.globalAlpha = .5 * k; ctx.fillStyle = '#0e2a08';
+        ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r * .62, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = (warm ? .3 : .55) * k; ctx.fillStyle = '#6ad02a';
+        ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r * .8, b.r * .48, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = .8 * k; ctx.strokeStyle = '#b8ff6a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r * .62, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#d8ffa0';
+        for (let i = 0; i < 4; i++) {
+          const ph = (now * .9 + i * .25 + b.seed) % 1, a = i * 1.7 + b.seed;
+          ctx.globalAlpha = .7 * k * (1 - ph);
+          ctx.beginPath(); ctx.arc(b.x + Math.cos(a) * b.r * .45, b.y + Math.sin(a) * b.r * .25 - ph * 8, 1.5 + ph * 2.5, 0, TAU); ctx.fill();
+        }
+        ctx.globalAlpha = 1; continue;
+      }
       ctx.globalAlpha = .55 * k; ctx.fillStyle = '#2a0c06';
       ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r * .62, 0, 0, TAU); ctx.fill();
       ctx.globalAlpha = (warm ? .35 : .6) * k; ctx.fillStyle = '#ff5a1a';
@@ -20864,6 +21029,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       ctx.beginPath(); ctx.arc(hz.x, hz.y, hz.r * k, 0, TAU); ctx.stroke();
     }
     for (const e of foes) {
+      if (e.kind === 'rhino' && e.mode === 'aim' && onScreen(e, 360)) {
+        ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(Math.atan2(e.cdir.y, e.cdir.x));
+        ctx.fillStyle = `rgba(255,90,110,${.14 + .12 * Math.sin(now * 30)})`;
+        ctx.fillRect(0, -e.r * .9, 340, e.r * 1.8);
+        ctx.restore();
+      }
       if (e.kind === 'stag' && e.mode === 'aim') {
         ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(Math.atan2(e.cdir.y, e.cdir.x));
         ctx.fillStyle = `rgba(255,90,110,${.15 + .15 * Math.sin(now * 30)})`;
@@ -21854,8 +22025,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   cv.addEventListener('pointercancel', endJoy);
 
   $('newRun').addEventListener('click', newRun);
-  $('openBoards').addEventListener('click', () => { $('boards').hidden = false; renderBoards(); });
-  $('overBoards').addEventListener('click', () => { $('boards').hidden = false; renderBoards(); });
+  $('openBoards').addEventListener('click', openBoards);
+  $('overBoards').addEventListener('click', openBoards);
+  $('lbOlder').addEventListener('click', () => { const l = lbSeasons || [], i = l.indexOf(lbVer); if (i < l.length - 1) { lbVer = l[i + 1]; renderBoards(); } });
+  $('lbNewer').addEventListener('click', () => { const l = lbSeasons || [], i = l.indexOf(lbVer); if (i > 0) { lbVer = l[i - 1]; renderBoards(); } });
   $('closeBoards').addEventListener('click', () => { $('boards').hidden = true; });
   $('lbSend').addEventListener('click', lbSubmit);
   $('lbName').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') lbSubmit(); });
@@ -21903,7 +22076,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     zones: { get: () => ZONES.map(z => z.id) },
     rift: { value: id => { const d = ZONES.find(z => z.id === id) || ZONES[0]; if (d && run && !run.zone) enterZone(d, { x: P.x, y: P.y }); } },
     leave: { value: () => { if (run && run.zone) exitZone(); } },
-    zone: { get: () => run && run.zone }, hit: { value: (e, d) => hit(e, d, 0, e.x, e.y) }, step: { value: ms => step(ms) }, Z: { value: Z },
+    zone: { get: () => run && run.zone }, hazards: { get: () => hazards }, hit: { value: (e, d) => hit(e, d, 0, e.x, e.y) }, step: { value: ms => step(ms) }, Z: { value: Z },
     // Times floor-chunk rendering for a zone: fj.chunkBench('zerg') → avg/max ms over n random chunks.
     plague: { get: () => plague },
     burns: { get: () => burns },
@@ -21926,7 +22099,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (const o of document.querySelectorAll('.overlay')) o.hidden = true;
     // The night meadow first: main-map foes are drawn by drawFoe onto the game canvas, then copied into the page.
     if (!pick || pick.includes('meadow')) {
-      const list = [['moth'], ['dust'], ['wasp'], ['beetle'], ['ghost'], ['mosq'], ['locust'], ['spider'], ['bomber'], ['centi'], ['brood'], ['beetle', 'golden beetle (elite)', true],
+      const list = [['moth'], ['dust'], ['wasp'], ['beetle'], ['ghost'], ['mosq'], ['locust'], ['spider'], ['bomber'], ['centi'], ['brood'], ['rhino'], ['cricket'], ['snail'], ['ember'], ['beetle', 'golden beetle (elite)', true],
         ['luna', null, false, true], ['stag', null, false, true], ['queen', null, false, true], ['eclipse', null, false, true]];
       const cells = list.map(([k, label, elite, boss]) => {
         const e = spawnFoe(k, P.x + 160, P.y);
@@ -21939,7 +22112,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       foes = [];
       const sec = document.createElement('section'); sec.style.cssText = 'margin:0 0 26px';
       sec.innerHTML = '<h2 style="font-family:Grandstander,system-ui;font-size:22px;margin:0 0 2px;color:#ffe27a">The Night Meadow</h2><div style="color:#9aa3c2;font-size:13px;margin-bottom:6px">main map · id <code>meadow</code></div>';
-      const reg = cells.filter(c => !c.boss), rows = [reg.slice(0, 6), reg.slice(6), cells.filter(c => c.boss)];
+      const reg = cells.filter(c => !c.boss), rows = [reg.slice(0, 6), reg.slice(6, 12), reg.slice(12), cells.filter(c => c.boss)];
       for (const row of rows) {
         const H2 = 300, W2 = row.reduce((t, c) => t + c.w, 0);
         const out = document.createElement('canvas'); out.width = W2; out.height = H2 + 46; out.style.cssText = 'max-width:100%;border-radius:10px;display:block;margin-bottom:8px';
@@ -22021,7 +22194,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const panel = document.createElement('div'); panel.className = 'arena';
     const btns = (key, opts) => `<div class="arow">${Object.entries(opts).map(([k, v]) => `<button class="btn ghost${pick[key] === k ? ' sel' : ''}" data-${key}="${k}">${v}</button>`).join('')}</div>`;
     const paint = () => {
-      panel.innerHTML = '<span class="eyebrow">Boss arena</span>' + btns('boss', BOSSES) + btns('build', { typical: 'Typical build for that time', strong: 'Strong build' })
+      panel.innerHTML = '<span class="eyebrow">Boss arena</span>' + btns('boss', Object.fromEntries(Object.entries(BOSSES).map(([k, v]) => [k, `${v} · ${FOES[k].hp.toLocaleString()} HP`]))) + btns('build', { typical: 'Typical build for that time', strong: 'Strong build' })
         + `<label><input type="checkbox" id="arenaGod" ${pick.god ? 'checked' : ''}> God mode (take no damage)</label><button class="btn" id="arenaGo">Fight!</button>`;
       for (const b of panel.querySelectorAll('[data-boss]')) b.onclick = () => { pick.boss = b.dataset.boss; paint(); };
       for (const b of panel.querySelectorAll('[data-build]')) b.onclick = () => { pick.build = b.dataset.build; paint(); };
@@ -22038,7 +22211,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       run.portalT = 1e9;
       if (pick.boss === 'eclipse') { run.t = DAWN - 2; run.ev = EVENTS.length; }
       else { const i = EVENTS.findIndex(ev => ev.kind === 'boss' && ev.boss === pick.boss); run.t = EVENTS[i].t - 2; run.ev = i; }
-      state = 'play'; show(null); snd.muffle(false); snd.mode('play'); renderLoadout();
+      resume(); renderLoadout();
       banner(`Arena: ${BOSSES[pick.boss]} · ${pick.build} build${pick.god ? ' · god mode' : ''}`, '#ffe27a');
     };
     paint();
