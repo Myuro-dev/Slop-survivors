@@ -708,7 +708,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       evolve: t => { FX.chest(t); pad([62, 66, 69, 74], t, 2.5, .03, sfxOut); bell(50, t, .2); },
       warn: t => { tom(t, 55, .4, sfxOut); tom(t + .32, 50, .35, sfxOut); },
       shoot: t => nz(t, .3, .05, 'bandpass', 900, 2, 300),
-      charge: t => { nz(t, .7, .14, 'bandpass', 250, 1.2, 1000); tn('sawtooth', 75, 50, t, .05, .6, .07); },
+      // Wind-up before an attack (hydralisk hoods, the Stag Beetle, rift foes): a smooth rising swell. It used to be a noise
+      // rasp over a 75 Hz sawtooth, which buzzed every few seconds whenever a ranged foe aimed.
+      charge: t => { nz(t, .55, .07, 'lowpass', 300, .8, 1100); tn('sine', 95, 150, t, .12, .45, .07); },
       boss: t => { horn(t); tom(t, 42, .7, sfxOut); gong(t + .05, .25); },
       bossdown: t => { gong(t, .3); [50, 57, 62, 66, 69].forEach((m, i) => bell(m, t + .2 + i * .1, .08)); },
       revive: t => [62, 69, 74, 78, 81].forEach((m, i) => bell(m, t + i * .09, .08)),
@@ -727,14 +729,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (liveSfx > (LOW_POWER ? 18 : 30) && !FX_KEY.has(name)) return;
       last[name] = t;
       FX[name](t);
+      if (onFx) onFx(name);
     }
+    let onFx = null;
     function muffle(on) { if (ac) musicIn.frequency.setTargetAtTime(on ? 650 : 18000, ac.currentTime, .2); }
     function toggle(kind) {
       prefs[kind] = !prefs[kind]; save();
       applyGains(); renderAudio();
     }
     function hidden(h) { if (ac) { if (h) ac.suspend(); else ac.resume(); } }
-    return { init, fx, muffle, toggle, setVol, hidden, prefs, setZone, mode: m => { mode = m; }, setBoss: on => { boss = on; }, intensity: x => { inten = x; }, get state() { return ac ? ac.state : 'none'; }, get cached() { return ksCache.size; }, get owSteps() { return owSteps; }, get inZoneMusic() { return !!zoneMusic; } };
+    return { init, fx, muffle, toggle, setVol, hidden, prefs, setZone, set onFx(f) { onFx = f; }, mode: m => { mode = m; }, setBoss: on => { boss = on; }, intensity: x => { inten = x; }, get state() { return ac ? ac.state : 'none'; }, get cached() { return ksCache.size; }, get owSteps() { return owSteps; }, get inZoneMusic() { return !!zoneMusic; } };
   })();
   function renderAudio() {
     for (const b of document.querySelectorAll('.aud-music')) {
@@ -902,7 +906,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const EVENTS = [
     { t: 45, kind: 'ring' }, { t: 75, kind: 'elite' }, { t: 100, kind: 'stampede' }, { t: 120, kind: 'boss', boss: 'luna' },
     { t: 165, kind: 'ring' }, { t: 210, kind: 'elite' }, { t: 230, kind: 'stampede' }, { t: 285, kind: 'ring' }, { t: 300, kind: 'boss', boss: 'stag' },
-    { t: 350, kind: 'stampede' }, { t: 390, kind: 'elite' }, { t: 405, kind: 'ring' }, { t: 440, kind: 'stampede' }, { t: 480, kind: 'boss', boss: 'queen' },
+    { t: 350, kind: 'stampede' }, { t: 390, kind: 'elite' }, { t: 405, kind: 'ring' }, { t: 440, kind: 'stampede' }, { t: 455, kind: 'snails' }, { t: 480, kind: 'boss', boss: 'queen' }, { t: 510, kind: 'snails' },
     { t: 525, kind: 'ring' }, { t: 540, kind: 'elite' }, { t: 560, kind: 'stampede' }, { t: 585, kind: 'ring' },
   ];
 
@@ -18589,9 +18593,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           if (b === 0 || b === 6 || b === 10) A.tom(t, b === 0 ? 68 : 78, b === 0 ? .4 : .3);
           if (b === 12) A.tom(t, 112, .22); else if (b === 14) A.tom(t, 96, .2);
           if (b === 0 || b === 8) A.kick(t, b === 0 ? .55 : .38);
-          // wet clicks and chitin rattles
-          if (CLK[bar % 2][b] === 'x') A.noise(t, .016, .024, { type: 'bandpass', f: 1900 + ((b * 397 + bar * 131) % 2200), q: 9 });
-          if (b === 4 || b === 12) A.noise(t, .11, .018, { type: 'highpass', f: 4200, f2: 8500 });
+          // bubbling pools: soft sine "bloops" that slide up (no noise here: short noise clicks crackled and longer ones buzzed)
+          if (CLK[bar % 2][b] === 'x' && (b + bar) % 2 === 0) { const n = 72 + ((b * 5 + bar * 3) % 9); A.tone(t, n, sp * .7, .016, { type: 'sine', glide: n + 7, attack: .012 }); }
           if (bar % 2 === 1 && b >= 13) { A.hat(t, .032, false); A.hat(t + sp / 2, .022, false); }
           // choir-like pad every four bars
           if (b === 0 && sec % 4 === 0) A.pad(tri.map(k => r + 24 + k), t, sp * 60, .013, { type: 'triangle', cutoff: 1200, q: 2, detune: 14 });
@@ -18915,7 +18918,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     kills: { label: 'Most moths', fmt: v => Math.round(v).toLocaleString(), key: 'kills' },
     level: { label: 'Highest level', fmt: v => 'Lv ' + v, key: 'lv' },
   };
-  const isRanked = () => !/^#(debug|arena|tour|bestiary)/.test(location.hash) && !run.god;
+  const isRanked = () => !/^#(debug|arena|tour|bestiary|soundlog)/.test(location.hash) && !run.god;
   const lbStore = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
   let lastScore = null;
   function scoreOf(how) {
@@ -19120,6 +19123,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         e.dir = { x: -Math.cos(a), y: -Math.sin(a) }; e.sp = 230; e.life = 0;
       }
       banner('Wasp stampede!', '#ffcf5a'); snd.fx('warn');
+    } else if (ev.kind === 'snails') {
+      // Snail stampede: a line of snails crosses the meadow at 3x their speed, laying a wall of acid behind them.
+      const a = Math.random() * TAU, R = spawnR(), cx = P.x + Math.cos(a) * R, cy = P.y + Math.sin(a) * R;
+      const px = -Math.sin(a), py = Math.cos(a), n = 7, sp = FOES.snail.sp * 3;
+      for (let i = 0; i < n; i++) {
+        const off = (i / (n - 1) - .5) * Math.max(W, H) * .9;
+        const e = spawnFoe('snail', cx + px * off + rnd(-30, 30), cy + py * off + rnd(-30, 30));
+        e.dir = { x: -Math.cos(a), y: -Math.sin(a) }; e.sp = sp; e.life = 0; e.dirLife = R * 2.3 / sp; e.t1 = rnd(0, .9);
+      }
+      banner('Snail stampede!', '#b8ff6a'); snd.fx('warn');
     } else if (ev.kind === 'elite') {
       const e = spawnEdge('beetle');
       e.hp = e.max = e.max * 9; e.r = 26; e.dmg = 20; e.elite = true; e.sp = 46;
@@ -19224,7 +19237,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
     dropXp(e.x, e.y, e.xp);
     if (e.kind === 'bomber') hazards.push({ x: e.x, y: e.y, t: .9, r: 70, dmg: 16, foes: true });
-    if (e.kind === 'snail') addBurn(e.x, e.y, 70, { kind: 'acid', life: 6, dmg: 7 });
+    if (e.kind === 'snail') addBurn(e.x, e.y, 140, { kind: 'acid', life: 6, dmg: 7 });
     if (e.kind === 'ember') addBurn(e.x, e.y, 85, { life: 6, dmg: 9 });
     if (e.kind === 'brood') for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + e.seed, m = spawnFoe('moth', e.x + Math.cos(a) * 18, e.y + Math.sin(a) * 18); m.kx = Math.cos(a) * 160; m.ky = Math.sin(a) * 160; }
     if (e.kind === 'centi') for (const q of e.segs || []) burst(q.x, q.y, '#a0603a', 4, 120);
@@ -19313,11 +19326,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* ---------- Bosses ---------- */
   // Enemy ground pools: burning ground (Eclipse Moth, ember beetles, the wounded Moth Queen) and acid (snails).
-  // Standing in one hurts Hexel (the worst pool counts, every 0.5 s); acid also slows. At most 24 pools.
+  // Standing in one hurts Hexel (the worst pool counts, every 0.5 s); acid also slows. At most 90 pools.
   function addBurn(x, y, r, o = {}) {
     const life = o.life || 6.5;
     burns.push({ x, y, r, life, max: life, seed: Math.random() * 9, kind: o.kind || 'fire', dmg: o.dmg || 7 });
-    if (burns.length > 24) burns.shift();
+    if (burns.length > 90) burns.shift();
   }
   function ringBullets(e, n, sp, off = 0, dmg = 8) {
     snd.fx('shoot');
@@ -20404,7 +20417,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       else if (e.boss) bossAI(e, dt);
       else if (e.dir) {
         e.x += e.dir.x * e.sp * dt; e.y += e.dir.y * e.sp * dt; e.ang = Math.atan2(e.dir.y, e.dir.x);
-        if ((e.life += dt) > 9) e.gone = true;
+        if (e.kind === 'snail' && (e.t1 -= dt) <= 0) { e.t1 = .9; addBurn(e.x, e.y, 34, { kind: 'acid', life: 9, dmg: 6 }); }
+        if ((e.life += dt) > (e.dirLife || 9)) e.gone = true;
       } else {
         const dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy) || 1;
         let ux = dx / d, uy = dy / d;
@@ -20440,7 +20454,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           // Slow and tanky; it leaves its ground behind it as it crawls.
           e.t1 -= dt;
           if (e.t1 <= 0) {
-            if (e.kind === 'snail') { e.t1 = .75; addBurn(e.x, e.y, 34, { kind: 'acid', life: 4.5, dmg: 6 }); }
+            if (e.kind === 'snail') { e.t1 = .75; addBurn(e.x, e.y, 34, { kind: 'acid', life: 9, dmg: 6 }); }
             else { e.t1 = 2.4; addBurn(e.x, e.y, 48, { life: 5, dmg: 8 }); }
           }
         } else if (e.kind === 'spider') {
@@ -21853,11 +21867,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (const e of foes) {
         if (e.dead || !onScreen(e)) continue;
         if (e.def) continue;   // rift foes are drawn above the darkness, so they need no glints
+        if (e.kind === 'eclipse' || e.kind === 'snail') continue;   // they draw their own eyes
         const s = e.r;
         let fx = e.x, fy = e.y - s * .55;
         if (e.kind === 'spider') { fx = e.x; fy = e.y - s * .55; }
         else if (e.kind !== 'moth' && e.kind !== 'dust' && e.kind !== 'ghost' && e.kind !== 'brood' && e.kind !== 'luna' && e.kind !== 'queen') {
-          const lift = e.kind === 'locust' && e.hopT > 0 ? Math.sin(Math.PI * (1 - e.hopT / .42)) * 22 : 0;
+          const lift = e.kind === 'locust' && e.hopT > 0 ? Math.sin(Math.PI * (1 - e.hopT / .42)) * 22 : e.lift || 0;
           fx = e.x + Math.cos(e.ang) * s * .9; fy = e.y + Math.sin(e.ang) * s * .9 - lift;
         }
         ctx.fillStyle = e.boss ? '#ff4060' : e.kind === 'ghost' ? '#9fd8ff' : '#ff9a5a';
@@ -22220,11 +22235,32 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Game over (or winning) returns to the arena picker.
     const ag = $('again'), ag2 = ag.cloneNode(true); ag.replaceWith(ag2); ag2.textContent = 'Back to the arena'; ag2.addEventListener('click', () => location.reload());
   }
+  // Preview tour (index.html#tour): pick the meadow and any rifts (all by default), then each plays for SEG seconds in
+  // order. With "Loop" on the tour starts over forever; with it off it returns to the picker after the last one.
   if (location.hash === '#tour') {
     const SEG = 20;
     let tour = null;
+    const ORDER = ['meadow', ...ZONES.map(z => z.id)];
+    // The picks are remembered on this device (fjr-tour), so they survive the reload at the end of a non-looping tour.
+    const saved = lbStore.get('fjr-tour', null);
+    const sel = new Set(saved && Array.isArray(saved.sel) ? saved.sel.filter(id => ORDER.includes(id)) : ORDER); let loop = saved ? saved.loop !== false : true;
+    const keep = () => lbStore.set('fjr-tour', { sel: [...sel], loop });
+    const panel = document.createElement('div'); panel.className = 'arena';
+    const paint = () => {
+      panel.innerHTML = '<span class="eyebrow">Preview tour</span>'
+        + '<div class="arow"><button class="btn ghost" data-all="1">All</button><button class="btn ghost" data-all="0">None</button></div>'
+        + `<div class="arow">${ORDER.map(id => `<button class="btn ghost${sel.has(id) ? ' sel' : ''}" data-zone="${id}">${id === 'meadow' ? 'The meadow' : ZONES.find(z => z.id === id).name}</button>`).join('')}</div>`
+        + `<label><input type="checkbox" id="tourLoop" ${loop ? 'checked' : ''}> Loop (start over after the last one)</label>`;
+      for (const b of panel.querySelectorAll('[data-zone]')) b.onclick = () => { const id = b.dataset.zone; sel.has(id) ? sel.delete(id) : sel.add(id); paint(); };
+      for (const b of panel.querySelectorAll('[data-all]')) b.onclick = () => { sel.clear(); if (b.dataset.all === '1') ORDER.forEach(id => sel.add(id)); paint(); };
+      panel.querySelector('#tourLoop').onchange = ev => { loop = ev.target.checked; keep(); };
+      $('newRun').disabled = !sel.size; keep();
+    };
+    paint();
+    $('newRun').before(panel);
+    for (const el of document.querySelectorAll('#title .card > p, #title .legend')) el.hidden = true;
     $('newRun').textContent = 'Start the preview tour';
-    $('newRun').addEventListener('click', () => { tour = { i: -1, t: 0 }; dbg.auto = true; });
+    $('newRun').addEventListener('click', () => { tour = { i: -1, t: 0, list: ORDER.filter(id => sel.has(id)) }; dbg.auto = true; });
     const strongBuild = () => {
       run.weapons = {};
       for (const [id, lv] of [['bolt', 6], ['swarm', 6], ['chain', 5], ['star', 5], ['lance', 4], ['wisp', 4]]) { const w = newWeapon(); w.lv = lv; run.weapons[id] = w; }
@@ -22232,21 +22268,26 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       recalc(); run.hp = S.maxHp; renderLoadout();
     };
     const next = () => {
-      tour.i = (tour.i + 1) % (ZONES.length + 1); tour.t = 0;
+      tour.i++; tour.t = 0;
+      if (tour.i >= tour.list.length) {
+        if (!loop) { tour = null; location.reload(); return; }
+        tour.i = 0;
+      }
+      const id = tour.list[tour.i], n = tour.list.length;
       if (run.zone) exitZone();
       banners = [];
-      if (tour.i === 0) {
+      if (id === 'meadow') {
         strongBuild(); run.relic = null; run.minis = 0;
         // Deep enough into the night that the meadow's adventure layers are playing; no bosses or rifts interrupt.
         run.t = 250; run.ev = EVENTS.findIndex(e => e.t > 250); run.portalT = 1e9; run.portal = null;
-        banner(`Preview 1/${ZONES.length + 1}: the meadow`, '#ffe27a', true);
+        banner(`Preview ${tour.i + 1}/${n}: the meadow`, '#ffe27a', true);
       } else {
-        const d = ZONES[tour.i - 1];
+        const d = ZONES.find(z => z.id === id);
         enterZone(d, { x: P.x, y: P.y });
         run.zone.t = ZONE_BOSS_AT - 9;
         run.relic = newRelic(d.id); run.minis = RELIC_MEGA; renderLoadout();
         banners = [];
-        banner(`Preview ${tour.i + 1}/${ZONES.length + 1}: ${d.name}`, `rgb(${d.portal})`, true);
+        banner(`Preview ${tour.i + 1}/${n}: ${d.name}`, `rgb(${d.portal})`, true);
         banner('A nod to ' + d.nod, '#cfd6ea');
         banner(`Relic: ${RELICS[d.id].mega}`, '#ffb33b');
       }
@@ -22262,6 +22303,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }, 100);
   }
 
+  // Sound log (index.html#soundlog): a normal (unranked) game with a corner list naming each sound effect as it plays,
+  // newest on top, for tracking down a sound by ear.
+  if (location.hash === '#soundlog') {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:8px;top:120px;z-index:9;pointer-events:none;font:600 13px/1.35 system-ui,sans-serif;color:#e8ecf6;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:8px;min-width:120px';
+    document.body.appendChild(box);
+    const log = [];
+    snd.onFx = name => { log.unshift({ name, t: performance.now() }); if (log.length > 12) log.pop(); };
+    setInterval(() => {
+      const now = performance.now();
+      box.innerHTML = '<div style="color:#ffe27a;margin-bottom:2px">Sound log</div>' + log.map(l => `<div style="opacity:${Math.max(.35, 1 - (now - l.t) / 4000)}">${l.name} <span style="color:#9aa3c2">${((now - l.t) / 1000).toFixed(1)} s ago</span></div>`).join('');
+    }, 150);
+  }
   showBest();
   requestAnimationFrame(frame);
 })();
