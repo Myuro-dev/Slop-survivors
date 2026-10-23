@@ -678,7 +678,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
 
     const FX_KEY = new Set(['boss', 'bossdown', 'level', 'evolve', 'chestdrop', 'revive', 'death', 'dawn', 'hurt', 'warn', 'rift']);
-    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2 };
+    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2, wail: .4 };
     const PENT = [74, 77, 79, 81, 84, 86, 88, 89];
     const FX = {
       // Hits and kills are soft tonal taps. They used to be tiny bursts of 2-3 kHz noise, which at ~30 per second in a
@@ -716,6 +716,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       revive: t => [62, 69, 74, 78, 81].forEach((m, i) => bell(m, t + i * .09, .08)),
       death: t => { [69, 65, 62, 57, 50].forEach((m, i) => bell(m, t + i * .32, .08)); gong(t, .2); },
       portal: t => { nz(t, 1.2, .12, 'bandpass', 200, 2, 2400); tn('sine', 80, 320, t, .02, 1, .15, .6); [74, 79, 83, 86, 91].forEach((m, i) => bell(m, t + .1 + i * .07, .05)); },
+      wail: t => { tn('sine', 880, 520, t, .04, .5, .03, .6); tn('triangle', 660, 395, t, .06, .45, .012, .6); },
       rift: t => { [86, 91, 95].forEach((m, i) => bell(m, t + i * .1, .045)); nz(t, .6, .05, 'highpass', 3000, .7); },
       dawn: t => { [50, 57, 62, 66, 69, 74, 78].forEach((m, i) => bell(m, t + i * .12, .07)); pad([62, 66, 69], t, 5, .03, sfxOut); },
     };
@@ -788,6 +789,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Damage +25%, bigger slam', 'Damage +15%, slams more often', 'Damage +18%, bigger slam, slams more often', 'A second slam lands farther ahead', 'Damage +17%, bigger slam, slams more often'] },
     flame: { name: 'Witchfire', desc: "A hedge witch's blessing: breathe a short cone of green-gold witchfire at the nearest moths, leaving them burning.", evo: 'kindle', evoName: 'Cauldron Inferno', evoDesc: 'A wide, roaring cone of witchfire that leaves the ground bubbling with flame.',
       up: ['Damage +33%, reaches further', 'Burns hotter, reaches further', 'Damage +25%, wider, reaches further', 'Damage +20%, burns hotter, wider', 'Damage +17%, burns hotter, wider, reaches further'] },
+    wail: { name: 'Banshee Lantern', desc: 'A lantern holding a wailing spirit. Every few seconds its wail rolls out in a cone and frightens the moths it reaches: they flee from you, fading as they go.', evo: 'veil', evoName: 'Wailing Veil', evoDesc: 'The wail rings out all around you. Frightened moths that crash into each other take heavy damage, and bosses are slowed.',
+      up: ['Damage +25%, faster, wider, frightens longer', 'Damage +20%, faster, reaches further, frightens longer', 'Damage +17%, faster, wider, reaches further, frightens longer', 'Damage +21%, faster, wider, frightens longer', 'Damage +18%, faster, wider, reaches further, frightens longer'] },
     frost: { name: 'Moonfrost', desc: 'A cone of frost in front of you that chills and slows moths.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes moths solid.',
       up: ['Damage +20%, reaches further, chills longer', 'Damage +25%, faster', 'Damage +20%, wider, faster', 'Damage +22%, wider, faster', 'Damage +18%, wider, reaches further'] },
   };
@@ -838,6 +841,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         : { cd: [2.4, 2.4, 2.2, 2, 2, 1.7][L], dmg: [30, 38, 44, 52, 52, 66][L], R: [70, 76, 76, 84, 84, 92][L], reach: 70, n: [1, 1, 1, 1, 2, 2][L], quake: 0 };
       case 'flame': return evo ? { tick: .2, dmg: 14, burn: 9, range: 210, half: .75 }
         : { tick: .25, dmg: [4, 5, 6, 7, 9, 11][L], burn: [3, 3, 4, 5, 6, 7][L], range: [115, 125, 135, 145, 155, 170][L], half: [.38, .38, .4, .44, .47, .5][L] };
+      case 'wail': return evo ? { cd: 2.6, dmg: 26, range: 270, cone: 7, fear: 3, bump: 36 }
+        : { cd: [4.2, 4, 3.8, 3.5, 3.2, 3][L], dmg: [8, 10, 12, 14, 17, 20][L], range: [170, 180, 195, 210, 225, 240][L], cone: [1, 1.1, 1.2, 1.35, 1.5, 1.7][L], fear: [1.4, 1.6, 1.8, 2, 2.3, 2.6][L] };
       case 'frost': return evo ? { cd: 1.2, dmg: 34, range: 230, cone: 7, slow: 2.5, freeze: true }
         : { cd: [2.4, 2.2, 2.1, 1.9, 1.7, 1.5][L], dmg: [10, 12, 15, 18, 22, 26][L], range: [120, 130, 140, 150, 160, 175][L], cone: [1.2, 1.2, 1.3, 1.4, 1.5, 1.6][L], slow: [1.2, 1.4, 1.6, 1.8, 2, 2.2][L] };
       case 'nova': return evo ? { cd: 4, dmg: 170, r: 330 }
@@ -857,15 +862,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     dew:    { name: 'Morning Dew',     max: 5, desc: 'Recover 0.25 health per second.' },
     gold:   { name: 'Gold Rush',       max: 5, desc: 'Gain 10% more experience.' },
     wax:    { name: 'Beeswax',         max: 5, desc: 'Take 1 less damage from every hit.' },
-    echo:   { name: 'Echo Charm',      max: 2, desc: 'Every weapon fires one extra firefly, spark, star, bat or blade.' },
+    echo:   { name: 'Echo Charm',      max: 2, desc: 'Every weapon fires one extra firefly, spark, star, bat or blade, but you take 15% more damage from every hit.' },
     wind:   { name: 'Second Wind',     max: 1, desc: 'The first time you fall, rise again at half health. Used up when it saves you.' },
     ward:   { name: 'Moth-Silk Ward',  max: 5, desc: 'Blocks one hit completely. Recharges in 14s, 2s faster per level.' },
     keen:   { name: 'Keen Edge',       max: 5, desc: '+7% chance for any hit to deal double damage.' },
     clover: { name: 'Four-Leaf Clover', max: 5, desc: '+10% chance of a fourth choice when leveling up. From level 3, chests hold an extra prize.' },
     bell:   { name: 'Sanctuary Bell',  max: 5, desc: 'Every 30 kills (4 fewer per level) a holy bell rings: a shockwave hurls back and briefly stuns nearby moths.' },
-    brace:  { name: "Giant's Bracer",  max: 5, desc: 'Hit bosses, elites and heavy moths 8% harder per level.' },
+    brace:  { name: "Giant's Bracer",  max: 5, desc: 'Hit bosses, elites and heavy moths 5% harder per level.' },
     kindle: { name: 'Kindling',        max: 5, desc: '+4% chance per level for any hit to set the moth on fire.' },
     dusk:   { name: 'Duskbound',       max: 5, desc: 'More moths come for you, a little faster, but you gain 12% more experience.' },
+    veil:   { name: 'Ghostlight Veil', max: 5, desc: 'After you are hit, you stay untouchable 0.1 s longer per level.' },
   };
 
   /* ---------- Foes ---------- */
@@ -18647,7 +18653,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* ---------- State ---------- */
   let run = null, S = null, state = 'title', shake = 0, hurtT = 0, warp = null;
-  let burns = [], plague = [], allies = [], rfx = [], traps = [], lances = [], frosts = [], hazards = [], foes = [], motes = [], shots = [], bullets = [], strikes = [], parts = [], pops = [], banners = [], beams = [], rings = [], shrooms = [];
+  let burns = [], plague = [], allies = [], rfx = [], traps = [], lances = [], frosts = [], wails = [], hazards = [], foes = [], motes = [], shots = [], bullets = [], strikes = [], parts = [], pops = [], banners = [], beams = [], rings = [], shrooms = [];
   const P = { x: 0, y: 0, r: 13, inv: 0, face: { x: 1, y: 0 }, moving: false, hop: 0, amp: 0, rot: 0, spin: 0, squish: 0, blink: 3, slowT: 0, ant: { x: 0, y: -26, vx: 0, vy: 0 } };
   const cam = { x: 0, y: 0 };
   const keys = new Set();
@@ -18680,7 +18686,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       growth: 1 + .1 * pv('gold') + .12 * pv('dusk'),
       armor: pv('wax'),
       amount: pv('echo'),
-      brute: .08 * pv('brace'),
+      frail: 1 + .15 * pv('echo'),   // Echo Charm's downside: damage taken
+      brute: .05 * pv('brace'),
+      ifr: .45 + .1 * pv('veil'),   // invulnerability after a hit (Ghostlight Veil)
     };
   }
   const needFor = lv => lv < 20 ? 4 + (lv - 1) * 5 : lv < 40 ? 100 + (lv - 20) * 16 : 420 + (lv - 40) * 30;
@@ -18689,8 +18697,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     snd.init(); snd.setZone(null); warp = null;
     run = { t: 0, lv: 1, xp: 0, need: needFor(1), kills: 0, dmg: 0, dmgBy: {}, bosses: 0, chests: 0, weapons: {}, passives: {}, rerolls: 2, hp: 100, pending: 0, ev: 0, spawnAcc: 0, boss: null, start: true, regenAcc: 0, zone: null, saved: null, portal: null, portalT: rnd(45, 70), seen: [], rifts: 0, minis: 0, relic: null, clock: 0, finale: null };
     recalc();
+    run.rid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); setTimeout(() => playPing('start'), 0);
     foes = []; motes = []; shots = []; bullets = []; strikes = []; parts = []; pops = []; banners = []; beams = []; rings = [];
-    traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = []; burns = []; pendingRelic = null;
+    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = []; pendingRelic = null;
     P.x = 0; P.y = 0; P.inv = 0; P.slowT = 0; P.spin = 0; P.squish = 0; cam.x = 0; cam.y = 0; hazards = [];
     renderLoadout();
     openLevel();
@@ -18788,6 +18797,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     renderLoadout();
   }
   function choose(o) {
+    if ($('level').hidden) return;   // a stray click on a card that is no longer showing must not apply it again
     snd.fx('pick');
     if (o) apply(o);
     if (run.start) { run.start = false; resume(); banner('Survive until dawn', '#ffe27a'); return; }
@@ -18949,6 +18959,15 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (!res.ok) throw new Error(body.error || 'HTTP ' + res.status);
     return body;
   }
+  // Play tracking: an anonymous ping to the leaderboard server when a run starts and when it ends (no name), so the
+  // owner can see how many runs are played. Same exclusions as the boards; failures are ignored.
+  const playCounted = () => LB_URL && !/^#(debug|arena|tour|bestiary|soundlog)/.test(location.hash);
+  function playPing(stage) {
+    if (!playCounted() || !run || !run.rid) return;
+    const body = stage === 'start' ? { rid: run.rid, stage, version: GAME_VERSION, mobile: !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) }
+      : { rid: run.rid, stage, how: run.endHow, survived: Math.round(Math.min(DAWN, run.t)), lv: run.lv, kills: run.kills, dmg: Math.round(Object.values(run.dmgBy).reduce((a, b) => a + b, 0)), rifts: run.rifts, relic: run.relic ? run.relic.id : null, killer: run.endHow === 'death' ? run.killer || null : null };
+    try { fetch(LB_URL + '/plays', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {}); } catch {}
+  }
   function lbOnOver(how) {
     const box = $('lbSubmit');
     lastScore = null; box.hidden = true;
@@ -19038,6 +19057,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('overEyebrow').textContent = how === 'perfect' ? 'The shadow is banished' : win ? 'The sun rises over the meadow' : 'The moths swarmed Hexel';
     $('overTitle').textContent = how === 'perfect' ? 'A new dawn' : win ? 'You saw the dawn' : "Hexel's light went out";
     const note = how === 'perfect' ? `You banished the Eclipse Moth in ${run.finale.t.toFixed(1)} seconds. The fireflies will sing of Hexel for a hundred summers.`
+      : !win && how !== 'quit' && run.killer ? `Felled by ${run.killer}.`
       : how === 'fled' ? `The Eclipse Moth slipped away with the last of the night, but you burned away ${Math.min(99, Math.floor((1 - Math.max(0, run.finale.boss.hp) / run.finale.boss.max) * 100))}% of it. Grow stronger and banish it next time.` : '';
     $('overNote').textContent = note; $('overNote').hidden = !note;
     // A fled Eclipse Moth shows how close you came: a bar of the health you burned away.
@@ -19057,6 +19077,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
     lbOnOver(how);
+    run.endHow = how === 'perfect' || how === 'fled' ? how : how === 'quit' ? 'quit' : 'death'; playPing('end'); run.rid = null;
     renderLoadout();
     showBest();
     show('over');
@@ -19161,7 +19182,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (n >= 5 && run.hp > before) pops.push({ x: P.x, y: P.y - 26, txt: '+' + Math.round(run.hp - before), col: '#8fe3a8', life: 0, ttl: .9, big: true });
   }
 
-  function hurt(dmg) {
+  // What hurt Hexel, for the "Felled by" line on the game-over screen: a foe, or a short description.
+  const FOE_LABEL = { moth: 'a moth', dust: 'a dust moth', wasp: 'a wasp', beetle: 'a beetle', ghost: 'a ghost moth', mosq: 'a mosquito swarm',
+    locust: 'a locust', spider: 'a spider', bomber: 'a bomber beetle', centi: 'a centipede', brood: 'a brood moth', rhino: 'a charging rhino beetle',
+    cricket: 'a pouncing cricket', snail: 'a snail', ember: 'an ember beetle' };
+  function killerName(src) {
+    if (typeof src === 'string') return src;
+    const e = src || (run.boss && !run.boss.dead ? run.boss : null);
+    if (!e) return run.zone ? 'the dangers of ' + run.zone.def.name : 'the swarm';
+    if (e.def) return e.boss ? e.def.name : 'the creatures of ' + (run.zone ? run.zone.def.name : 'a rift');
+    if (e.elite) return 'a golden beetle';
+    return e.boss ? FOES[e.kind].name : FOE_LABEL[e.kind] || 'the swarm';
+  }
+  function hurt(dmg, src) {
     if (P.inv > 0 || run.god) return;
     if (pv('ward') && run.wardT <= 0) {
       run.wardT = 16 - 2 * pv('ward'); P.inv = .6;
@@ -19169,8 +19202,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       burst(P.x, P.y, '#cfe6ff', 16, 200); snd.fx('pick');
       return;
     }
-    const d = Math.max(1, Math.round(dmg - S.armor));
-    run.hp -= d; P.inv = .45; hurtT = .35; P.squish = 1; snd.fx('hurt');
+    const d = Math.max(1, Math.round(dmg * S.frail - S.armor));
+    run.hp -= d; P.inv = S.ifr; hurtT = .35; P.squish = 1; snd.fx('hurt'); run.killer = killerName(src);
     shake = Math.max(shake, 5);
     pops.push({ x: P.x, y: P.y - 24, txt: '−' + d, col: '#ff7a8a', life: 0, ttl: .8, big: true });
     if (run.hp <= 0) {
@@ -19236,7 +19269,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       return;
     }
     dropXp(e.x, e.y, e.xp);
-    if (e.kind === 'bomber') hazards.push({ x: e.x, y: e.y, t: .9, r: 70, dmg: 16, foes: true });
+    if (e.kind === 'bomber') hazards.push({ x: e.x, y: e.y, t: .9, r: 70, dmg: 16, foes: true, from: "a bomber beetle's blast" });
     if (e.kind === 'snail') addBurn(e.x, e.y, 140, { kind: 'acid', life: 6, dmg: 7 });
     if (e.kind === 'ember') addBurn(e.x, e.y, 85, { life: 6, dmg: 9 });
     if (e.kind === 'brood') for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + e.seed, m = spawnFoe('moth', e.x + Math.cos(a) * 18, e.y + Math.sin(a) * 18); m.kx = Math.cos(a) * 160; m.ky = Math.sin(a) * 160; }
@@ -19288,7 +19321,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- Zone API: the only surface rift zone modules touch ---------- */
-  let zoneErrs = 0;
+  let zoneErrs = 0, zoneActor = null;   // the rift foe whose update is running (owns the shots and strikes it makes)
   function zoneCall(fn) { try { fn(); } catch (err) { if (zoneErrs++ < 8) console.error('Till Dawn: zone error', err); } }
   const Z = {
     ctx, TAU, rnd, P, now: 0, t: 0, dt: 0, W: 0, H: 0,
@@ -19298,16 +19331,17 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     chase(e, sp = e.sp) { const a = Math.atan2(P.y - e.y, P.x - e.x); Z.move(e, Math.cos(a) * sp, Math.sin(a) * sp); e.ang = a; },
     move(e, vx, vy) {
       if (!Number.isFinite(vx) || !Number.isFinite(vy)) return;
+      if (e.fearT > 0 && !e.boss) { const a = Math.atan2(e.y - P.y, e.x - P.x), sp = Math.max(Math.hypot(vx, vy), (e.sp || 50) * .9); vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; }
       const k = e.slowT > 0 ? (e.frozen && !e.boss ? .12 : .5) : 1;
       e.x += (vx * k + e.kx) * Z.dt; e.y += (vy * k + e.ky) * Z.dt;
     },
     shoot(x, y, a, sp, o = {}) {
       if (bullets.length < 400 && [x, y, a, sp].every(Number.isFinite))
-        bullets.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: o.r || 6, dmg: (o.dmg ?? 8) * riftK(RIFT_DMG), life: o.life || 5, col: o.col, web: !!o.slow });
+        bullets.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: o.r || 6, dmg: (o.dmg ?? 8) * riftK(RIFT_DMG), life: o.life || 5, col: o.col, web: !!o.slow, from: zoneActor });
     },
     ring(x, y, n, sp, o = {}, off = 0) { for (let i = 0; i < n; i++) Z.shoot(x, y, off + i / n * TAU, sp, o); },
     spawn(kind, x, y) { return run.zone && run.zone.def.foes[kind] && Number.isFinite(x) && Number.isFinite(y) && foes.length < 500 ? spawnFoe(kind, x, y) : null; },
-    hazard(x, y, o = {}) { if (Number.isFinite(x) && Number.isFinite(y)) { const t = o.t ?? .9; hazards.push({ x, y, t, T: t, r: o.r || 70, dmg: (o.dmg ?? 10) * riftK(RIFT_DMG), col: o.col, foes: !!o.foes }); } },
+    hazard(x, y, o = {}) { if (Number.isFinite(x) && Number.isFinite(y)) { const t = o.t ?? .9; hazards.push({ x, y, t, T: t, r: o.r || 70, dmg: (o.dmg ?? 10) * riftK(RIFT_DMG), col: o.col, foes: !!o.foes, from: zoneActor }); } },
     burst: (x, y, col, n = 10, sp = 200) => burst(x, y, col || '#ffffff', Math.min(n, 60), sp),
     shake: n => { shake = Math.max(shake, Math.min(n, 20)); },
     banner: (txt, col, big) => banner(String(txt), col || '#ffe27a', big),
@@ -19336,11 +19370,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     snd.fx('shoot');
     for (let i = 0; i < n; i++) {
       const a = off + i / n * TAU;
-      bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 7, dmg, life: 6 });
+      bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 7, dmg, life: 6, from: e });
     }
   }
   // A telegraphed ground strike: a marked circle that lands when t runs out.
-  const strikeAt = (x, y, r, dmg, t, col) => hazards.push({ x, y, r, dmg, t, T: t, col });
+  const strikeAt = (x, y, r, dmg, t, col, from) => hazards.push({ x, y, r, dmg, t, T: t, col, from });
   const dirTo = e => { const d = Math.hypot(P.x - e.x, P.y - e.y) || 1; return { x: (P.x - e.x) / d, y: (P.y - e.y) / d }; };
   function chase(e, dt, sp) {
     if (e.slowT > 0) sp *= .6;
@@ -19772,6 +19806,28 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         snd.fx('chain');
         break;
       }
+      case 'wail': {
+        // A cone of wailing (a full circle when evolved) toward the nearest moth. Moths it reaches are frightened: they
+        // flee and take damage over time. Bosses and golden beetles are slowed instead.
+        w.t -= dt; if (w.t > 0) break;
+        const R = st.range * S.area, tg = nearest(P.x, P.y, R * 1.2);
+        if (!tg) { w.t = .3; break; }
+        w.t = st.cd * S.cd;
+        const base = Math.atan2(tg.y - P.y, tg.x - P.x), half = st.cone / 2;
+        wails.push({ x: P.x, y: P.y, a: base, half, R, life: 0, evo: w.evo });
+        for (const e of foes) {
+          if (e.dead) continue;
+          const dx = e.x - P.x, dy = e.y - P.y;
+          if (Math.hypot(dx, dy) > R + e.r) continue;
+          const df = Math.atan2(dy, dx) - base;
+          if (half < 3 && Math.abs(Math.atan2(Math.sin(df), Math.cos(df))) > half) continue;
+          hit(e, st.dmg * might, 120, P.x, P.y);
+          if (e.boss || e.elite) { e.slowT = Math.max(e.slowT || 0, 1.5 * S.dur); continue; }
+          e.fearT = Math.max(e.fearT || 0, st.fear * S.dur); e.fearDot = st.dmg * .35 * might; e.fearBump = w.evo ? st.bump * might : 0;
+        }
+        snd.fx('wail');
+        break;
+      }
       case 'nova': {
         w.t -= dt; if (w.t > 0) break;
         w.t = st.cd * S.cd;
@@ -19841,7 +19897,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     temple: { name: 'Corrupted Blood', mega: 'Blood Plague Epidemic', desc: 'Infects the toughest moth with a contagious blood plague. Infected moths bleed, and the plague leaps to every moth that gets too close, again and again. An outbreak so convincing that real scientists studied it.', megaDesc: 'Three patient zeros at once. The plague leaps farther and faster, bleeds harder, and infected moths burst in blood when they die, infecting everything around them.' },
     bay:   { name: 'Cannon Barrage', mega: 'Full Broadside', desc: 'A ghost ship off-screen lobs volleys of cannonballs into the crowds around you. Watch for the red marks!', megaDesc: 'Bigger volleys, more often, with heavier shot and a blast of grapeshot.' },
     homm:  { name: 'Implosion', mega: 'Cataclysmic Implosion', desc: 'Space collapses on the toughest foe in reach for enormous damage, dragging nearby moths into the vortex.', megaDesc: 'Three implosions at once, more often, each tearing at everything around it.' },
-    tibia: { name: 'Adori Gran Mas Flam', mega: 'Rune Storm', desc: 'Casts a great fireball rune into the thickest crowd of moths. It bursts in a blaze and leaves fire fields behind.', megaDesc: 'Three great fireballs at once, more often, with fiercer fire fields.' },
+    tibia: { name: 'Adori Mas Flam', mega: 'Exevo Gran Mas Flam', desc: 'Casts a great fireball rune into the thickest crowd of moths. It bursts in a blaze and leaves fire fields behind.', megaDesc: 'Three great fireballs at once, more often, with fiercer fire fields.' },
+    // Not dropped by any rift yet (no zone has this id); try it with fj.relic('aurora', minis) in #debug.
+    aurora: { name: 'Aurora Ribbon', mega: 'Northern Veil', desc: 'A long ribbon of shimmering light trails behind you as you move, burning every moth it touches. Standing still, it curls around you.', megaDesc: 'A wider, longer curtain of aurora that also stops enemy bullets crossing it.' },
     lol:   { name: 'Allied Minion Wave', mega: 'Empowered Siege Wave', desc: 'Every so often a wave of your own blue minions marches out to fight for you.', megaDesc: 'Bigger waves, faster, with cannon minions.' },
   };
   let pendingRelic = null;
@@ -20069,6 +20127,33 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         snd.fx('charge');
         break;
       }
+      case 'aurora': {
+        // The ribbon is a trail of points laid as Hexel moves (and in a little circle while standing still); each point
+        // fades after `life` seconds, so Lingering Light makes it longer.
+        const pts = r.pts || (r.pts = []), life = (mega ? 2.2 : 1 + .25 * lv) * S.dur, w = (mega ? 22 : 13) * S.area;
+        const last = pts[pts.length - 1];
+        if (!last || Math.hypot(P.x - last.x, P.y - last.y) > 9) { pts.push({ x: P.x, y: P.y, t: run.clock }); r.idle = 0; }
+        else if ((r.idle = (r.idle || 0) + dt) > .25 && run.clock - last.t > .05) { r.curl = (r.curl || 0) + .45; const cr = 38 * S.area; pts.push({ x: P.x + Math.cos(r.curl) * cr, y: P.y + Math.sin(r.curl) * cr, t: run.clock }); }
+        while (pts.length && (run.clock - pts[0].t > life || pts.length > 120)) pts.shift();
+        if (pts.length < 2) break;
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
+        const near = (x, y, rr) => {
+          for (let i = 1; i < pts.length; i++) {
+            const a = pts[i - 1], b = pts[i], vx = b.x - a.x, vy = b.y - a.y, l2 = vx * vx + vy * vy;
+            if (l2 > 70 * 70) continue;   // a jump (entering or leaving a rift): no segment there
+            const k = l2 ? Math.max(0, Math.min(1, ((x - a.x) * vx + (y - a.y) * vy) / l2)) : 0;
+            if ((x - a.x - vx * k) ** 2 + (y - a.y - vy * k) ** 2 < rr * rr) return true;
+          }
+          return false;
+        };
+        for (const e of foes) {
+          if (e.dead || (e.cds.aur || 0) > run.clock || e.x < x0 - w - e.r || e.x > x1 + w + e.r || e.y < y0 - w - e.r || e.y > y1 + w + e.r) continue;
+          if (near(e.x, e.y, w + e.r)) { e.cds.aur = run.clock + .4; hit(e, (mega ? 22 : 14) * pow, 40, P.x, P.y); }
+        }
+        if (mega) for (const b of bullets) if (b.life > 0 && b.x > x0 - w && b.x < x1 + w && b.y > y0 - w && b.y < y1 + w && near(b.x, b.y, w + b.r)) { b.life = 0; burst(b.x, b.y, '#9affd0', 4, 90); }
+        break;
+      }
       case 'tibia': {
         if (r.t > 0) break;
         // Find the densest crowd in reach (a sampled neighbour count keeps this cheap).
@@ -20080,7 +20165,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const picks = sample.map(e => [score(e), e]).sort((a, b) => b[0] - a[0]).slice(0, mega ? 3 : 1).map(p => p[1]);
         for (const e of picks) shots.push({ type: 'rune', x: P.x, y: P.y, sx: P.x, sy: P.y, tx: e.x, ty: e.y, t: 0, dur: .35, dmg: 30 * pow, R: 110 * S.area, fire: (mega ? 4 : 3) * pow, life: 1, mega });
         // Like casting in the old days: the spell words float up above you.
-        pops.push({ x: P.x, y: P.y - 34, txt: 'adori gran mas flam', col: '#ffd23a', life: 0, ttl: 1.3 });
+        pops.push({ x: P.x, y: P.y - 34, txt: mega ? 'exevo gran mas flam' : 'adori mas flam', col: '#ffd23a', life: 0, ttl: 1.3 });
         break;
       }
       case 'lol': {
@@ -20316,7 +20401,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     return false;
   }
   function enterZone(def, p) {
-    run.portal = null; run.seen.push(def.id); run.rifts++; traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = []; burns = [];
+    run.portal = null; run.seen.push(def.id); run.rifts++; traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = [];
     // The meadow waits, frozen, while you are away.
     run.saved = { foes, motes, bullets, strikes, hazards, shots, x: p.x, y: p.y };
     foes = []; motes = []; bullets = []; strikes = []; hazards = []; shots = [];
@@ -20332,7 +20417,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Glow left in the rift comes home with you, and so does an unopened chest.
     let xp = 0; const chests = [];
     for (const m of motes) { if (m.kind === 'xp') xp += m.v; if (m.kind === 'chest') chests.push(m); }
-    traps = []; lances = []; frosts = []; allies = []; rfx = []; plague = []; burns = [];
+    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = [];
     foes = sv.foes; motes = sv.motes; bullets = []; strikes = sv.strikes; hazards = sv.hazards; shots = sv.shots;
     run.zone = null; run.saved = null; run.boss = null;
     P.x = sv.x; P.y = sv.y; cam.x = P.x; cam.y = P.y; P.inv = 2;
@@ -20403,13 +20488,21 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       e.flash -= dt; e.ph += dt;
       if (e.slowT > 0 && (e.slowT -= dt) <= 0) e.frozen = false;
       if (e.burn > 0) { e.burn -= dt; if ((e.burnT = (e.burnT || 0) - dt) <= 0) { e.burnT = .5; dsrc = e.burnSrc || 'other'; hit(e, e.burnDmg || 3, 0, e.x, e.y); } }
+      if (e.fearT > 0) {
+        // Frightened (Banshee Lantern): fades every 0.5 s; evolved, crashing into another moth hurts a lot.
+        e.fearT -= dt;
+        if ((e.fearTick = (e.fearTick || 0) - dt) <= 0) {
+          e.fearTick = .5; dsrc = 'wail'; hit(e, e.fearDot || 2, 0, e.x, e.y);
+          if (e.fearBump && !e.dead) for (const o of foes) if (o !== e && !o.dead && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < ((o.r + e.r) * 1.1) ** 2) { hit(e, e.fearBump, 60, o.x, o.y); hit(o, e.fearBump * .5, 60, e.x, e.y); burst(e.x, e.y, '#e8d8ff', 4, 120); break; }
+        }
+      }
       if ((e.boss || e.elite) && d2(e, P) > far * far * .45) {
         // Bosses and treasure beetles never lose you: they swoop back in from the edge.
         const a = Math.atan2(e.y - P.y, e.x - P.x) + Math.PI + rnd(-.8, .8), R = spawnR() * .9;
         e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R;
       }
       if (e.def) {
-        zoneCall(() => e.def.update ? e.def.update(e, Z) : Z.chase(e));
+        zoneActor = e; zoneCall(() => e.def.update ? e.def.update(e, Z) : Z.chase(e)); zoneActor = null;
         if (e.remove) { e.gone = true; continue; }   // a zone foe can vanish without a death (e.g. a sapper that blew itself up)
         if (!e.boss && d2(e, P) > far * far) { const a = Math.random() * TAU, R = spawnR(); e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R; }
         if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) { e.x = P.x + spawnR(); e.y = P.y; }
@@ -20449,7 +20542,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
             ux = e.jx - e.lx; uy = e.jy - e.ly;
             if (e.mt <= 0) { e.mode = 'walk'; e.mt = rnd(1.8, 2.8); e.air = false; e.lift = 0; }
           }
-          else if (e.mt <= 0 && d < 300) { e.mode = 'crouch'; e.mt = .45; e.jx = P.x; e.jy = P.y; strikeAt(P.x, P.y, 52, 22, 1, '170,230,90'); }
+          else if (e.mt <= 0 && d < 300) { e.mode = 'crouch'; e.mt = .45; e.jx = P.x; e.jy = P.y; strikeAt(P.x, P.y, 52, 22, 1, '170,230,90', e); }
         } else if (e.kind === 'snail' || e.kind === 'ember') {
           // Slow and tanky; it leaves its ground behind it as it crawls.
           e.t1 -= dt;
@@ -20465,9 +20558,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           if (e.t1 <= 0 && d < 430) {
             e.t1 = rnd(3, 4.2);
             const a = Math.atan2(dy, dx);
-            bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 210, vy: Math.sin(a) * 210, r: 8, dmg: 4, life: 3, web: true });
+            bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 210, vy: Math.sin(a) * 210, r: 8, dmg: 4, life: 3, web: true, from: "a spider's web" });
             snd.fx('shoot');
           }
+        }
+        if (e.fearT > 0 && !e.air) {
+          // Frightened: run away from Hexel, abandoning any wind-up.
+          ux = -dx / d; uy = -dy / d; sp = Math.max(e.sp, 50) * 1.1;
+          if (e.mode === 'aim' || e.mode === 'charge' || e.mode === 'crouch') { e.mode = 'walk'; e.mt = 1; }
         }
         if (e.slowT > 0) sp *= e.frozen ? .12 : .5;
         e.x += (ux * sp + e.kx) * dt; e.y += (uy * sp + e.ky) * dt;
@@ -20674,21 +20772,21 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
     for (const b of bullets) {
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
-      if ((b.x - P.x) ** 2 + (b.y - P.y) ** 2 < (b.r + P.r - 3) ** 2) { if (b.web) { if (P.slowT <= 0) pops.push({ x: P.x, y: P.y - 34, txt: 'Webbed!', col: '#e6ebf5', life: 0, ttl: 1, big: true }); P.slowT = 1.3; } hurt(b.dmg); b.life = 0; }
+      if ((b.x - P.x) ** 2 + (b.y - P.y) ** 2 < (b.r + P.r - 3) ** 2) { if (b.web) { if (P.slowT <= 0) pops.push({ x: P.x, y: P.y - 34, txt: 'Webbed!', col: '#e6ebf5', life: 0, ttl: 1, big: true }); P.slowT = 1.3; } hurt(b.dmg, b.from); b.life = 0; }
     }
     bullets = bullets.filter(b => b.life > 0);
 
     if (P.inv <= 0) for (const e of foes) {
       if (e.dead || e.air) continue;
-      if ((e.x - P.x) ** 2 + (e.y - P.y) ** 2 < (e.r + P.r - 3) ** 2) { hurt(e.dmg); break; }
-      if (e.segs && e.segs.some(q => (q.x - P.x) ** 2 + (q.y - P.y) ** 2 < (e.r * .85 + P.r - 3) ** 2)) { hurt(e.dmg); break; }
+      if ((e.x - P.x) ** 2 + (e.y - P.y) ** 2 < (e.r + P.r - 3) ** 2) { hurt(e.dmg, e); break; }
+      if (e.segs && e.segs.some(q => (q.x - P.x) ** 2 + (q.y - P.y) ** 2 < (e.r * .85 + P.r - 3) ** 2)) { hurt(e.dmg, e); break; }
     }
     if (burns.length) {
       run.burnT = (run.burnT || 0) - dt;
-      let inFire = 0, inAcid = false;
-      for (const b of burns) { b.life -= dt; if (b.life > .4 && b.max - b.life > .5 && (P.x - b.x) ** 2 + (P.y - b.y) ** 2 < (b.r * .9) ** 2) { inFire = Math.max(inFire, b.dmg); if (b.kind === 'acid') inAcid = true; } }
+      let inFire = 0, inAcid = false, worst = null;
+      for (const b of burns) { b.life -= dt; if (b.life > .4 && b.max - b.life > .5 && (P.x - b.x) ** 2 + (P.y - b.y) ** 2 < (b.r * .9) ** 2) { if (b.dmg > inFire) { inFire = b.dmg; worst = b; } if (b.kind === 'acid') inAcid = true; } }
       if (inAcid) P.slowT = Math.max(P.slowT, .35);
-      if (inFire && run.burnT <= 0) { run.burnT = .5; hurt(inFire); }
+      if (inFire && run.burnT <= 0) { run.burnT = .5; hurt(inFire, worst.kind === 'acid' ? 'snail acid' : 'burning ground'); }
       burns = burns.filter(b => b.life > 0);
     }
     for (const hz of hazards) {
@@ -20696,7 +20794,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (hz.t > 0) continue;
       rings.push({ x: hz.x, y: hz.y, r: hz.r, life: 0, ttl: .45, col: hz.col || '255,140,80' });
       burst(hz.x, hz.y, hz.col ? `rgb(${hz.col})` : '#ff9a5a', 22, 260); shake = Math.max(shake, 5); snd.fx('star');
-      if (Math.hypot(P.x - hz.x, P.y - hz.y) < hz.r + P.r) hurt(hz.dmg);
+      if (Math.hypot(P.x - hz.x, P.y - hz.y) < hz.r + P.r) hurt(hz.dmg, hz.from);
       if (hz.foes) for (const e of foes) if (!e.dead && e.kind !== 'bomber' && Math.hypot(e.x - hz.x, e.y - hz.y) < hz.r + e.r) hit(e, 30, 200, hz.x, hz.y);
     }
     hazards = hazards.filter(hz => hz.t > 0);
@@ -21149,6 +21247,26 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* Relic visuals. Glows/beams go in the additive pass (drawRelicGlow); solid actors go in the normal pass (drawRelicActors). */
   function drawRelicGlow(now) {
+    // Aurora Ribbon: shimmering green-to-violet light along the trail, brightest where it is newest; the Northern Veil
+    // adds rising curtain folds above it.
+    if (run.relic && run.relic.id === 'aurora' && run.relic.pts && run.relic.pts.length > 1) {
+      const pts = run.relic.pts, mega = run.minis >= RELIC_MEGA, n = pts.length;
+      ctx.lineCap = 'round';
+      for (const [dy, wk, ak] of mega ? [[0, 1, 1], [-14, .7, .45], [-28, .45, .25]] : [[0, 1, 1]]) {
+        for (let i = 1; i < n; i++) {
+          const a = pts[i - 1], b = pts[i];
+          if ((b.x - a.x) ** 2 + (b.y - a.y) ** 2 > 70 * 70) continue;
+          const k = i / n, hue = 140 + 130 * (.5 + .5 * Math.sin(i * .18 - now * 2.2));
+          ctx.globalAlpha = (.15 + .55 * k) * ak;
+          ctx.strokeStyle = `hsl(${hue},90%,62%)`; ctx.lineWidth = (mega ? 18 : 11) * wk * (.5 + .5 * k) * S.area;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y + dy); ctx.lineTo(b.x, b.y + dy); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = .7; ctx.strokeStyle = '#eafff6'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) { const q = pts[i]; if (i && (q.x - pts[i - 1].x) ** 2 + (q.y - pts[i - 1].y) ** 2 > 70 * 70) ctx.moveTo(q.x, q.y); else i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+      ctx.stroke(); ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+    }
     for (const e of plague) if (!e.dead && onScreen(e)) drawGlow('210,20,40', e.cbMega ? 18 : 15, e.x, e.y - e.r * .2, .6 + .2 * Math.sin(now * 6 + e.seed));
     for (const f of rfx) if (f.type === 'cbjump') {
       const k = f.life / f.ttl, mx = (f.x1 + f.x2) / 2, my = (f.y1 + f.y2) / 2 - 18;
@@ -21212,6 +21330,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (const a of allies) if (a.type === 'dragon') drawGlow('210,90,255', a.big ? 128 : 96, a.x, a.y, .5);
     for (const a of allies) if (a.type === 'bane' && onScreen(a, 40)) drawGlow('140,255,80', 26, a.x, a.y, .6);
     for (const e of foes) if (e.burn > 0 && !e.dead && onScreen(e)) drawGlow('255,130,40', 16, e.x, e.y - e.r * .4, .7);
+    for (const e of foes) if (e.fearT > 0 && !e.dead && onScreen(e)) drawGlow('205,235,255', 13, e.x, e.y - e.r - 9, .5 + .25 * Math.sin(now * 9 + e.seed));
     if (run.weapons.bow && run.weapons.bow.evo) for (const e of foes) if (e.markT > run.clock && !e.dead && onScreen(e)) drawGlow('190,160,255', 14, e.x, e.y - e.r - 10, .75);
     ctx.globalAlpha = 1;
   }
@@ -21814,6 +21933,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (f.half >= 3) ctx.arc(f.x, f.y, f.R * (1.1 - .1 * k), 0, TAU); else ctx.arc(f.x, f.y, f.R * (1.1 - .1 * k), f.a - f.half, f.a + f.half);
         ctx.closePath(); ctx.fill();
       }
+      for (const f of wails) {
+        const k = f.life / .55;
+        ctx.strokeStyle = f.evo ? '#e8d8ff' : '#cfefff'; ctx.lineWidth = 3;
+        for (let j = 0; j < 3; j++) {
+          const kk = k * 1.3 - j * .15; if (kk <= 0 || kk > 1) continue;
+          ctx.globalAlpha = (1 - kk) * .75;
+          ctx.beginPath();
+          if (f.half >= 3) ctx.arc(f.x, f.y, f.R * kk, 0, TAU); else ctx.arc(f.x, f.y, f.R * kk, f.a - f.half, f.a + f.half);
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      if (run.weapons.wail) { const bob = Math.sin(now * 2.6) * 3; drawGlow(run.weapons.wail.evo ? '220,200,255' : '190,235,255', 20, P.x + 20, P.y - 20 + bob, .55 + .2 * Math.sin(now * 5)); }
       drawRelicGlow(now);
       for (const st of strikes) {
         if (st.t < 0 || st.done) continue;
@@ -21997,6 +22129,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     shake = Math.max(0, shake - fdt * 40);
     lances = lances.filter(l => (l.life += fdt) < .25);
     frosts = frosts.filter(f => (f.life += fdt) < .35);
+    wails = wails.filter(f => (f.life += fdt) < .55);
     if (warp && (warp.t -= dt * 1.3) <= 0) warp = null;
     draw(now);
     if (dbg.auto && state === 'level') {
@@ -22059,7 +22192,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   $('relicKeep').addEventListener('click', () => { pendingRelic = null; resume(); });
   $('pauseBtn').addEventListener('click', pause);
   $('resume').addEventListener('click', resume);
-  $('quit').addEventListener('click', () => gameOver(false));
+  $('quit').addEventListener('click', () => gameOver(false, 'quit'));
   for (const b of document.querySelectorAll('.aud-music')) b.addEventListener('click', () => snd.toggle('music'));
   for (const b of document.querySelectorAll('.aud-sfx')) b.addEventListener('click', () => snd.toggle('sfx'));
   for (const i of document.querySelectorAll('.vol-music')) i.addEventListener('input', () => snd.setVol('music', i.value / 100));
