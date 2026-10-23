@@ -19581,15 +19581,52 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (let i = 0; i < 6; i++) strikes.push({ x: e.x + rnd(-90, 90), y: e.y + rnd(-90, 90), t: -i * .08, dur: .32, aoe: 70 * S.area, dmg: s.dmg * 2, evo: true, done: false });
     }
   }
-  // Fortune Dice: one roll (two when evolved).
-  const DIE = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+  // Fortune Dice: one roll (two when evolved). Drawn dice tumble above Hexel for DIE_SPIN seconds, land showing the face
+  // and its effect's name, and the effect fires as they land.
+  const DIE_SPIN = .3, DIE_NAME = ['', 'Fizzle', 'Sparks', 'Fireball', 'Lightning', 'Coins', 'Meteor!'];
   const rollFace = () => 1 + Math.floor(Math.random() * 6);
   function diceRoll(w, st) {
-    const faces = w.evo ? [rollFace(), rollFace()] : [rollFace()], dbl = faces.length > 1 && faces[0] === faces[1], k = dbl ? 1.5 : 1;
-    pops.push({ x: P.x, y: P.y - 40, txt: faces.map(f => DIE[f]).join(' ') + (dbl ? ' Doubles!' : faces.includes(6) ? ' 6!' : ''), col: faces.includes(6) || dbl ? '#ffd23a' : '#f2f4fb', life: 0, ttl: 1, big: true });
+    const faces = w.evo ? [rollFace(), rollFace()] : [rollFace()], dbl = faces.length > 1 && faces[0] === faces[1];
+    faces.forEach((f, i) => rfx.push({ type: 'die', face: f, slot: i, n: faces.length, dbl, life: 0, ttl: 1.5 }));
     snd.fx('dice');
+    w.pend = { t: DIE_SPIN, faces, k: dbl ? 1.5 : 1 };
+  }
+  function diceLand(w, st) {
+    const { faces, k } = w.pend; w.pend = null;
     for (const f of faces) diceFace(f, st.dmg * S.might * k, w.evo);
     if (faces.includes(6)) w.bonus = .45;
+  }
+  const PIPS = { 1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
+  function drawDie(x, y, sz, face, rot, gold) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    const h = sz / 2, rr = sz * .2;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.roundRect(-h + 2, -h + 3, sz, sz, rr); ctx.fill();
+    ctx.fillStyle = gold ? '#ffe9a8' : '#fbf6ea'; ctx.beginPath(); ctx.roundRect(-h, -h, sz, sz, rr); ctx.fill();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = gold ? '#e0a020' : '#c9c0ad'; ctx.stroke();
+    ctx.fillStyle = face === 1 ? '#d8303a' : '#1d2238';
+    const g = sz * .27, pr = sz * (face === 1 ? .13 : .095);
+    for (const [px, py] of PIPS[face]) { ctx.beginPath(); ctx.arc(px * g, py * g, pr, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+  // Rolled dice above Hexel: tumbling (random faces, spinning), then landed with the effect name underneath.
+  function drawDice(now) {
+    for (const f of rfx) {
+      if (f.type !== 'die') continue;
+      const spin = f.life < DIE_SPIN, k = Math.min(1, f.life / DIE_SPIN), fade = Math.min(1, (f.ttl - f.life) / .35);
+      const x = (f.demo ? f.x : P.x) + (f.slot - (f.n - 1) / 2) * (f.demo ? 56 : 52), y = (f.demo ? f.y : P.y - 44) - (spin ? Math.sin(k * Math.PI) * 12 : 0);
+      const face = spin ? 1 + Math.floor((now * 30 + f.slot * 7) % 6) : f.face, gold = !spin && (f.face === 6 || f.dbl);
+      const pop = spin ? 1 : 1 + .25 * Math.max(0, 1 - (f.life - DIE_SPIN) / .15);
+      ctx.globalAlpha = fade;
+      drawDie(x, y, 11 * pop, face, spin ? k * 7 : 0, gold);
+      if (!spin) {
+        ctx.font = '700 9px Grandstander, system-ui'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        const label = DIE_NAME[f.face];
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,12,24,.9)'; ctx.strokeText(label, x, y + 15);
+        ctx.fillStyle = gold ? '#ffd23a' : '#f2f4fb'; ctx.fillText(label, x, y + 15);
+        if (f.dbl && f.slot === 0) { ctx.font = '700 10px Grandstander, system-ui'; ctx.strokeText('Doubles!', P.x, y - 12); ctx.fillStyle = '#ffd23a'; ctx.fillText('Doubles!', P.x, y - 12); }
+      }
+    }
+    ctx.globalAlpha = 1;
   }
   function diceFace(f, D, evo) {
     const tg = nearest(P.x, P.y, 420);
@@ -19915,6 +19952,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       case 'dice': {
         // Roll, then let the face decide. A 6 earns another roll; Loaded Dice rolls two at once (doubles: +50%).
+        if (w.pend && (w.pend.t -= dt) <= 0) diceLand(w, st);
         if (w.bonus > 0 && (w.bonus -= dt) <= 0) diceRoll(w, st);
         w.t -= dt; if (w.t > 0) break;
         if (!nearest(P.x, P.y, 420)) { w.t = .3; break; }
@@ -22172,6 +22210,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       for (const id in run.weapons) if (id === 'bat') for (const b of run.weapons[id].bats) drawBat(b, now, run.weapons[id].evo);
       drawRelicActors(now);
+      drawDice(now);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'lighter'; drawGlow('255,230,140', 12, P.ant.x, P.ant.y, .9); ctx.globalCompositeOperation = 'source-over';
       if (P.spin > 0) { ctx.strokeStyle = `rgba(255,226,122,${P.spin})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P.x, P.y, 20 + Math.max(0, 1 - P.spin) * 40, 0, TAU); ctx.stroke(); }
@@ -22379,6 +22418,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     zone: { get: () => run && run.zone }, hazards: { get: () => hazards }, hit: { value: (e, d) => hit(e, d, 0, e.x, e.y) }, step: { value: ms => step(ms) }, Z: { value: Z },
     // Times floor-chunk rendering for a zone: fj.chunkBench('zerg') → avg/max ms over n random chunks.
     plague: { get: () => plague },
+    // Shows all six dice faces in a row (their landed look) for 8 s.
+    diceDemo: { value: () => { for (let f = 1; f <= 6; f++) rfx.push({ type: 'die', face: f, slot: f - 1, n: 6, dbl: false, life: DIE_SPIN + .2, ttl: 8, demo: true, x: P.x, y: P.y - 70 }); } },
     burns: { get: () => burns },
     chunkBench: { value: (id, n = 12) => { const zd = ZONES.find(z => z.id === id), ts = []; for (let i = 0; i < n; i++) { const t0 = performance.now(); const c = renderChunk(zd, (Math.random() * 40 - 20) | 0, (Math.random() * 40 - 20) | 0, Math.min(dpr, 1)); c.getContext('2d').getImageData(0, 0, 1, 1); ts.push(performance.now() - t0); chunkPool.length < 8 && chunkPool.push(c); } return { id, avg: +(ts.reduce((x, y) => x + y) / n).toFixed(1), max: +Math.max(...ts).toFixed(1) }; } },
     relic: { value: (id, minis) => { run.relic = newRelic(id); if (minis != null) run.minis = minis; allies = []; renderLoadout(); } },
