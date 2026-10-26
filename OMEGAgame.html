@@ -126,6 +126,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
 .loot { display: grid; gap: 8px; width: min(420px, 100%); }
 .loot div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; text-align: left; display: grid; gap: 2px; }
+.loot.sell div { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.loot.sell .btn { padding: 6px 14px; font-size: 14px; }
 .loot div.evo { border-color: rgba(217,184,255,.7); box-shadow: 0 0 18px rgba(217,184,255,.2); }
 .loot strong { font-family: var(--display); font-size: 17px; }
 .loot div.evo strong { color: var(--evo); }
@@ -251,6 +253,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <div class="loot" id="loot"></div>
     <button class="btn" id="chestOk">Onward</button>
     <div class="row" id="relicRow" hidden><button class="btn" id="relicTake">Take</button><button class="btn ghost" id="relicKeep">Keep</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="peddler" hidden>
+  <div class="card">
+    <span class="eyebrow">Wandering peddler</span>
+    <h2>Trade in your gear</h2>
+    <p class="sub">Sell any weapon or charm you regret. Each sale gives you fresh level-up picks: one for every two levels it had (at least one).</p>
+    <div class="loot sell" id="sellList"></div>
+    <button class="btn" id="peddlerBye">Farewell</button>
   </div>
 </div>
 
@@ -686,7 +698,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
 
     const FX_KEY = new Set(['boss', 'bossdown', 'level', 'evolve', 'chestdrop', 'revive', 'death', 'dawn', 'hurt', 'warn', 'rift']);
-    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2, wail: .4, dice: .2, mask: .5 };
+    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2, wail: .4, dice: .2, mask: .5, puff: .08 };
     const PENT = [74, 77, 79, 81, 84, 86, 88, 89];
     const FX = {
       // Hits and kills are soft tonal taps. They used to be tiny bursts of 2-3 kHz noise, which at ~30 per second in a
@@ -726,6 +738,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       portal: t => { nz(t, 1.2, .12, 'bandpass', 200, 2, 2400); tn('sine', 80, 320, t, .02, 1, .15, .6); [74, 79, 83, 86, 91].forEach((m, i) => bell(m, t + .1 + i * .07, .05)); },
       // Wailing Mask: a ghostly howl that rises and falls, with a breathy rush of air.
       mask: t => { tn('sine', 150, 360, t, .07, .35, .05, .7); tn('sine', 360, 170, t + .35, .02, .6, .045, .7); tn('triangle', 225, 540, t, .07, .35, .014, .7); tn('sine', 70, 95, t, .08, .8, .06, .5); nz(t, .6, .02, 'bandpass', 450, 1.5, 1100); },
+      puff: t => { tn('sine', 150, 60, t, .004, .22, .07); nz(t, .3, .035, 'lowpass', 1100, .7, 300); },
       dice: t => { tn('triangle', 1500, 900, t, .002, .03, .03); tn('triangle', 1250, 800, t + .07, .002, .03, .025); tn('triangle', 1100, 700, t + .13, .002, .03, .02); },
       wail: t => { tn('sine', 880, 520, t, .04, .5, .03, .6); tn('triangle', 660, 395, t, .06, .45, .012, .6); },
       rift: t => { [86, 91, 95].forEach((m, i) => bell(m, t + i * .1, .045)); nz(t, .6, .05, 'highpass', 3000, .7); },
@@ -784,8 +797,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Damage +30%, bigger, more often', 'Damage +15%, bigger, more often', 'Damage +20%, bigger, more often', 'Damage +20%, bigger, more often', 'Damage +15%, bigger, more often'] },
     thorn: { name: 'Bramble Ring', desc: 'Thorny thickets burst from the ground under nearby moths and keep stabbing.', evo: 'ward', evoName: 'Briar Fortress', evoDesc: 'Eight thickets erupt in a ring around you every second.',
       up: ['Damage +25%', '+1 thicket, wider', 'Damage +30%, faster', '+1 thicket, wider, faster', '+1 thicket, damage +20%, faster'] },
-    lance: { name: 'Prism Lance', desc: 'Fires a piercing beam of light in the direction you move.', evo: 'keen', evoName: 'Dawnbreaker', evoDesc: 'Six spinning beams of sunrise cut through everything.',
-      up: ['Damage +30%, longer', 'Damage +23%, wider, faster', '+1 beam, faster', 'Damage +22%, wider, faster', '+1 beam, damage +18%, faster'] },
+    lance: { name: 'Prism Lance', desc: 'Fires a piercing beam of light at the nearest moth. Where it strikes, the beam refracts into a fan of coloured rays.', evo: 'keen', evoName: 'Dawnbreaker', evoDesc: 'Three beams of sunrise, each refracting into a five-colour fan whose rays refract again.',
+      up: ['Damage +30%, longer', 'Damage +23%, wider, faster, +1 refracted ray', '+1 beam, faster', 'Damage +22%, wider, faster, +1 refracted ray', '+1 beam, damage +18%, faster'] },
     wisp: { name: "Will-o'-Wisps", desc: 'Releases wisps that hunt down moths on their own. Some are born lucky: golden, ember, storm, twin or hunting wisps.', evo: 'clover', evoName: 'Choir of Fortune', evoDesc: 'A choir of eight wisps that pierce through three moths each, and every one is born lucky. Now and then a jackpot wisp calls down falling stars.',
       up: ['+1 wisp, damage +14%, faster', 'Damage +19%, faster', '+1 wisp, damage +16%, faster', 'Damage +18%, faster', '+1 wisp, damage +15%, faster'] },
     hammer: { name: 'Blessed Hammers', desc: 'Throws glowing hammers that spiral outward from where you stand, crushing every moth they pass.', evo: 'bell', evoName: 'Hammerfall of the Heavens', evoDesc: 'Six hammers on a wider spiral, and each one ends in a holy burst.',
@@ -802,9 +815,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Damage +33%, reaches further', 'Burns hotter, reaches further', 'Damage +25%, wider, reaches further', 'Damage +20%, burns hotter, wider', 'Damage +17%, burns hotter, wider, reaches further'] },
     dice: { name: 'Fortune Dice', desc: 'Every few seconds Hexel rolls a die and the face decides what happens: 1 fizzles, 2 throws sparks, 3 a fireball, 4 chain lightning, 5 a shower of coins, 6 a meteor and another roll.', evo: 'shoe', evoName: 'Loaded Dice', evoDesc: 'Rolls two dice at once and both effects happen. Doubles hit 50% harder.',
       up: ['Rolls faster, effects +20%', 'Rolls faster, effects +21%', 'Rolls faster, effects +17%', 'Rolls faster, effects +18%', 'Rolls faster, effects +18%'] },
+    mine: { name: 'Puffcap Mines', desc: 'Plants glowing puffcap mushrooms around you. When a moth steps close (or the fuse runs out) a cap bursts and leaves a cloud of poisonous spores behind.', evo: 'bloom', evoName: 'Mycelium Minefield', evoDesc: 'More caps, bigger bursts, and every burst sprouts three little caps that pop a moment later. The spore clouds also slow moths.',
+      up: ['Damage +20%, faster, bigger burst', '+1 puffcap, damage +22%, spores last longer', 'Damage +18%, bigger burst and cloud, faster', '+1 puffcap, damage +15%, more caps at once', 'Damage +17%, bigger cloud, spores last longer, faster'] },
     wail: { name: 'Banshee Lantern', desc: 'A lantern holding a wailing spirit. Every few seconds its wail rolls out in a cone and frightens the moths it reaches: they flee from you, fading as they go.', evo: 'veil', evoName: 'Wailing Veil', evoDesc: 'The wail rings out all around you. Frightened moths that crash into each other take heavy damage, and bosses are slowed.',
       up: ['Damage +25%, faster, wider, frightens longer', 'Damage +20%, faster, reaches further, frightens longer', 'Damage +17%, faster, wider, reaches further, frightens longer', 'Damage +21%, faster, wider, frightens longer', 'Damage +18%, faster, wider, reaches further, frightens longer'] },
-    frost: { name: 'Moonfrost', desc: 'A cone of frost in front of you that chills and slows moths.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes moths solid.',
+    frost: { name: 'Moonfrost', desc: 'A cone of frost behind you (opposite to the way you move) that chills and slows whatever is chasing you.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes moths solid.',
       up: ['Damage +20%, reaches further, chills longer', 'Damage +25%, faster', 'Damage +20%, wider, faster', 'Damage +22%, wider, faster', 'Damage +18%, wider, reaches further'] },
   };
   // Weapons level to 8 (levels 7–8 are generic power steps); evolution needs level 6 plus the paired charm.
@@ -838,8 +853,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         : { cd: [1.6, 1.6, 1.5, 1.4, 1.3, 1.2][L], n: [1, 1, 2, 2, 2, 3][L], dmg: [18, 24, 24, 28, 34, 38][L], size: [1, 1, 1, 1.15, 1.15, 1.3][L], sp: 420, life: 1.1 };
       case 'thorn': return evo ? { cd: 1.1, n: 8, dmg: 20, r: 50, dur: 2.6 }
         : { cd: [3, 2.8, 2.6, 2.4, 2.2, 2][L], n: [2, 2, 3, 3, 4, 5][L], dmg: [8, 10, 10, 13, 15, 18][L], r: [34, 34, 38, 38, 42, 46][L], dur: 2 };
-      case 'lance': return evo ? { cd: .9, n: 6, dmg: 70, len: 520, w: 16 }
-        : { cd: [2.2, 2, 1.9, 1.7, 1.5, 1.3][L], n: [1, 1, 1, 2, 2, 3][L], dmg: [20, 26, 32, 36, 44, 52][L], len: [360, 380, 400, 420, 440, 470][L], w: [10, 10, 12, 12, 14, 14][L] };
+      case 'lance': return evo ? { cd: .85, n: 3, dmg: 78, len: 480, w: 14, split: 5, depth: 2 }
+        : { cd: [2.2, 2, 1.9, 1.7, 1.5, 1.3][L], n: [1, 1, 1, 2, 2, 3][L], dmg: [20, 26, 32, 36, 44, 52][L], len: [360, 380, 400, 420, 440, 470][L], w: [10, 10, 12, 12, 14, 14][L], split: [2, 2, 3, 3, 4, 4][L], depth: 1 };
       case 'wisp': return evo ? { cd: 1, n: 8, dmg: 22, sp: 330, pierce: 3 }
         : { cd: [1.8, 1.7, 1.6, 1.5, 1.4, 1.2][L], n: [1, 2, 2, 3, 3, 4][L], dmg: [14, 16, 19, 22, 26, 30][L], sp: 270, pierce: 1 };
       case 'hammer': return evo ? { cd: 1.2, n: 6, dmg: 30, spin: 4.2, grow: 70, life: 2.8 }
@@ -854,6 +869,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         : { cd: [2.4, 2.4, 2.2, 2, 2, 1.7][L], dmg: [30, 38, 44, 52, 52, 66][L], R: [70, 76, 76, 84, 84, 92][L], reach: 70, n: [1, 1, 1, 1, 2, 2][L], quake: 0 };
       case 'flame': return evo ? { tick: .2, dmg: 14, burn: 9, range: 210, half: .75 }
         : { tick: .25, dmg: [4, 5, 6, 7, 9, 11][L], burn: [3, 3, 4, 5, 6, 7][L], range: [115, 125, 135, 145, 155, 170][L], half: [.38, .38, .4, .44, .47, .5][L] };
+      case 'mine': return evo ? { cd: 1.5, n: 5, max: 14, dmg: 60, R: 90, cloud: 80, cdur: 4, dot: 12 }
+        : { cd: [2.8, 2.6, 2.4, 2.2, 2, 1.8][L], n: [2, 2, 3, 3, 4, 4][L], max: [6, 6, 8, 8, 10, 12][L], dmg: [22, 26, 32, 38, 44, 52][L], R: [60, 64, 68, 74, 80, 86][L], cloud: [50, 52, 56, 60, 66, 72][L], cdur: [2, 2.2, 2.5, 2.8, 3.1, 3.5][L], dot: [4, 5, 6, 7, 8, 10][L] };
       case 'dice': return evo ? { cd: 1.6, dmg: 100 } : { cd: [3.2, 2.9, 2.6, 2.3, 2.05, 1.85][L], dmg: [36, 43, 52, 61, 72, 85][L] };
       case 'wail': return evo ? { cd: 2.6, dmg: 26, range: 270, cone: 7, fear: 3, bump: 36 }
         : { cd: [4.2, 4, 3.8, 3.5, 3.2, 3][L], dmg: [8, 10, 12, 14, 17, 20][L], range: [170, 180, 195, 210, 225, 240][L], cone: [1, 1.1, 1.2, 1.35, 1.5, 1.7][L], fear: [1.4, 1.6, 1.8, 2, 2.3, 2.6][L] };
@@ -885,6 +902,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     brace:  { name: "Giant's Bracer",  max: 5, desc: 'Hit bosses, elites and heavy moths 5% harder per level.' },
     kindle: { name: 'Kindling',        max: 5, desc: '+4% chance per level for any hit to set the moth on fire.' },
     dusk:   { name: 'Duskbound',       max: 5, desc: 'More moths come for you, a little faster, but you gain 12% more experience.' },
+    bloom:  { name: 'Fungal Bloom',    max: 5, desc: 'Every kill has a 5% chance per level to leave a small spore cloud where the moth fell, poisoning moths that wander into it.' },
     shoe:   { name: 'Lucky Horseshoe', max: 5, desc: 'Lucky finds: moths drop honey, full moons and bonus glow 5% more often per level, and chests have a 10% chance per level of an extra prize.' },
     veil:   { name: 'Ghostlight Veil', max: 5, desc: 'After you are hit, you stay untouchable 0.1 s longer per level.' },
   };
@@ -926,7 +944,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const trailCap = () => run.t >= 480 ? 3 : 2;
   const EVENTS = [
     { t: 45, kind: 'ring' }, { t: 75, kind: 'elite' }, { t: 100, kind: 'stampede' }, { t: 120, kind: 'boss', boss: 'luna' },
-    { t: 165, kind: 'ring' }, { t: 210, kind: 'elite' }, { t: 230, kind: 'stampede' }, { t: 285, kind: 'ring' }, { t: 300, kind: 'boss', boss: 'stag' },
+    { t: 165, kind: 'ring' }, { t: 210, kind: 'elite' }, { t: 230, kind: 'stampede' }, { t: 285, kind: 'ring' }, { t: 300, kind: 'boss', boss: 'stag' }, { t: 345, kind: 'peddler' },
     { t: 350, kind: 'stampede' }, { t: 390, kind: 'elite' }, { t: 405, kind: 'ring' }, { t: 440, kind: 'stampede' }, { t: 455, kind: 'snails' }, { t: 480, kind: 'boss', boss: 'queen' }, { t: 510, kind: 'snails' },
     { t: 525, kind: 'ring' }, { t: 540, kind: 'elite' }, { t: 560, kind: 'stampede' }, { t: 585, kind: 'ring' },
   ];
@@ -19943,8 +19961,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     rollOffers();
     show('level');
   }
+  const START_SKIP = ['lamp', 'dew2'];
   function rollOffers() {
-    const pool = run.start ? Object.keys(WEAPONS).map(id => ({ type: 'w', id, lv: 1 })) : choicePool();
+    // The first pick never offers the purely defensive weapons: you need something that kills moths from the start.
+    const pool = run.start ? Object.keys(WEAPONS).filter(id => !START_SKIP.includes(id)).map(id => ({ type: 'w', id, lv: 1 })) : choicePool();
     offers = sample(pool, run.start ? 3 : 3 + (Math.random() < .1 * pv('clover') ? 1 : 0));
     $('picks').classList.toggle('four', offers.length > 3);
     if (!offers.length) offers = [{ type: 'heal' }];
@@ -20047,7 +20067,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const fitLevel = () => { if (!$('level').hidden) $('level').style.bottom = $('loadout').offsetHeight + 'px'; };
   addEventListener('resize', fitLevel);
   function show(id) {
-    for (const o of ['title', 'level', 'chest', 'pause', 'over']) $(o).hidden = o !== id;
+    for (const o of ['title', 'level', 'chest', 'pause', 'over', 'peddler']) $(o).hidden = o !== id;
     $('loadout').classList.toggle('above', id === 'level');
     // Leave exactly enough room under the cards for the build bar, however many rows of chips it wraps into.
     // The level-up overlay ends at the top of the build bar, so cards and buttons can never scroll underneath it.
@@ -20367,6 +20387,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         e.dir = { x: -Math.cos(a), y: -Math.sin(a) }; e.sp = 230; e.life = 0;
       }
       banner('Wasp stampede!', '#ffcf5a'); snd.fx('warn');
+    } else if (ev.kind === 'peddler') {
+      // A wandering peddler camps about 20 s of walking away (an arrow points the way) and stays for 75 s.
+      const a = Math.random() * TAU, d = Math.max(2800, Math.min(4400, S.speed * 20));
+      run.peddler = { x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, life: 75 };
+      banner('A wandering peddler has made camp. Follow the gold arrow!', '#ffd27a', true); snd.fx('warn');
     } else if (ev.kind === 'snails') {
       // Snail stampede: a line of snails crosses the meadow at 3x their speed, laying a wall of acid behind them.
       const a = Math.random() * TAU, R = spawnR(), cx = P.x + Math.cos(a) * R, cy = P.y + Math.sin(a) * R;
@@ -20492,6 +20517,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       return;
     }
     dropXp(e.x, e.y, e.xp);
+    if (pv('bloom') && Math.random() < .05 * pv('bloom') && traps.length < 80) traps.push({ x: e.x, y: e.y, r: 42 * S.area, life: 2 * S.dur, max: 2 * S.dur, tick: 0, dmg: (4 + 2 * pv('bloom')) * S.might, spore: true, src: 'p:bloom' });
     if (e.kind === 'bomber') hazards.push({ x: e.x, y: e.y, t: .9, r: 70, dmg: 16, foes: true, from: "a bomber beetle's blast" });
     if (e.kind === 'snail') addBurn(e.x, e.y, 140, { kind: 'acid', life: 6, dmg: 7 });
     if (e.kind === 'ember') addBurn(e.x, e.y, 85, { life: 6, dmg: 9 });
@@ -20732,6 +20758,18 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- Weapons ---------- */
+  /* ---------- Reach ----------
+     How far weapons and relics look for targets. Each entry is [original, shortened] in world px; every device uses the
+     same value. Set SHORT_REACH = false to restore every original value, or edit single entries.
+     Moonbow keeps its long range on purpose. */
+  const SHORT_REACH = true;
+  const REACH = {
+    bolt: [650, 420], thorn: [380, 300], wisp: [520, 380], dice: [420, 340],
+    isaac: [700, 460], zelda: [500, 380], ds: [560, 420], spire: [650, 420], cow: [480, 380], temple: [520, 400],
+    zerg: [520, 400], bay: [560, 420], homm: [600, 420], orb: [600, 420], tibia: [520, 400],
+  };
+  const reach = k => REACH[k][SHORT_REACH ? 1 : 0];
+
   // Lucky wisp effects, applied on each hit.
   const WISP_LUCK = ['gold', 'ember', 'storm', 'twin', 'hunter'];
   const WISP_COL = { gold: '255,215,90', ember: '255,130,60', storm: '150,190,255', twin: '230,255,250', hunter: '130,255,150', jackpot: '255,120,230' };
@@ -20752,6 +20790,18 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     else if (s.luck === 'jackpot' && !s.paid) {
       s.paid = true; pops.push({ x: e.x, y: e.y - 30, txt: 'Jackpot!', col: '#ff9ae6', life: 0, ttl: 1, big: true });
       for (let i = 0; i < 6; i++) strikes.push({ x: e.x + rnd(-90, 90), y: e.y + rnd(-90, 90), t: -i * .08, dur: .32, aoe: 70 * S.area, dmg: s.dmg * 2, evo: true, done: false });
+    }
+  }
+  // Puffcap Mines: a burst (blast + lingering spore cloud as a `spore` trap). Evolved caps sprout three mini caps.
+  function puffBurst(m, st, evo) {
+    const k = m.mini ? .55 : 1, R = st.R * S.area * k, dmg = st.dmg * S.might * k;
+    for (const e of foes) if (!e.dead && (e.x - m.x) ** 2 + (e.y - m.y) ** 2 < (R + e.r) ** 2) hit(e, dmg, 160, m.x, m.y);
+    traps.push({ x: m.x, y: m.y, r: st.cloud * S.area * k, life: st.cdur * S.dur, max: st.cdur * S.dur, tick: 0, dmg: st.dot * S.might, spore: true, slow: evo });
+    rings.push({ x: m.x, y: m.y, r: R, life: 0, ttl: .35, col: '150,255,190' }); burst(m.x, m.y, '#9affc8', m.mini ? 6 : 12, 200);
+    snd.fx('puff');
+    if (evo && !m.mini) {
+      const w = run.weapons.mine; w.sprouts = w.sprouts || [];
+      for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + Math.random(); w.sprouts.push({ x: m.x + Math.cos(a) * 55, y: m.y + Math.sin(a) * 55, arm: 0, life: .6, mini: true, ph: 0 }); }
     }
   }
   // Fortune Dice: one roll (two when evolved). Drawn dice tumble above Hexel for DIE_SPIN seconds, land showing the face
@@ -20802,7 +20852,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.globalAlpha = 1;
   }
   function diceFace(f, D, evo) {
-    const tg = nearest(P.x, P.y, 420);
+    const tg = nearest(P.x, P.y, reach('dice'));
     const tx = tg ? tg.x : P.x + P.face.x * 150, ty = tg ? tg.y : P.y + P.face.y * 150, a0 = Math.atan2(ty - P.y, tx - P.x);
     const bolt = (a, sp, dmg, col, pierce = 1, life = 1) => shots.push({ type: 'bolt', x: P.x, y: P.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, pierce, life, r: 5, hit: new Set(), col, aoe: 0 });
     if (f === 1) { for (let i = 0; i < 3; i++) bolt(Math.random() * TAU, 300, D * .4, '190,190,200', 1, .6); burst(P.x, P.y, '#b8b8c8', 8, 120); }
@@ -20817,6 +20867,22 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       snd.fx('chain');
     } else if (f === 5) { for (let i = 0; i < 10; i++) bolt(i / 10 * TAU, 460, D * .8, '255,205,60', 3, .8); snd.fx('moonpick'); }
     else strikes.push({ x: tx, y: ty, t: 0, dur: .4, aoe: 120 * S.area, dmg: D * 2.5, evo: true, done: false });
+  }
+  // Prism Lance: a piercing beam; at the first moth it strikes it refracts into `split` coloured rays (60% damage,
+  // 60% length) fanned around its direction, `depth` times over.
+  const PRISM = ['255,90,90', '255,170,60', '255,240,90', '110,255,140', '90,200,255', '170,120,255'];
+  function prismBeam(x, y, a, len, wd, dmg, split, depth, evo, skip, ci) {
+    const dx = Math.cos(a), dy = Math.sin(a);
+    let first = null, fa = Infinity;
+    for (const e of foes) {
+      if (e.dead || e === skip) continue;
+      const rx = e.x - x, ry = e.y - y, along = rx * dx + ry * dy;
+      if (along > -e.r && along < len && Math.abs(ry * dx - rx * dy) < wd + e.r) { hit(e, dmg, 60, x, y); if (along < fa) { fa = along; first = e; } }
+    }
+    lances.push({ x, y, a, len, w: wd, life: 0, evo, col: ci >= 0 ? PRISM[ci % PRISM.length] : null });
+    if (!depth || !first) return;
+    const fx = x + dx * Math.max(0, fa), fy = y + dy * Math.max(0, fa), spread = split > 3 ? .32 : .4;
+    for (let j = 0; j < split; j++) prismBeam(fx, fy, a + (j - (split - 1) / 2) * spread, len * .6, wd * .7, dmg * .6, evo ? 3 : split, depth - 1, evo, first, (ci + 1 + j * Math.ceil(PRISM.length / split)) % PRISM.length);
   }
   function updateWeapon(id, w, dt) {
     const st = wstat(id, w.lv, w.evo);
@@ -20844,7 +20910,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       case 'bolt': {
         w.t -= dt; if (w.t > 0) break;
-        const list = foes.filter(e => !e.dead && d2(e, P) < 650 * 650).sort((a, b) => d2(a, P) - d2(b, P));
+        const rb = reach('bolt'), list = foes.filter(e => !e.dead && d2(e, P) < rb * rb).sort((a, b) => d2(a, P) - d2(b, P));
         if (!list.length) { w.t = .1; break; }
         w.t = st.cd * S.cd; snd.fx('bolt');
         const n = st.n + S.amount, sp = st.sp * S.projSp;
@@ -20940,7 +21006,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const n = st.n + S.amount, R = st.r * S.area, life = st.dur * S.dur, dmg = st.dmg * might;
         if (w.evo) { for (let i = 0; i < n; i++) { const a = i / n * TAU + run.clock; traps.push({ x: P.x + Math.cos(a) * 95, y: P.y + Math.sin(a) * 95, r: R, life, max: life, tick: 0, dmg, evo: true }); } }
         else {
-          const near = foes.filter(e => !e.dead && d2(e, P) < 380 * 380).sort(() => Math.random() - .5).slice(0, n);
+          const rt = reach('thorn'), near = foes.filter(e => !e.dead && d2(e, P) < rt * rt).sort(() => Math.random() - .5).slice(0, n);
           for (const e of near) traps.push({ x: e.x, y: e.y, r: R, life, max: life, tick: 0, dmg });
           if (!near.length) w.t = .3;
         }
@@ -20948,17 +21014,17 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         break;
       }
       case 'lance': {
+        // Aimed at the nearest moths (one beam per target). Each beam pierces, and where it first strikes it refracts
+        // into a fan of coloured rays (prismBeam); Dawnbreaker's rays refract once more.
         w.t -= dt; if (w.t > 0) break;
+        const len = st.len * S.area, wd = st.w * S.area;
+        const tg = foes.filter(e => !e.dead && d2(e, P) < len * len).sort((a, b) => d2(a, P) - d2(b, P));
+        if (!tg.length) { w.t = .2; break; }
         w.t = st.cd * S.cd;
-        const n = st.n + S.amount, len = st.len * S.area, wd = st.w * S.area, base = w.evo ? run.clock * 2 : Math.atan2(P.face.y, P.face.x);
+        const n = st.n + S.amount;
         for (let i = 0; i < n; i++) {
-          const a = w.evo ? base + i * TAU / n : base + (i - (n - 1) / 2) * .22, dx = Math.cos(a), dy = Math.sin(a);
-          lances.push({ x: P.x, y: P.y, a, len, w: wd, life: 0, evo: w.evo });
-          for (const e of foes) {
-            if (e.dead) continue;
-            const rx = e.x - P.x, ry = e.y - P.y, along = rx * dx + ry * dy;
-            if (along > -e.r && along < len && Math.abs(ry * dx - rx * dy) < wd + e.r) hit(e, st.dmg * might, 60, P.x, P.y);
-          }
+          const e = tg[i % tg.length], a = Math.atan2(e.y - P.y, e.x - P.x) + (i >= tg.length ? (i - tg.length + 1) * .2 : 0);
+          prismBeam(P.x, P.y, a, len, wd, st.dmg * might, st.split, st.depth, w.evo, null, -1);
         }
         snd.fx('bolt');
         break;
@@ -21109,7 +21175,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       case 'frost': {
         w.t -= dt; if (w.t > 0) break;
         w.t = st.cd * S.cd;
-        const R = st.range * S.area, base = Math.atan2(P.face.y, P.face.x), half = st.cone / 2;
+        // Behind Hexel: opposite to the way it moves, so it chills whatever is chasing.
+        const R = st.range * S.area, base = Math.atan2(-P.face.y, -P.face.x), half = st.cone / 2;
         frosts.push({ x: P.x, y: P.y, a: base, half, R, life: 0, evo: w.evo });
         for (const e of foes) {
           if (e.dead) continue;
@@ -21123,12 +21190,31 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         snd.fx('chain');
         break;
       }
+      case 'mine': {
+        // Plant caps around Hexel; each arms after 0.5 s, then bursts when a moth comes close or its fuse runs out.
+        const mines = w.mines || (w.mines = []);
+        w.t -= dt;
+        if (w.t <= 0) {
+          w.t = st.cd * S.cd;
+          for (let i = 0; i < st.n + S.amount; i++) { const a = Math.random() * TAU, d = rnd(70, 180) * S.area; mines.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, arm: .5, life: 8 * S.dur, ph: Math.random() * 6 }); }
+          while (mines.length > st.max) puffBurst(mines.shift(), st, w.evo);
+        }
+        for (const m of mines) {
+          m.arm -= dt; m.life -= dt;
+          if (m.arm > 0) continue;
+          let go = m.life <= 0;
+          if (!go) for (const e of foes) if (!e.dead && (e.x - m.x) ** 2 + (e.y - m.y) ** 2 < (e.r + 24) ** 2) { go = true; break; }
+          if (go) { m.gone = true; puffBurst(m, st, w.evo); }
+        }
+        w.mines = mines.filter(m => !m.gone).concat(w.sprouts || []); w.sprouts = null;
+        break;
+      }
       case 'dice': {
         // Roll, then let the face decide. A 6 earns another roll; Loaded Dice rolls two at once (doubles: +50%).
         if (w.pend && (w.pend.t -= dt) <= 0) diceLand(w, st);
         if (w.bonus > 0 && (w.bonus -= dt) <= 0) diceRoll(w, st);
         w.t -= dt; if (w.t > 0) break;
-        if (!nearest(P.x, P.y, 420)) { w.t = .3; break; }
+        if (!nearest(P.x, P.y, reach('dice'))) { w.t = .3; break; }
         w.t = st.cd * S.cd;
         diceRoll(w, st);
         break;
@@ -21317,7 +21403,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (r.charge > 0) {
           r.charge -= dt;
           if (r.charge <= 0) { r.beam = { a: r.aim, life: .5, tick: 0, w: 0 }; shake = Math.max(shake, 5); snd.fx('nova'); }
-        } else if (!r.beam && r.t <= 0) { r.charge = .6; r.aim = aimAt(700); r.t = (mega ? 2.6 : 4) * S.cd; }
+        } else if (!r.beam && r.t <= 0) { r.charge = .6; r.aim = aimAt(reach('isaac')); r.t = (mega ? 2.6 : 4) * S.cd; }
         if (r.beam) {
           const bm = r.beam;
           bm.life -= dt; bm.tick -= dt; if (mega) bm.a += dt * 2.2;
@@ -21332,7 +21418,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         r.t = 2.2 * S.cd;
         const n = mega ? 3 : 1;
         for (let i = 0; i < n; i++) {
-          const a = aimAt(500) + (i - (n - 1) / 2) * .5;
+          const a = aimAt(reach('zelda')) + (i - (n - 1) / 2) * .5;
           shots.push({ type: 'boom', x: P.x, y: P.y, vx: Math.cos(a) * 540, vy: Math.sin(a) * 540, out: (300 + 30 * lv) * S.area, d: 0, back: false, dmg: (mega ? 42 : 18) * pow, hit: new Set(), life: 5, rot: 0, mega });
         }
         break;
@@ -21354,7 +21440,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (r.t > 0) break;
         r.t = (mega ? 2.2 : [0, 3.6, 3.2, 2.8][lv]) * S.cd;
         let tgt = null, best = -1;
-        for (const e of foes) if (!e.dead && d2(e, P) < 560 * 560 && e.hp > best) { best = e.hp; tgt = e; }
+        const rd = reach('ds'); for (const e of foes) if (!e.dead && d2(e, P) < rd * rd && e.hp > best) { best = e.hp; tgt = e; }
         const base = tgt ? Math.atan2(tgt.y - P.y, tgt.x - P.x) : Math.atan2(P.face.y, P.face.x), n = mega ? 3 : 1;
         for (let i = 0; i < n; i++) {
           const a = base + (i - (n - 1) / 2) * .22;
@@ -21374,7 +21460,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       case 'spire': {
         // A fan of cards at the nearest moth in reach (or the way you face); MEGA's middle card cycles gold / red / blue.
         if (r.t > 0) break;
-        const near = nearest(P.x, P.y, 650);
+        const near = nearest(P.x, P.y, reach('spire'));
         if (!near) { r.t = .3; break; }
         r.t = (mega ? 1.8 : [0, 3, 2.7, 2.4][lv]) * S.cd;
         const base = Math.atan2(near.y - P.y, near.x - P.x), n = mega ? 5 : 3, spread = mega ? .2 : .28;
@@ -21389,7 +21475,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       case 'cow': {
         // Stomp the densest crowds in reach (a sampled neighbour count keeps it cheap). MEGA: three stomps in a row.
         if (r.t > 0) break;
-        const cand = foes.filter(e => !e.dead && d2(e, P) < 480 * 480);
+        const rc = reach('cow'), cand = foes.filter(e => !e.dead && d2(e, P) < rc * rc);
         if (!cand.length) { r.t = .4; break; }
         r.t = (mega ? 2.3 : [0, 3.2, 2.8, 2.4][lv]) * S.cd;
         const sample = cand.length > 50 ? cand.sort(() => Math.random() - .5).slice(0, 50) : cand;
@@ -21402,8 +21488,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       case 'temple': {
         // Patient zero: the toughest moth in reach (bosses first) catches the plague; updatePlague spreads it.
+        const rtp = reach('temple');
         if (r.t > 0) break;
-        const cand = foes.filter(e => !e.dead && d2(e, P) < 520 * 520);
+        const cand = foes.filter(e => !e.dead && d2(e, P) < rtp * rtp);
         if (!cand.length) { r.t = .4; break; }
         r.t = (mega ? 2.6 : [0, 4.5, 4, 3.5][lv]) * S.cd;
         const score = e => (e.boss ? 1e9 : 0) + (e.elite ? 1e6 : 0) + e.hp;
@@ -21419,7 +21506,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       case 'zerg': {
         // Banelings hatch around you and each rolls for a different moth, bursting on contact.
         if (r.t > 0) break;
-        const cand = foes.filter(e => !e.dead && d2(e, P) < 520 * 520);
+        const rz = reach('zerg'), cand = foes.filter(e => !e.dead && d2(e, P) < rz * rz);
         if (!cand.length) { r.t = .4; break; }
         r.t = (mega ? 3 : [0, 4.5, 4, 3.5][lv]) * S.cd;
         const n = mega ? 10 : [0, 3, 3, 4][lv];
@@ -21434,7 +21521,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       case 'bay': {
         // The ship sits off one edge of the screen and lobs a staggered volley into the crowds around you.
         if (r.t > 0) break;
-        const cand = foes.filter(e => !e.dead && d2(e, P) < 560 * 560);
+        const rby = reach('bay'), cand = foes.filter(e => !e.dead && d2(e, P) < rby * rby);
         if (!cand.length) { r.t = .4; break; }
         r.t = (mega ? 3.4 : [0, 5.5, 5, 4.4][lv]) * S.cd;
         const n = mega ? 10 : [0, 4, 5, 6][lv], side = Math.random() * TAU, far = Math.hypot(W, H) / 2 + 120;
@@ -21449,7 +21536,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       case 'homm': {
         if (r.t > 0) break;
-        const cand = foes.filter(e => !e.dead && d2(e, P) < 600 * 600).sort((a, b) => b.hp - a.hp).slice(0, mega ? 3 : 1);
+        const rh = reach('homm'), cand = foes.filter(e => !e.dead && d2(e, P) < rh * rh).sort((a, b) => b.hp - a.hp).slice(0, mega ? 3 : 1);
         if (!cand.length) { r.t = .4; break; }
         r.t = (mega ? 3.2 : [0, 5, 4.4, 3.8][lv]) * S.cd;
         for (const e of cand) rfx.push({ type: 'implode', tgt: e, x: e.x, y: e.y, life: 0, ttl: .95, dmg: 200 * pow, R: (mega ? 120 : 90) * S.area, fired: false });
@@ -21474,7 +21561,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       case 'orb': {
         if (r.t > 0) break;
         r.t = (mega ? 2.6 : [0, 3.6, 3.2, 2.8][lv]) * S.cd;
-        const a = aimAt(600);
+        const a = aimAt(reach('orb'));
         for (const o of mega ? [-.3, .3] : [0]) shots.push({ type: 'orb', x: P.x, y: P.y, vx: Math.cos(a + o) * 190, vy: Math.sin(a + o) * 190, dist: 0, max: 520 * S.area, spin: Math.random() * TAU, emit: 0, dmg: 12 * pow, mega, life: 9 });
         snd.fx('moon');
         break;
@@ -21509,7 +21596,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       case 'tibia': {
         if (r.t > 0) break;
         // Find the densest crowd in reach (a sampled neighbour count keeps this cheap).
-        const cand = foes.filter(e => !e.dead && d2(e, P) < 520 * 520);
+        const rti = reach('tibia'), cand = foes.filter(e => !e.dead && d2(e, P) < rti * rti);
         if (!cand.length) { r.t = .4; break; }
         r.t = (mega ? 2.2 : [0, 3.6, 3.1, 2.6][lv]) * S.cd;
         const sample = cand.length > 60 ? cand.sort(() => Math.random() - .5).slice(0, 60) : cand;
@@ -21813,6 +21900,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
     if (zone) { if (updateZone(zone)) return; }
     else {
+      updatePeddler(dt); if (state !== 'play') return;
       while (run.ev < EVENTS.length && EVENTS[run.ev].t <= run.t) fireEvent(EVENTS[run.ev++]);
       if (updatePortal(dt)) return;
     }
@@ -22073,7 +22161,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       if (s.type === 'wisp') {
         s.life -= dt; s.ph += dt;
-        if (!s.tgt || s.tgt.dead) s.tgt = nearest(s.x, s.y, 520, s.hit);
+        if (!s.tgt || s.tgt.dead) s.tgt = nearest(s.x, s.y, reach('wisp'), s.hit);
         if (s.tgt) {
           const dx = s.tgt.x - s.x, dy = s.tgt.y - s.y, d = Math.hypot(dx, dy) || 1, k = d < 90 ? 1 : Math.min(1, dt * 6);
           s.vx += (dx / d * s.sp - s.vx) * k; s.vy += (dy / d * s.sp - s.vy) * k;
@@ -22119,7 +22207,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       tp.life -= dt; tp.tick -= dt;
       if (tp.tick > 0) continue;
       tp.tick = .35; dsrc = tp.src || 'other';
-      for (const e of foes) if (!e.dead && (e.x - tp.x) ** 2 + (e.y - tp.y) ** 2 < (tp.r + e.r) ** 2) hit(e, tp.dmg, 0, tp.x, tp.y);
+      for (const e of foes) if (!e.dead && (e.x - tp.x) ** 2 + (e.y - tp.y) ** 2 < (tp.r + e.r) ** 2) {
+        // Spore clouds don't stack: a moth is poisoned by one cloud per tick at most.
+        if (tp.spore) { if ((e.cds.spore || 0) > run.clock) continue; e.cds.spore = run.clock + .3; }
+        hit(e, tp.dmg, 0, tp.x, tp.y); if (tp.slow) e.slowT = Math.max(e.slowT || 0, .5);
+      }
     }
     traps = traps.filter(tp => tp.life > 0);
 
@@ -22190,6 +22282,35 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (run.finale.t >= FINALE_TIME) { gameOver(true, 'fled'); return; }
     }
     if (run.pending > 0) openLevel();
+  }
+  // The peddler waits in the meadow; touching it opens the trade screen. It leaves after a while, or after a visit.
+  function updatePeddler(dt) {
+    const pd = run.peddler;
+    if (!pd || run.zone) return;
+    if ((pd.life -= dt) <= 0) { run.peddler = null; banner('The peddler has packed up and moved on', '#c9b48a'); return; }
+    if (Math.hypot(P.x - pd.x, P.y - pd.y) < 34 + P.r) openPeddler();
+  }
+  function openPeddler() {
+    state = 'peddler'; joy = null; snd.muffle(true); snd.fx('chestdrop');
+    renderSell(); show('peddler'); $('peddlerBye').focus();
+  }
+  const sellPicks = lv => Math.max(1, Math.ceil(lv / 2));
+  function renderSell() {
+    const box = $('sellList'); box.innerHTML = '';
+    const items = [...Object.entries(run.weapons).map(([id, w]) => ['w', id, w.evo ? WEAPONS[id].evoName : WEAPONS[id].name, w.lv]),
+      ...Object.entries(run.passives).map(([id, lv]) => ['p', id, PASSIVES[id].name, lv])];
+    if (!items.length) { box.textContent = 'You have nothing left to sell.'; return; }
+    for (const [kind, id, name, lv] of items) {
+      const row = document.createElement('div'), label = document.createElement('span'), b = document.createElement('button');
+      label.textContent = `${name} · Lv ${lv}`; b.className = 'btn ghost'; const n = sellPicks(lv);
+      b.textContent = `Sell (+${n} pick${n > 1 ? 's' : ''})`;
+      b.onclick = () => {
+        if (kind === 'w') delete run.weapons[id]; else delete run.passives[id];
+        recalc(); run.hp = Math.min(run.hp, S.maxHp); run.pending += n; run.sold = (run.sold || 0) + 1;
+        snd.fx('pick'); renderSell(); renderLoadout();
+      };
+      row.append(label, b); box.appendChild(row);
+    }
   }
 
   /* ---------- Drawing ---------- */
@@ -22390,6 +22511,42 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = white ? '#fff' : '#86b856'; ctx.beginPath(); ctx.ellipse(-s * .2, 0, s * .8, s * .25, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = white ? '#fff' : '#557a34'; ctx.beginPath(); ctx.arc(s * 1, 0, s * .38, 0, TAU); ctx.fill();
     ctx.restore();
+  }
+  // A puffcap: a glowing mushroom with pale spots; it swells and blinks faster as its fuse runs low.
+  function drawPuffcap(m, now, evo) {
+    const s = m.mini ? .6 : 1, armed = m.arm <= 0, low = m.life < 1.5, sw = 1 + (armed ? .06 * Math.sin(now * (low ? 18 : 6) + m.ph) : 0);
+    const k = Math.min(1, 1 - m.arm / .5 + .3);
+    ctx.globalAlpha = Math.max(.3, Math.min(1, k));
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(m.x, m.y + 3 * s, 10 * s, 3 * s, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e8e2c8'; ctx.fillRect(m.x - 2.5 * s, m.y - 6 * s, 5 * s, 9 * s);
+    ctx.fillStyle = evo ? '#7ad84a' : '#3fb889'; ctx.strokeStyle = '#123a2a'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(m.x, m.y - 7 * s, 10 * s * sw, 7 * s * sw, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#eafff2';
+    for (const [ox, oy, r] of [[-4, -10, 1.8], [3, -11, 1.5], [6, -8, 1.2], [-1, -8, 1]]) { ctx.beginPath(); ctx.arc(m.x + ox * s, m.y + oy * s, r * s, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  // The wandering peddler: a hooded moth merchant with a huge pack, a lantern on a pole and a little rug of wares.
+  function drawPeddler(pd, now) {
+    const { x, y } = pd, bob = Math.sin(now * 2) * 1.5;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 16, 34, 9, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#6a2f3a'; ctx.fillRect(x - 30, y + 8, 60, 12);
+    ctx.fillStyle = '#d8a64a'; ctx.fillRect(x - 30, y + 8, 60, 2); ctx.fillRect(x - 30, y + 18, 60, 2);
+    for (const [ox, c] of [[-20, '#9fd8ff'], [-6, '#ffcf5a'], [8, '#c89aff'], [21, '#8fe3a8']]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + ox, y + 13, 3.5, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#5a4630'; ctx.beginPath(); ctx.ellipse(x + 13, y - 12 + bob, 14, 17, .2, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#2a2016'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x + 6, y - 26 + bob, 14, 4);
+    ctx.fillStyle = '#3a2a3e'; ctx.beginPath(); ctx.moveTo(x - 12, y + 8); ctx.quadraticCurveTo(x - 14, y - 22 + bob, x, y - 30 + bob); ctx.quadraticCurveTo(x + 12, y - 22 + bob, x + 10, y + 8); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#120c16'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#e8dcc0'; ctx.beginPath(); ctx.ellipse(x - 1, y - 16 + bob, 6.5, 6, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffcf4a'; ctx.beginPath(); ctx.arc(x - 3.5, y - 17 + bob, 1.6, 0, TAU); ctx.arc(x + 1.5, y - 17 + bob, 1.6, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#d8c8a0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - 4, y - 28 + bob); ctx.quadraticCurveTo(x - 10, y - 38 + bob, x - 14, y - 36 + bob); ctx.moveTo(x + 2, y - 28 + bob); ctx.quadraticCurveTo(x + 8, y - 38 + bob, x + 12, y - 36 + bob); ctx.stroke();
+    ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - 16, y + 8); ctx.lineTo(x - 22, y - 34); ctx.stroke();
+    const sw = Math.sin(now * 2.4) * .15; ctx.save(); ctx.translate(x - 22, y - 34); ctx.rotate(sw);
+    ctx.strokeStyle = '#2a2016'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 6); ctx.stroke();
+    ctx.fillStyle = '#ffe9a0'; ctx.fillRect(-4, 6, 8, 9); ctx.strokeStyle = '#6a4a20'; ctx.lineWidth = 1.5; ctx.strokeRect(-4, 6, 8, 9);
+    ctx.restore();
+    ctx.font = '700 11px Grandstander, system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,12,24,.85)';
+    ctx.strokeText('Peddler', x, y - 46); ctx.fillStyle = '#ffd27a'; ctx.fillText('Peddler', x, y - 46);
   }
   function drawCricket(e, now, white) {
     const s = e.r, lift = e.lift || 0, crouch = e.mode === 'crouch';
@@ -22972,11 +23129,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function drawTraps(now) {
     if (!traps.length) return;
     const stems = new Path2D(), tips = new Path2D();
-    const fires = [], acids = [];
+    const fires = [], acids = [], spores = [];
     for (const tp of traps) {
       if (!onScreen(tp, 60)) continue;
       if (tp.fire) { fires.push(tp); continue; }
       if (tp.acid) { acids.push(tp); continue; }
+      if (tp.spore) { spores.push(tp); continue; }
       const grow = Math.min(1, (tp.max - tp.life) * 6, tp.life * 3);
       for (let i = 0; i < 7; i++) {
         const a = i / 7 * TAU + tp.x * .01, d = tp.r * (.25 + (i % 3) * .25), bx = tp.x + Math.cos(a) * d, by = tp.y + Math.sin(a) * d * .6;
@@ -22989,6 +23147,18 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = '#2f5a24'; ctx.fill(stems);
     ctx.strokeStyle = '#13240e'; ctx.lineWidth = 1; ctx.stroke(stems);
     ctx.fillStyle = '#d8f08a'; ctx.fill(tips);
+    for (const tp of spores) {
+      // Puffcap spore cloud: overlapping soft green-teal puffs with drifting motes.
+      const k = Math.max(0, Math.min(1, tp.life * 1.5, (tp.max - tp.life) * 6));
+      for (let i = 0; i < 5; i++) {
+        const a = i * 1.26 + tp.x * .01, d = tp.r * (i ? .45 : 0), bx = tp.x + Math.cos(a + now * .3) * d, by = tp.y + Math.sin(a + now * .3) * d * .6;
+        ctx.globalAlpha = .22 * k; ctx.fillStyle = i % 2 ? '#5fd6a0' : '#8af0b8';
+        ctx.beginPath(); ctx.arc(bx, by, tp.r * (i ? .5 : .7) * (1 + .06 * Math.sin(now * 3 + i)), 0, TAU); ctx.fill();
+      }
+      ctx.fillStyle = '#d8ffe8';
+      for (let i = 0; i < 4; i++) { const ph = (now * .5 + i / 4 + tp.y * .003) % 1; ctx.globalAlpha = k * (1 - ph) * .8; ctx.beginPath(); ctx.arc(tp.x + Math.cos(i * 2.3 + tp.x) * tp.r * .5, tp.y - ph * 22 + Math.sin(i * 1.9) * tp.r * .25, 1.8, 0, TAU); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
     for (const tp of acids) {
       const k = Math.max(0, Math.min(1, tp.life * 1.5, (tp.max - tp.life) * 8));
       ctx.globalAlpha = .45 * k; ctx.fillStyle = '#3f8a1e'; ctx.beginPath(); ctx.ellipse(tp.x, tp.y, tp.r * .9, tp.r * .55, 0, 0, TAU); ctx.fill();
@@ -23177,6 +23347,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.globalCompositeOperation = 'lighter';
     for (const s of shrooms) drawGlow('90,200,220', 18, s.x, s.y - 6, .35 + .2 * Math.sin(now * 2 + s.h * 50));
     if (live && run.portal) drawGlow(run.portal.def.portal, 80, run.portal.x, run.portal.y, .8);
+    if (live && run.peddler && !run.zone) drawGlow('255,210,120', 70, run.peddler.x - 22, run.peddler.y - 30, .7 + .15 * Math.sin(now * 3));
     if (inZone && run.zone.exit) drawGlow('220,230,255', 80, run.zone.exit.x, run.zone.exit.y, .8);
     if (!live) for (const a of amb) {
       a.a += rnd(-1, 1) * .05; a.x += Math.cos(a.a) * .4; a.y += Math.sin(a.a) * .4;
@@ -23190,7 +23361,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (m.kind === 'xp') {
           const rgb = m.v >= 10 ? '255,179,59' : m.v >= 3 ? '127,208,255' : '255,226,122';
           drawGlow(rgb, m.v >= 10 ? 16 : 12, m.x, m.y, .9);
-        } else if (m.kind === 'heal') drawGlow('255,122,138', 22, m.x, m.y, .8);
+        } else if (m.kind === 'heal') {
+          // Honey glow: plain when you're nearly full (80%+), stronger below that, strongest below half.
+          const f = run.hp / S.maxHp, low = f < .5;
+          if (f >= .8) drawGlow('255,122,138', 22, m.x, m.y, .8);
+          else drawGlow('255,110,130', low ? 36 : 30, m.x, m.y, .85 + .15 * Math.sin(now * (low ? 9 : 5) + m.bob));
+        }
         else if (m.kind === 'moon') drawGlow('210,225,255', 26, m.x, m.y, .9);
         else drawGlow('255,179,59', 40, m.x, m.y, .6 + .3 * Math.sin(now * 4));
       }
@@ -23295,7 +23471,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (const l of lances) {
         const k = 1 - l.life / .25, ex = l.x + Math.cos(l.a) * l.len, ey = l.y + Math.sin(l.a) * l.len;
         ctx.globalAlpha = k; ctx.lineCap = 'round';
-        ctx.strokeStyle = l.evo ? 'rgba(255,170,90,.55)' : 'rgba(150,210,255,.5)'; ctx.lineWidth = l.w * 2.2 * k;
+        ctx.strokeStyle = l.col ? `rgba(${l.col},.6)` : l.evo ? 'rgba(255,170,90,.55)' : 'rgba(150,210,255,.5)'; ctx.lineWidth = l.w * 2.2 * k;
         ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(ex, ey); ctx.stroke();
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1, l.w * .6 * k);
         ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(ex, ey); ctx.stroke();
@@ -23319,6 +23495,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         }
       }
       ctx.globalAlpha = 1;
+      if (run.weapons.mine && run.weapons.mine.mines) for (const m of run.weapons.mine.mines) if (m.arm <= 0 && onScreen(m, 20)) drawGlow(run.weapons.mine.evo ? '190,255,150' : '140,255,200', m.mini ? 12 : 18, m.x, m.y - 4, .45 + .25 * Math.sin(now * 5 + m.ph));
       if (run.weapons.wail) { const bob = Math.sin(now * 2.6) * 3; drawGlow(run.weapons.wail.evo ? '220,200,255' : '190,235,255', 20, P.x + 20, P.y - 20 + bob, .55 + .2 * Math.sin(now * 5)); }
       drawRelicGlow(now);
       for (const st of strikes) {
@@ -23389,13 +23566,24 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (m.kind === 'xp' || !onScreen(m, 30)) continue;
         m.bob += .05;
         const y = m.y + Math.sin(m.bob) * 2;
-        if (m.kind === 'heal') { ctx.fillStyle = '#ffcf5a'; ctx.beginPath(); ctx.ellipse(m.x, y, 6, 8, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#ff7a8a'; ctx.fillRect(m.x - 1, y - 3, 2, 6); ctx.fillRect(m.x - 3, y - 1, 6, 2); }
+        if (m.kind === 'heal') {
+          // Honey: below 80% health it gets a pulsing ring (faster and redder below half) and a dark outline, so it's easy
+          // to spot on any floor. When you're nearly full it stays plain.
+          const f = run.hp / S.maxHp, low = f < .5, k = (now * (low ? 1.6 : 1) + m.bob) % 1;
+          if (f < .8) {
+            ctx.globalAlpha = (1 - k) * (low ? .9 : .6); ctx.strokeStyle = low ? '#ff5a78' : '#ffb0be'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(m.x, y, 10 + k * 18, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+            ctx.fillStyle = 'rgba(20,10,20,.85)'; ctx.beginPath(); ctx.ellipse(m.x, y, 8.5, 10.5, 0, 0, TAU); ctx.fill();
+          }
+          ctx.fillStyle = '#ffcf5a'; ctx.beginPath(); ctx.ellipse(m.x, y, 6, 8, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#ff7a8a'; ctx.fillRect(m.x - 1, y - 3, 2, 6); ctx.fillRect(m.x - 3, y - 1, 6, 2); }
         else if (m.kind === 'moon') { ctx.fillStyle = '#eef3ff'; ctx.beginPath(); ctx.arc(m.x, y, 8, 0, TAU); ctx.fill(); ctx.fillStyle = '#b8c4e0'; ctx.beginPath(); ctx.arc(m.x + 2, y - 2, 2, 0, TAU); ctx.fill(); }
         else {
           ctx.fillStyle = '#7a4a1e'; ctx.fillRect(m.x - 12, y - 8, 24, 16);
           ctx.fillStyle = '#ffb33b'; ctx.fillRect(m.x - 12, y - 8, 24, 5); ctx.fillRect(m.x - 2, y - 3, 4, 6);
         }
       }
+      if (run.peddler && !run.zone && onScreen(run.peddler, 80)) drawPeddler(run.peddler, now);
+      if (run.weapons.mine && run.weapons.mine.mines) for (const m of run.weapons.mine.mines) if (onScreen(m, 20)) drawPuffcap(m, now, run.weapons.mine.evo);
       for (const id in run.weapons) if (id === 'bat') for (const b of run.weapons[id].bats) drawBat(b, now, run.weapons[id].evo);
       drawRelicActors(now);
       drawDice(now);
@@ -23418,6 +23606,18 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
     screen();
     if (live) {
+      // When you're below half health, point toward the nearest honey that is off screen (within ~2 screens).
+      if (run.hp < S.maxHp * .5) {
+        let hn = null, hd = (Math.max(W, H) * 1.6) ** 2;
+        for (const m of motes) if (m.kind === 'heal' && !onScreen(m, -10)) { const d = d2(m, P); if (d < hd) { hd = d; hn = m; } }
+        if (hn) {
+          const a = Math.atan2(hn.y - P.y, hn.x - P.x), cx = Math.max(24, Math.min(W - 24, W / 2 + Math.cos(a) * (W / 2 - 34))), cy = Math.max(70, Math.min(H - 50, H / 2 + Math.sin(a) * (H / 2 - 34)));
+          ctx.save(); ctx.translate(cx, cy); ctx.globalAlpha = .75 + .25 * Math.sin(now * 8);
+          ctx.fillStyle = '#ff5a78'; ctx.beginPath(); ctx.arc(-3.5, -2, 4.5, Math.PI, 0); ctx.arc(3.5, -2, 4.5, Math.PI, 0); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill();
+          ctx.rotate(a); ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(11, -5); ctx.lineTo(11, 5); ctx.fill();
+          ctx.restore(); ctx.globalAlpha = 1;
+        }
+      }
       // Point toward any chest that is off screen.
       for (const m of motes) {
         if (m.kind !== 'chest' || onScreen(m, -10)) continue;
@@ -23426,6 +23626,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const cx = Math.max(24, Math.min(W - 24, ex)), cy = Math.max(70, Math.min(H - 50, ey));
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
         ctx.fillStyle = '#ffb33b'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -9); ctx.lineTo(-8, 9); ctx.fill();
+        ctx.restore();
+      }
+      // Point toward the peddler (gold, with a coin).
+      if (run.peddler && !run.zone && !onScreen(run.peddler, -10)) {
+        const pd = run.peddler, a = Math.atan2(pd.y - P.y, pd.x - P.x);
+        const cx = Math.max(28, Math.min(W - 28, W / 2 + Math.cos(a) * (W / 2 - 38))), cy = Math.max(74, Math.min(H - 54, H / 2 + Math.sin(a) * (H / 2 - 38)));
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = '#ffcf4a'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill(); ctx.strokeStyle = '#a87410'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#a87410'; ctx.fillRect(-1, -4, 2, 8);
+        ctx.rotate(a); ctx.fillStyle = '#ffcf4a'; ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
         ctx.restore();
       }
       // Point toward an open rift or the way home.
@@ -23560,6 +23770,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   $('reroll').addEventListener('click', () => { if (run.rerolls > 0) { run.rerolls--; rollOffers(); } });
   $('skip').addEventListener('click', () => choose(null));
   $('chestOk').addEventListener('click', resume);
+  $('peddlerBye').addEventListener('click', () => {
+    run.peddler = null; banner(run.sold ? 'The peddler counts his coins and waves goodbye' : 'The peddler shrugs and waves goodbye', '#ffd27a');
+    resume();
+  });
   $('relicTake').addEventListener('click', () => {
     if (pendingRelic) { run.relic = newRelic(pendingRelic); allies = []; banner(`Relic equipped: ${RELICS[pendingRelic].name}`, '#ffb33b'); }
     pendingRelic = null; renderLoadout(); resume();
@@ -23606,6 +23820,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     zone: { get: () => run && run.zone }, hazards: { get: () => hazards }, hit: { value: (e, d) => hit(e, d, 0, e.x, e.y) }, step: { value: ms => step(ms) }, Z: { value: Z },
     // Times floor-chunk rendering for a zone: fj.chunkBench('zerg') → avg/max ms over n random chunks.
     plague: { get: () => plague },
+    // Calls the wandering peddler to camp nearby (default 220 px to the right) for 75 s.
+    peddler: { value: (dx = 220, dy = 0) => { run.peddler = { x: P.x + dx, y: P.y + dy, life: 75 }; } },
     // Shows all six dice faces in a row (their landed look) for 8 s.
     diceDemo: { value: () => { for (let f = 1; f <= 6; f++) rfx.push({ type: 'die', face: f, slot: f - 1, n: 6, dbl: false, life: DIE_SPIN + .2, ttl: 8, demo: true, x: P.x, y: P.y - 70 }); } },
     burns: { get: () => burns },
