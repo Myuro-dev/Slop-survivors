@@ -815,8 +815,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Damage +33%, reaches further', 'Burns hotter, reaches further', 'Damage +25%, wider, reaches further', 'Damage +20%, burns hotter, wider', 'Damage +17%, burns hotter, wider, reaches further'] },
     dice: { name: 'Fortune Dice', desc: 'Every few seconds Hexel rolls a die and the face decides what happens: 1 fizzles, 2 throws sparks, 3 a fireball, 4 chain lightning, 5 a shower of coins, 6 a meteor and another roll.', evo: 'shoe', evoName: 'Loaded Dice', evoDesc: 'Rolls two dice at once and both effects happen. Doubles hit 50% harder.',
       up: ['Rolls faster, effects +20%', 'Rolls faster, effects +21%', 'Rolls faster, effects +17%', 'Rolls faster, effects +18%', 'Rolls faster, effects +18%'] },
-    mine: { name: 'Puffcap Mines', desc: 'Plants glowing puffcap mushrooms around you. When a moth steps close (or the fuse runs out) a cap bursts and leaves a cloud of poisonous spores behind.', evo: 'bloom', evoName: 'Mycelium Minefield', evoDesc: 'More caps, bigger bursts, and every burst sprouts three little caps that pop a moment later. The spore clouds also slow moths.',
-      up: ['Damage +20%, faster, bigger burst', '+1 puffcap, damage +22%, spores last longer', 'Damage +18%, bigger burst and cloud, faster', '+1 puffcap, damage +15%, more caps at once', 'Damage +17%, bigger cloud, spores last longer, faster'] },
+    mine: { name: 'Puffcap Mines', desc: 'Every few seconds a glowing puffcap mushroom is planted where you stand. Caps wait up to 30 s; when a moth steps on one it bursts, leaving a cloud of poisonous spores. Lead the swarm over your minefield.', evo: 'bloom', evoName: 'Mycelium Minefield', evoDesc: 'More caps and bigger bursts, and every burst sprouts three little caps that pop a moment later. The spore clouds also slow moths.',
+      up: ['Damage +20%, plants faster', 'Damage +21%, bigger burst, plants faster, +1 cap in the field', '+1 cap per planting, damage +17%, plants faster, +1 cap in the field', 'Damage +18%, bigger burst and cloud, plants faster, +1 cap in the field', 'Damage +19%, bigger cloud, spores last longer, plants faster, +1 cap in the field'] },
     wail: { name: 'Banshee Lantern', desc: 'A lantern holding a wailing spirit. Every few seconds its wail rolls out in a cone and frightens the moths it reaches: they flee from you, fading as they go.', evo: 'veil', evoName: 'Wailing Veil', evoDesc: 'The wail rings out all around you. Frightened moths that crash into each other take heavy damage, and bosses are slowed.',
       up: ['Damage +25%, faster, wider, frightens longer', 'Damage +20%, faster, reaches further, frightens longer', 'Damage +17%, faster, wider, reaches further, frightens longer', 'Damage +21%, faster, wider, frightens longer', 'Damage +18%, faster, wider, reaches further, frightens longer'] },
     frost: { name: 'Moonfrost', desc: 'A cone of frost behind you (opposite to the way you move) that chills and slows whatever is chasing you.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes moths solid.',
@@ -869,8 +869,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         : { cd: [2.4, 2.4, 2.2, 2, 2, 1.7][L], dmg: [30, 38, 44, 52, 52, 66][L], R: [70, 76, 76, 84, 84, 92][L], reach: 70, n: [1, 1, 1, 1, 2, 2][L], quake: 0 };
       case 'flame': return evo ? { tick: .2, dmg: 14, burn: 9, range: 210, half: .75 }
         : { tick: .25, dmg: [4, 5, 6, 7, 9, 11][L], burn: [3, 3, 4, 5, 6, 7][L], range: [115, 125, 135, 145, 155, 170][L], half: [.38, .38, .4, .44, .47, .5][L] };
-      case 'mine': return evo ? { cd: 1.5, n: 5, max: 14, dmg: 60, R: 90, cloud: 80, cdur: 4, dot: 12 }
-        : { cd: [2.8, 2.6, 2.4, 2.2, 2, 1.8][L], n: [2, 2, 3, 3, 4, 4][L], max: [6, 6, 8, 8, 10, 12][L], dmg: [22, 26, 32, 38, 44, 52][L], R: [60, 64, 68, 74, 80, 86][L], cloud: [50, 52, 56, 60, 66, 72][L], cdur: [2, 2.2, 2.5, 2.8, 3.1, 3.5][L], dot: [4, 5, 6, 7, 8, 10][L] };
+      case 'mine': return evo ? { cd: 2.4, n: 3, max: 12, dmg: 110, R: 96, cloud: 84, cdur: 4, dot: 12 }
+        : { cd: [4.5, 4.2, 3.9, 3.6, 3.3, 3][L], n: [1, 1, 1, 2, 2, 2][L], max: [4, 4, 5, 6, 7, 8][L], dmg: [56, 66, 80, 95, 112, 132][L], R: [64, 66, 70, 76, 82, 88][L], cloud: [50, 52, 56, 60, 66, 72][L], cdur: [2, 2.2, 2.5, 2.8, 3.1, 3.5][L], dot: [4, 5, 6, 7, 8, 10][L] };
       case 'dice': return evo ? { cd: 1.6, dmg: 100 } : { cd: [3.2, 2.9, 2.6, 2.3, 2.05, 1.85][L], dmg: [36, 43, 52, 61, 72, 85][L] };
       case 'wail': return evo ? { cd: 2.6, dmg: 26, range: 270, cone: 7, fear: 3, bump: 36 }
         : { cd: [4.2, 4, 3.8, 3.5, 3.2, 3][L], dmg: [8, 10, 12, 14, 17, 20][L], range: [170, 180, 195, 210, 225, 240][L], cone: [1, 1.1, 1.2, 1.35, 1.5, 1.7][L], fear: [1.4, 1.6, 1.8, 2, 2.3, 2.6][L] };
@@ -21191,12 +21191,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         break;
       }
       case 'mine': {
-        // Plant caps around Hexel; each arms after 0.5 s, then bursts when a moth comes close or its fuse runs out.
+        // Plant caps where Hexel stands (a little behind it); each arms after 0.5 s and waits up to 30 s for a moth to step
+        // close. A full field makes the oldest cap burst to make room.
         const mines = w.mines || (w.mines = []);
         w.t -= dt;
         if (w.t <= 0) {
           w.t = st.cd * S.cd;
-          for (let i = 0; i < st.n + S.amount; i++) { const a = Math.random() * TAU, d = rnd(70, 180) * S.area; mines.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, arm: .5, life: 8 * S.dur, ph: Math.random() * 6 }); }
+          for (let i = 0; i < st.n + S.amount; i++) { const a = Math.atan2(-P.face.y, -P.face.x) + (i - (st.n + S.amount - 1) / 2) * .9, d = 26 + 18 * i; mines.push({ x: P.x + Math.cos(a) * d + rnd(-6, 6), y: P.y + Math.sin(a) * d + rnd(-6, 6), arm: .5, life: 30, ph: Math.random() * 6 }); }
           while (mines.length > st.max) puffBurst(mines.shift(), st, w.evo);
         }
         for (const m of mines) {
