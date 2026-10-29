@@ -129,8 +129,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .loot div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; text-align: left; display: grid; gap: 2px; }
 .loot.sell div { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 .loot.sell .btn { padding: 6px 14px; font-size: 14px; }
-#tomeOffer strong { display: block; color: #f0d8a8; }
-#tomeOffer span span { font-size: 13px; }
+#tomeOffer strong, #qList strong { display: block; color: #f0d8a8; }
+#tomeOffer span span, #qList span span { font-size: 13px; }
+#qList span span { color: var(--muted); }
+.card.blood h2 { background: linear-gradient(90deg, #ff8a8a, #ff3b5a, #ffd0c8, #ff8a8a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; }
+.card.blood .eyebrow { color: #ff8a9a; }
 .loot div.evo { border-color: rgba(217,184,255,.7); box-shadow: 0 0 18px rgba(217,184,255,.2); }
 .loot strong { font-family: var(--display); font-size: 17px; }
 .loot div.evo strong { color: var(--evo); }
@@ -267,6 +270,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <div class="loot sell" id="tomeOffer" hidden></div>
     <div class="loot sell" id="sellList"></div>
     <button class="btn" id="peddlerBye">Farewell</button>
+  </div>
+</div>
+
+<div class="overlay" id="quest" hidden>
+  <div class="card">
+    <span class="eyebrow" id="qEyebrow"></span>
+    <h2 id="qTitle"></h2>
+    <p class="sub" id="qText"></p>
+    <div class="loot sell" id="qList"></div>
+    <button class="btn ghost" id="qBye" hidden></button>
   </div>
 </div>
 
@@ -932,6 +945,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     stag:   { hp: 16400, sp: 40,  dmg: 30, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
     queen:  { hp: 26000, sp: 52,  dmg: 34, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
     eclipse: { hp: 110000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
+    bloodmoon: { hp: 160000, sp: 44, dmg: 34, xp: 0, r: 78, boss: true, name: 'The Blood Moon' },
   };
   // Spawn mix by run time (seconds).
   const MIX = [
@@ -19975,20 +19989,23 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   const pv = id => run.passives[id] || 0;
   function recalc() {
+    const voc = run.quest && run.quest.voc;   // the Oracle's vocation (Rookmeadow Isle quest)
     S = {
       area: 1 + .13 * pv('net'),
       cd: 1 - .07 * pv('steady'),
-      might: 1 + .1 * pv('ember') + (run.bonus || 0),
-      crit: .07 * pv('keen'),
+      might: 1 + .1 * pv('ember') + (run.bonus || 0) + (voc === 'sorcerer' ? .2 : 0),
+      crit: .07 * pv('keen') + (voc === 'paladin' ? .08 : 0),
       ignite: .04 * pv('kindle'),
-      maxHp: Math.round(100 * (1 + .2 * pv('heart'))),
+      maxHp: Math.max(30, Math.round(100 * (1 + .2 * pv('heart')) * (voc === 'knight' ? 1.3 : 1) + (run.quest.hp || 0))),
       speed: 150 * (1 + .1 * pv('wings')),
       magnet: 110 * (1 + .3 * pv('magnet')),
       dur: 1 + .12 * pv('linger'),
-      projSp: 1 + .1 * pv('linger'),
-      regen: .25 * pv('dew'),
+      projSp: 1 + .1 * pv('linger') + (voc === 'paladin' ? .25 : 0),
+      regen: .25 * pv('dew') + (voc === 'druid' ? 1.2 : 0),
+      reachK: voc === 'paladin' ? 1.2 : 1,
+      healK: voc === 'druid' ? 1.5 : 1,
       growth: 1 + .1 * pv('gold') + .12 * pv('dusk'),
-      armor: pv('wax'),
+      armor: pv('wax') + (voc === 'knight' ? 2 : 0),
       amount: pv('echo'),
       frail: 1 + .15 * pv('echo'),   // Echo Charm's downside: damage taken
       brute: .05 * pv('brace'),
@@ -20000,7 +20017,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   function newRun() {
     snd.init(); snd.setZone(null); warp = null;
-    run = { t: 0, lv: 1, xp: 0, need: needFor(1), kills: 0, dmg: 0, dmgBy: {}, bosses: 0, chests: 0, weapons: {}, passives: {}, rerolls: 2, hp: 100, pending: 0, ev: 0, spawnAcc: 0, boss: null, start: true, quest: {}, regenAcc: 0, zone: null, saved: null, portal: null, portalT: rnd(45, 70), seen: [], rifts: 0, minis: 0, relic: null, clock: 0, finale: null };
+    run = { t: 0, lv: 1, xp: 0, need: needFor(1), kills: 0, dmg: 0, dmgBy: {}, bosses: 0, chests: 0, weapons: {}, passives: {}, rerolls: 2, hp: 100, pending: 0, ev: 0, spawnAcc: 0, boss: null, start: true, quest: { spots: [], home: [] }, regenAcc: 0, zone: null, saved: null, portal: null, portalT: rnd(45, 70), seen: [], rifts: 0, minis: 0, relic: null, clock: 0, finale: null };
     recalc();
     run.rid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); setTimeout(() => playPing('start'), 0);
     foes = []; motes = []; shots = []; bullets = []; strikes = []; parts = []; pops = []; banners = []; beams = []; rings = [];
@@ -20167,7 +20184,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const fitLevel = () => { if (!$('level').hidden) $('level').style.bottom = $('loadout').offsetHeight + 'px'; };
   addEventListener('resize', fitLevel);
   function show(id) {
-    for (const o of ['title', 'level', 'chest', 'pause', 'over', 'peddler']) $(o).hidden = o !== id;
+    for (const o of ['title', 'level', 'chest', 'pause', 'over', 'peddler', 'quest']) $(o).hidden = o !== id;
     $('loadout').classList.toggle('above', id === 'level');
     // Leave exactly enough room under the cards for the build bar, however many rows of chips it wraps into.
     // The level-up overlay ends at the top of the build bar, so cards and buttons can never scroll underneath it.
@@ -20180,12 +20197,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       : `<span class="chip w" data-k="w:${id}">${WEAPONS[id].name} <b>${w.lv}</b></span>`);
     const p = Object.entries(run.passives).map(([id, k]) => `<span class="chip" data-k="p:${id}">${PASSIVES[id].name}${PASSIVES[id].max > 1 ? ` <b>${k}</b>` : ''}</span>`);
     const rl = run.relic ? [`<span class="chip relic" data-k="r:${run.relic.id}">${run.minis >= RELIC_MEGA ? RELICS[run.relic.id].mega : RELICS[run.relic.id].name} <b>${relicLabel()}</b></span>`] : [];
-    const q = [run.quest.leg && '<span class="chip quest" data-k="q:leg">Wirt\'s Leg</span>', run.quest.tome && '<span class="chip quest" data-k="q:tome">Tome of Town Portal</span>'].filter(Boolean);
-    return rl.concat(q, w, p).join('');
+    return rl.concat(questChips(), w, p).join('');
   }
   function srcName(k) {
     if (k.startsWith('r:')) { const Rl = RELICS[k.slice(2)]; return Rl ? (run.relic && run.relic.id === k.slice(2) && run.minis >= RELIC_MEGA ? Rl.mega : Rl.name) : 'Relic'; }
     if (k.startsWith('p:')) return PASSIVES[k.slice(2)] ? PASSIVES[k.slice(2)].name : 'Charm';
+    if (k === 'q:sun') return 'Sun Knight';
     if (WEAPONS[k]) return run.weapons[k] && run.weapons[k].evo ? WEAPONS[k].evoName : WEAPONS[k].name;
     return k === 'zone' ? 'Explosions' : 'Other';
   }
@@ -20204,7 +20221,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const setText = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
   function updateHud() {
     setText('clock', fmt(run.finale ? FINALE_TIME - run.finale.t : run.zone ? ZONE_DUR - run.zone.t : DAWN - run.t));
-    setText('clockLbl', run.finale ? 'Banish the Eclipse Moth!' : run.zone ? `${run.zone.def.name}: rift closes` : 'until dawn');
+    setText('clockLbl', run.finale ? (run.finale.blood ? 'Shatter the Blood Moon!' : 'Banish the Eclipse Moth!') : run.zone ? `${run.zone.def.name}: rift closes` : 'until dawn');
     setText('kills', String(run.kills));
     setText('lvl', `Level ${run.lv}`);
     setText('hpTxt', `${Math.ceil(run.hp)} / ${S.maxHp}`);
@@ -20213,7 +20230,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('hpbar').classList.toggle('low', run.hp < S.maxHp * .3);
     const b = run.boss;
     $('bossBox').hidden = !b;
-    if (b) { setText('bossName', (b.def || FOES[b.kind]).name); $('bossBar').style.transform = `scaleX(${Math.max(0, b.hp / b.max)})`; }
+    if (b) { const left = !b.def && b.born != null && SHARD_BOSSES.includes(b.kind) ? Math.ceil(SHARD_T[b.kind] - (run.clock - b.born)) : 0; setText('bossName', (b.def || FOES[b.kind]).name + (left > 0 ? ` · ☾ ${left}` : '')); $('bossBar').style.transform = `scaleX(${Math.max(0, b.hp / b.max)})`; }
   }
 
   function pause() {
@@ -20252,11 +20269,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const ev = Object.entries(WEAPONS).find(([, w]) => w.evo === id);
       if (ev) add('i', `Evolves ${ev[1].name}`);
     } else if (kind === 'q') {
-      add('b', id === 'leg' ? 'Wirt\'s Leg' : 'Tome of Town Portal');
-      box.appendChild(document.createTextNode(id === 'leg'
-        ? 'A wooden peg leg from a poor boy who met a bad end. It smells faintly of cows.'
-        : 'A tome that opens a portal. Paired with the leg, it can open somewhere very strange.'));
-      add('i', run.quest.leg && run.quest.tome ? 'Quest item: the next rift to open goes somewhere special' : id === 'leg' ? 'Quest item: the wandering peddler may know what it is for' : 'Quest item');
+      const d = QUEST_INFO[id];
+      if (!d) return;
+      add('b', d[0]()); box.appendChild(document.createTextNode(d[1]())); add('i', d[2]());
     } else if (kind === 'r') {
       const d = RELICS[id], mega = run.minis >= RELIC_MEGA;
       if (!d) return;
@@ -20404,22 +20419,27 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const best = getBest(), t = Math.min(DAWN, run.t);
     $('newbest').hidden = !(t > best);
     if (t > best) setBest(Math.floor(t));
-    $('overEyebrow').textContent = how === 'perfect' ? 'The shadow is banished' : win ? 'The sun rises over the meadow' : 'The moths swarmed Hexel';
-    $('overTitle').textContent = how === 'perfect' ? 'A new dawn' : win ? 'You saw the dawn' : "Hexel's light went out";
+    $('overEyebrow').textContent = how === 'perfect' ? 'The shadow is banished' : how === 'blood' ? 'The Blood Moon is shattered' : win ? 'The sun rises over the meadow' : 'The moths swarmed Hexel';
+    $('overTitle').textContent = how === 'perfect' ? 'A new dawn' : how === 'blood' ? 'A crimson dawn' : win ? 'You saw the dawn' : "Hexel's light went out";
+    const burned = run.finale ? Math.min(99, Math.floor((1 - Math.max(0, run.finale.boss.hp) / run.finale.boss.max) * 100)) : 0;
     const note = how === 'perfect' ? `You banished the Eclipse Moth in ${run.finale.t.toFixed(1)} seconds. The fireflies will sing of Hexel for a hundred summers.`
+      : how === 'blood' ? `You shattered the Blood Moon in ${run.finale.t.toFixed(1)} seconds. No firefly has ever seen a sky like that.`
+      : how === 'bloodfled' ? `The Blood Moon sank behind the hills, but you burned away ${burned}% of it. Find the shards again and finish it.`
       : !win && how !== 'quit' && run.killer ? `Felled by ${run.killer}.`
       : how === 'fled' ? `The Eclipse Moth slipped away with the last of the night, but you burned away ${Math.min(99, Math.floor((1 - Math.max(0, run.finale.boss.hp) / run.finale.boss.max) * 100))}% of it. Grow stronger and banish it next time.` : '';
     $('overNote').textContent = note; $('overNote').hidden = !note;
     // A fled Eclipse Moth shows how close you came: a bar of the health you burned away.
-    if (how === 'fled') {
-      const pct = Math.min(99, Math.floor((1 - Math.max(0, run.finale.boss.hp) / run.finale.boss.max) * 100));
+    if (how === 'fled' || how === 'bloodfled') {
+      const pct = burned;
       const bar = document.createElement('span'); bar.className = 'fledbar'; bar.innerHTML = `<i style="width:${pct}%"></i><b>${pct}%</b>`;
       $('overNote').appendChild(bar);
     }
-    document.querySelector('#over .card').classList.toggle('perfect', how === 'perfect');
-    if (how === 'perfect') {
-      try { localStorage.setItem('fjt-banished', (+localStorage.getItem('fjt-banished') || 0) + 1); } catch {}
-      for (let i = 0; i < 8; i++) burst(P.x + rnd(-300, 300), P.y + rnd(-200, 200), i % 2 ? '#ffe27a' : '#ffb33b', 30, 380);
+    document.querySelector('#over .card').classList.toggle('perfect', how === 'perfect' || how === 'blood');
+    document.querySelector('#over .card').classList.toggle('blood', how === 'blood');
+    if (how === 'perfect' || how === 'blood') {
+      const key = how === 'blood' ? 'fjt-bloodmoon' : 'fjt-banished';
+      try { localStorage.setItem(key, (+localStorage.getItem(key) || 0) + 1); } catch {}
+      for (let i = 0; i < 8; i++) burst(P.x + rnd(-300, 300), P.y + rnd(-200, 200), how === 'blood' ? (i % 2 ? '#ff8a9a' : '#ffe27a') : i % 2 ? '#ffe27a' : '#ffb33b', 30, 380);
       snd.fx('evolve');
     }
     $('finalTime').textContent = fmt(t);
@@ -20427,7 +20447,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
     lbOnOver(how);
-    run.endHow = how === 'perfect' || how === 'fled' ? how : how === 'quit' ? 'quit' : 'death'; playPing('end'); run.rid = null;
+    run.endHow = how === 'perfect' || how === 'fled' || how === 'bloodfled' ? how : how === 'blood' ? 'bloodmoon' : how === 'quit' ? 'quit' : 'death'; playPing('end'); run.rid = null;
     renderLoadout();
     showBest();
     show('over');
@@ -20515,8 +20535,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       banner('A golden beetle carries treasure', '#ffb33b'); snd.fx('warn');
     } else if (ev.kind === 'boss') {
       const e = spawnEdge(ev.boss);
-      run.boss = e; snd.fx('boss'); snd.setBoss(true);
+      run.boss = e; e.born = run.clock; snd.fx('boss'); snd.setBoss(true);
       banner(FOES[ev.boss].name + ' arrives', '#ff7a8a', true);
+      questBossArrives(e);
       shake = Math.max(shake, 8);
     }
   }
@@ -20532,7 +20553,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const banner = (txt, col, big) => { banners.push({ txt, col, life: 0, ttl: big ? 3 : 2.2, big }); if (banners.length > 4) banners.shift(); };
 
   function heal(n) {
-    const before = run.hp;
+    const before = run.hp; n *= S.healK;
     run.hp = Math.min(S.maxHp, run.hp + n);
     if (n >= 5 && run.hp > before) pops.push({ x: P.x, y: P.y - 26, txt: '+' + Math.round(run.hp - before), col: '#8fe3a8', life: 0, ttl: .9, big: true });
   }
@@ -20558,6 +20579,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       return;
     }
     const d = Math.max(1, Math.round(dmg * S.frail - S.armor));
+    if (run.zone && run.zone.boss && !run.zone.boss.dead) run.zone.hitBoss = true;   // the devil only deals with flawless fights
     run.hp -= d; P.inv = S.ifr; hurtT = .35; P.squish = 1; snd.fx('hurt'); run.killer = killerName(src);
     shake = Math.max(shake, 5);
     pops.push({ x: P.x, y: P.y - 24, txt: '−' + d, col: '#ff7a8a', life: 0, ttl: .8, big: true });
@@ -20585,6 +20607,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (e.dead || e.blink) return;
     let crit = false;
     if (dmg > 0 && e.markT > run.clock) dmg *= 1.25;
+    if (dmg > 0 && run.finale && e === run.finale.boss && jarFull()) dmg *= 1.25;   // a full firefly jar lights the finale
     if (dmg > 0 && S.brute && (e.heavy || e.boss || e.elite)) dmg *= 1 + S.brute;
     if (dmg > 0 && dmg < 9000 && S.crit && Math.random() < S.crit) { dmg *= 2; crit = true; }
     if (dmg > 0 && S.ignite && !(e.burn > 0) && Math.random() < S.ignite) { e.burn = 2.2; e.burnSrc = 'p:kindle'; e.burnDmg = Math.max(e.burnDmg || 0, Math.max(2, dmg * .25)); }
@@ -20612,8 +20635,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (e.boss) {
         if (e.def) {
           run.minis++;
-          if (run.relic && run.minis === RELIC_MEGA) { banner(`Your relic awakens: ${RELICS[run.relic.id].mega}!`, '#ffb33b', true); snd.fx('evolve'); renderLoadout(); } if (run.zone) { run.zone.exit = { x: e.x, y: e.y - 90 }; banner('The way home opens', '#cfe0ff'); } }
-        else run.bosses++;
+          if (run.relic && run.minis === RELIC_MEGA) { banner(`Your relic awakens: ${RELICS[run.relic.id].mega}!`, '#ffb33b', true); snd.fx('evolve'); renderLoadout(); } if (run.zone) { run.zone.exit = { x: e.x, y: e.y - 90 }; banner('The way home opens', '#cfe0ff'); questGuardianDown(e); } }
+        else { run.bosses++; questBossDown(e); }
         run.boss = null; snd.setBoss(false);
         // Main-map bosses are tougher now and pay out more glow (rift guardians keep the old 30 × 10).
         const bv = e.def ? 10 : { luna: 15, stag: 40, queen: 80 }[e.kind] || 10;
@@ -20837,6 +20860,48 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         e.t5 = (e.t5 ?? 1) - dt;
         if (e.t5 <= 0) { e.t5 = 1.1; for (let k = 0; k < 3; k++) { const a = Math.random() * TAU, d = Math.random() * 170; hazards.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, t: 1.1, T: 1.1, r: 58, dmg: 14, col: '200,130,255' }); } }
       }
+    } else if (e.kind === 'bloodmoon') {
+      // The Blood Moon (secret finale, called with three moon shards). Orbiting shards (3, then 5) fire bursts at Hexel.
+      // Phase 1: double rings, blood rain and moonfalls (a big telegraphed impact that leaves burning ground).
+      // Phase 2 (below 2/3) "The moon bleeds!": a double spiral instead of rings, ghost summons, rays of blood.
+      // Phase 3 (below 1/3) "Blood eclipse!": faster, three moonfalls in a row that follow Hexel, denser rain, bombers.
+      const ph = e.hp > e.max * .66 ? 1 : e.hp > e.max * .33 ? 2 : 3;
+      if (ph >= 2 && !e.p2) { e.p2 = true; banner('The moon bleeds!', '#ff5a6a', true); shake = Math.max(shake, 10); snd.fx('boss'); }
+      if (ph >= 3 && !e.p3) { e.p3 = true; banner('Blood eclipse! The sky runs red', '#ff3a5a', true); shake = Math.max(shake, 12); snd.fx('boss'); }
+      chase(e, dt, e.sp * (ph === 3 ? 1.4 : 1));
+      e.orb = (e.orb || 0) + dt * (ph === 3 ? 1.1 : .7);
+      const ns = ph === 1 ? 3 : 5;
+      e.sh = (e.sh ?? 1.2) - dt;
+      if (e.sh <= 0) {
+        e.sh = ph === 3 ? .55 : ph === 2 ? .75 : 1;
+        const k = e.shk = ((e.shk || 0) + 1) % ns, a = e.orb + k / ns * TAU, sx = e.x + Math.cos(a) * e.r * 2, sy = e.y + Math.sin(a) * e.r * 2, a0 = Math.atan2(P.y - sy, P.x - sx);
+        for (const o of [-.12, 0, .12]) bullets.push({ x: sx, y: sy, vx: Math.cos(a0 + o) * 220, vy: Math.sin(a0 + o) * 220, r: 7, dmg: 12, life: 4, from: e, col: '255,138,154' });
+        snd.fx('shoot');
+      }
+      if (ph === 1) { if (e.t1 <= 0) { e.t1 = 1.7; e.spin = (e.spin || 0) + .25; ringBullets(e, 20, 165, e.spin, 12); ringBullets(e, 20, 110, e.spin + TAU / 40, 12); } }
+      else if (e.t1 <= 0) {
+        e.t1 = ph === 3 ? .11 : .14; e.spin = (e.spin || 0) + .27;
+        for (const dir of [1, -1]) for (let arm = 0; arm < 2; arm++) { const a = dir * e.spin + arm * Math.PI; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, r: 6, dmg: 12, life: 5, from: e }); }
+      }
+      // Blood rain around Hexel.
+      e.t5 = (e.t5 ?? 2) - dt;
+      if (e.t5 <= 0) { e.t5 = [0, 2.4, 1.8, 1.2][ph]; for (let k = 0; k < 4; k++) { const a = Math.random() * TAU, d = Math.random() * 180; strikeAt(P.x + Math.cos(a) * d, P.y + Math.sin(a) * d, 50, 14, 1.1, '255,60,80', e); } }
+      // Moonfall: a huge impact where Hexel stands; the crater burns. Three in a row in phase 3.
+      e.t4 = (e.t4 ?? 5) - dt;
+      if (e.t4 <= 0 && !e.mf) { e.t4 = ph === 3 ? 6 : 7; e.mf = ph === 3 ? 3 : 1; e.mfT = 0; e.falls = e.falls || []; banner('Moonfall!', '#ff7a8a'); }
+      if (e.mf && (e.mfT -= dt) <= 0) { strikeAt(P.x, P.y, 130, 30, 1.5, '255,90,110', e); e.falls.push({ x: P.x, y: P.y, t: 1.5 }); e.mf--; e.mfT = .7; snd.fx('warn'); }
+      if (e.falls) for (const f of e.falls) if ((f.t -= dt) <= 0 && !f.done) { f.done = true; addBurn(f.x, f.y, 100, { life: 5, dmg: 9 }); shake = Math.max(shake, 10); burst(f.x, f.y, '#ff5a6a', 30, 300); }
+      if (e.falls) e.falls = e.falls.filter(f => !f.done);
+      if (e.t2 <= 0) { e.t2 = 5; const kind = ph === 1 ? 'moth' : ph === 2 ? 'ghost' : 'bomber'; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; spawnFoe(kind, e.x + Math.cos(a) * 120, e.y + Math.sin(a) * 120); } }
+      if (ph >= 2) {
+        e.t6 = (e.t6 ?? 2) - dt;
+        if (e.t6 <= 0) {
+          e.t6 = ph === 3 ? 4 : 5; e.ray = (e.ray || 0) + .45;
+          const n = ph === 3 ? 7 : 5;
+          for (let k = 0; k < n; k++) { const a = e.ray + k * TAU / n; for (let d = 100; d <= 680; d += 64) hazards.push({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, t: 1 + d / 2200, T: 1 + d / 2200, r: 34, dmg: 13, col: '255,70,90', from: e }); }
+          snd.fx('warn');
+        }
+      }
     } else if (e.kind === 'queen') {
       if (e.tele) {
         e.tele.t -= dt;
@@ -20875,7 +20940,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     isaac: [700, 460], zelda: [500, 380], ds: [560, 420], spire: [650, 420], cow: [480, 380], temple: [520, 400],
     zerg: [520, 400], bay: [560, 420], homm: [600, 420], orb: [600, 420], tibia: [520, 400],
   };
-  const reach = k => REACH[k][SHORT_REACH ? 1 : 0];
+  const reach = k => REACH[k][SHORT_REACH ? 1 : 0] * (S ? S.reachK : 1);
 
   // Lucky wisp effects, applied on each hit.
   const WISP_LUCK = ['gold', 'ember', 'storm', 'twin', 'hunter'];
@@ -21901,16 +21966,23 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* ---------- The finale: at dawn the Eclipse Moth rises; banish it within FINALE_TIME seconds for the true ending ---------- */
   const FINALE_TIME = 60;
-  function startFinale() {
+  // With three moon shards (see questBossDown) you may call the Blood Moon instead: much harder, its own ending.
+  function startFinale(blood) {
     for (const e of foes) if (e.boss && !e.dead) { e.gone = true; burst(e.x, e.y, '#ffe8b0', 40, 300); }
     const a = Math.random() * TAU;
-    const b = spawnFoe('eclipse', P.x + Math.cos(a) * 300, P.y + Math.sin(a) * 300);
+    const b = spawnFoe(blood ? 'bloodmoon' : 'eclipse', P.x + Math.cos(a) * 300, P.y + Math.sin(a) * 300);
     b.t1 = 2; b.t2 = 3;
-    run.boss = b; run.finale = { t: 0, boss: b }; run.portal = null;
+    run.boss = b; run.finale = { t: 0, boss: b, blood: !!blood }; run.portal = null;
     snd.fx('boss'); snd.setBoss(true);
-    banner('The Eclipse Moth swallows the sunrise!', '#ffb33b', true);
-    banner(`Banish it within ${FINALE_TIME} seconds`, '#ffe27a');
+    if (blood) { banner('The Blood Moon rises! The sky runs red', '#ff5a6a', true); banner(`Shatter it within ${FINALE_TIME} seconds`, '#ff9aa6'); }
+    else { banner('The Eclipse Moth swallows the sunrise!', '#ffb33b', true); banner(`Banish it within ${FINALE_TIME} seconds`, '#ffe27a'); }
+    if (jarFull()) banner('The firefly jar blazes beside you!', '#ffe27a', true);
     shake = Math.max(shake, 12);
+  }
+  function askMoon() {
+    openQuest({ eyebrow: 'Dawn', title: 'The three moon shards blaze', text: 'They pull at the sky. Behind the sunrise, something red is waiting to be called.', options: [
+      { name: 'The Eclipse Moth', sub: 'Face the shadow that swallows every sunrise.', btn: 'Face it', fn: () => { run.quest.moon = 'eclipse'; } },
+      { name: 'The Blood Moon', sub: 'Call the stranger moon instead. Far harder, and few have ever seen it fall.', btn: 'Call it', fn: () => { run.quest.moon = 'blood'; } }] });
   }
 
   /* ---------- Rifts ---------- */
@@ -21924,29 +21996,324 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const QUEST_ZONES = ['cow'];
   // Relics a guardian drops instead of its own zone's (the cow king drops the Chaos Orb; the Peg Leg became the quest key).
   const RELIC_DROP = { cow: 'orb' };
-  // Wirt's Leg: a fallen boy's body sometimes lies in the Bloodmoor Crypts (only while the peddler is still to come or
-  // camped, so the tome can be bought). The peddler sells a Tome of Town Portal for one level of any item;
-  // leg + tome make the next rift the cow pasture, and the leg and tome are used up when you step in.
-  const LEG_CHANCE = .5;
+  /* ---------- Quests ----------
+     Small per-run side quests. Things placed in the current rift live in run.quest.spots (cleared when you leave),
+     things in the meadow in run.quest.home. Each spot kind in SPOTS may update, react when Hexel touches it (once per
+     visit: walk away to touch it again), draw itself, glow and point the way with an edge arrow. Quest items show as
+     dashed chips (QUEST_INFO). Choices open the shared #quest overlay (openQuest).
+     - Wirt's Leg (d2 → peddler → cow): see the Rifts notes in CLAUDE.md.
+     - Trading sequence (zelda → next rift → peddler): a Dino Doll on the shore, a crying child, a Pink Ribbon, the
+       Aurora Ribbon relic.
+     - Praise the Sun (ds): keep a cornered sun knight alive for 20 s; his summon sign brings his golden phantom to
+       the next main-map boss fight.
+     - The Oracle (tibia): at a level that grows with the night (oracleLv), choose a vocation.
+     - The devil deal (isaac): beat the guardian without being hit; trade max HP for power, or walk away and maybe
+       meet an angel in the next rift.
+     - The grubs (hk): free five grubs from their jars; the Grubfather gives a Mask Shard.
+     - Fireflies for the jar (any rift → meadow): five lost fireflies fill a jar that lights the finale.
+     - Moon shards (main-map bosses): beat each within SHARD_T[boss] s of its arrival; three shards call the Blood Moon.
+       The windows were timed on autopilot with the boss arena's builds: the "typical" builds miss all three, the
+       "strong" ones made them in 2.1 / 22.9 / 10.9 s. */
+  const LEG_CHANCE = .5, DOLL_CHANCE = .5, KNIGHT_CHANCE = .5, ORACLE_CHANCE = .6, GRUB_CHANCE = .5, FLY_CHANCE = .8, ANGEL_CHANCE = .6;
+  const JAR_FULL = 5, SHARD_T = { luna: 8, stag: 30, queen: 20 }, SHARD_BOSSES = Object.keys(SHARD_T);
   const peddlerAhead = () => !!run.peddler || EVENTS.slice(run.ev).some(e => e.kind === 'peddler');
+  const bossAhead = () => EVENTS.slice(run.ev).some(e => e.kind === 'boss');
   const questReady = () => run.quest.leg && run.quest.tome && !run.seen.includes('cow');
+  const jarFull = () => (run.quest.jar || 0) >= JAR_FULL;
+  // The Oracle asks for about the level a good run has reached at that hour, plus a few: reach it inside the rift.
+  const oracleLv = () => Math.max(12, Math.round(7.5 * run.t / 60) + 4);
+  const VOCS = {
+    knight: { name: 'Knight', desc: '+30% max health and +2 armor.' },
+    paladin: { name: 'Paladin', desc: 'Weapons and relics reach 20% farther, projectiles fly 25% faster, +8% crit chance.' },
+    sorcerer: { name: 'Sorcerer', desc: '+20% damage.' },
+    druid: { name: 'Druid', desc: 'Regenerate 1.2 health per second, and every heal is 50% stronger.' },
+  };
+  // [name, description, hint] for each quest chip (pause screen).
+  const QUEST_INFO = {
+    leg: [() => "Wirt's Leg", () => 'A wooden peg leg from a poor boy who met a bad end. It smells faintly of cows.',
+      () => run.quest.tome ? 'Quest item: the next rift to open goes somewhere special' : 'Quest item: the wandering peddler may know what it is for'],
+    tome: [() => 'Tome of Town Portal', () => 'A tome that opens a portal. Paired with the leg, it can open somewhere very strange.', () => 'Quest item'],
+    doll: [() => 'Dino Doll', () => 'A little green dino doll, still damp from the sea. Some child must be missing it.', () => 'Quest item: someone in another rift is looking for it'],
+    ribbon: [() => 'Pink Ribbon', () => 'A child gave you this for the doll. In the dark it shimmers green and violet, like a northern sky.', () => 'Quest item: the wandering peddler collects curious things'],
+    sign: [() => 'Summon Sign', () => 'A knight of the sun left you his golden sign. He will answer it at the next great battle in the meadow.', () => 'Quest item: used when the next main-map boss arrives'],
+    flies: [() => 'Lost Fireflies', () => `You carry ${run.quest.flies} lost firefl${run.quest.flies === 1 ? 'y' : 'ies'}.`, () => 'Bring them home to the glass jar in the meadow'],
+    jar: [() => `Firefly Jar · ${run.quest.jar} of ${JAR_FULL}`, () => 'Fireflies you brought home from the rifts. A full jar lights the finale: Hexel deals 25% more damage to the dawn boss.', () => jarFull() ? 'Full!' : 'Lost fireflies hide in the rifts'],
+    shards: [() => `Moon Shards · ${run.quest.shards} of 3`, () => `Beat a main-map boss quickly to earn a shard: the Great Luna Moth within ${SHARD_T.luna} s, the Stag Beetle within ${SHARD_T.stag} s, the Moth Queen within ${SHARD_T.queen} s (watch the ☾ on its health bar).`, () => run.quest.shards >= 3 ? 'At dawn you may call a stranger moon' : 'Three shards can call a stranger moon at dawn'],
+    voc: [() => VOCS[run.quest.voc].name, () => VOCS[run.quest.voc].desc, () => 'Vocation chosen at the Oracle'],
+    mask: [() => 'Mask Shard', () => '+20 max health, a gift from the Grubfather.', () => 'Quest reward'],
+  };
+  function questChips() {
+    const q = run.quest, out = [], c = (k, label) => out.push(`<span class="chip quest" data-k="q:${k}">${label}</span>`);
+    if (q.voc) c('voc', VOCS[q.voc].name);
+    if (q.leg) c('leg', 'Wirt\'s Leg');
+    if (q.tome) c('tome', 'Tome of Town Portal');
+    if (q.doll) c('doll', 'Dino Doll');
+    if (q.ribbon) c('ribbon', 'Pink Ribbon');
+    if (q.sign) c('sign', 'Summon Sign');
+    if (q.flies) c('flies', `Lost Fireflies <b>${q.flies}</b>`);
+    if (q.jar) c('jar', `Firefly Jar <b>${q.jar}/${JAR_FULL}</b>`);
+    if (q.shards) c('shards', `Moon Shards <b>${q.shards}/3</b>`);
+    if (q.mask) c('mask', 'Mask Shard');
+    return out;
+  }
+
+  // The shared quest choice screen: options are { name, sub, btn, fn }; leave adds a ghost button (onLeave runs on it).
+  let questLeave = null;
+  function openQuest(o) {
+    state = 'quest'; joy = null; snd.muffle(true); snd.fx('chestdrop');
+    $('qEyebrow').textContent = o.eyebrow; $('qTitle').textContent = o.title;
+    $('qText').textContent = o.text || ''; $('qText').hidden = !o.text;
+    const box = $('qList'); box.innerHTML = '';
+    for (const op of o.options) {
+      const row = document.createElement('div'), label = document.createElement('span'), b = document.createElement('button');
+      label.innerHTML = '<strong></strong><span></span>'; label.firstChild.textContent = op.name; label.lastChild.textContent = op.sub;
+      b.className = 'btn'; b.textContent = op.btn || 'Choose';
+      b.onclick = () => { if (state !== 'quest') return; questLeave = null; snd.fx('pick'); op.fn(); renderLoadout(); resume(); };
+      row.append(label, b); box.appendChild(row);
+    }
+    $('qBye').hidden = !o.leave; $('qBye').textContent = o.leave || '';
+    questLeave = o.onLeave || null;
+    show('quest'); (box.querySelector('button') || $('qBye')).focus();
+  }
+  // Max health changes from quests (Mask Shard, devil pacts, angel gifts); the hp gained is added too.
+  function addMaxHp(n) { const before = S.maxHp; run.quest.hp = (run.quest.hp || 0) + n; recalc(); run.hp = Math.max(1, Math.min(S.maxHp, run.hp + Math.max(0, S.maxHp - before))); }
+
+  // Devil pacts: each costs max health. Offered only if you'd keep at least 40 max health.
+  const evoTarget = () => Object.entries(run.weapons).filter(([, w]) => !w.evo && w.lv >= 4).sort((a, b) => b[1].lv - a[1].lv)[0];
+  const PACTS = [
+    { cost: 30, ok: () => evoTarget(), name: 'Forbidden Evolution', sub: () => `${WEAPONS[evoTarget()[0]].name} evolves into ${WEAPONS[evoTarget()[0]].evoName} right now, no charm needed.`,
+      take() { const [id, w] = evoTarget(); w.evo = true; w.bats = []; banner(`${WEAPONS[id].evoName}!`, '#d9b8ff', true); snd.fx('evolve'); } },
+    { cost: 25, ok: () => Object.values(run.weapons).some(w => w.lv < WMAX), name: 'Blood for Steel', sub: () => 'One of your weapons below the top level jumps straight to Lv 8.',
+      take() { const ids = Object.keys(run.weapons).filter(id => run.weapons[id].lv < WMAX), id = ids[Math.floor(Math.random() * ids.length)]; run.weapons[id].lv = WMAX; banner(`${run.weapons[id].evo ? WEAPONS[id].evoName : WEAPONS[id].name} reaches Lv ${WMAX}!`, '#ff8a7a', true); } },
+    { cost: 20, ok: () => run.relic && run.minis < RELIC_MEGA, name: 'Pact of the Relic', sub: () => 'Your relic grows one power level, as if you had beaten another guardian.',
+      take() { run.minis++; if (run.minis === RELIC_MEGA) { banner(`Your relic awakens: ${RELICS[run.relic.id].mega}!`, '#ffb33b', true); snd.fx('evolve'); } } },
+    { cost: 20, ok: () => true, name: 'Wrath', sub: () => '+15% damage for the rest of the night.', take() { run.bonus = (run.bonus || 0) + .15; recalc(); } },
+  ];
+  const ANGEL = [
+    { ok: () => true, name: 'Blessing of Vigor', sub: '+20 max health, and you are fully healed.', take() { addMaxHp(20); run.hp = S.maxHp; } },
+    { ok: () => true, name: 'Halo', sub: '+8% damage for the rest of the night.', take() { run.bonus = (run.bonus || 0) + .08; recalc(); } },
+    { ok: () => true, name: 'Holy Light', sub: '+3 rerolls.', take() { run.rerolls += 3; } },
+    { ok: () => Object.entries(run.passives).some(([id, k]) => k < PASSIVES[id].max), name: 'Feather of Grace', sub: 'A random charm you carry gains a level.',
+      take() { const ids = Object.keys(run.passives).filter(id => run.passives[id] < PASSIVES[id].max), id = ids[Math.floor(Math.random() * ids.length)], before = S.maxHp; run.passives[id]++; recalc(); if (S.maxHp > before) run.hp += S.maxHp - before; banner(`${PASSIVES[id].name} grows`, '#f0f4ff'); } },
+  ];
+
+  const SPOTS = {
+    // Wirt's body in the Bloodmoor Crypts; a gutling pack and its shaman keep watch over it.
+    wirt: { r: 26, glow: '232,200,144', arrow: ['#3a2410', '#e8c890'], draw: (s, now) => drawWirt(s, now),
+      update(s, d) {
+        if (s.guarded || d > 520) return;
+        s.guarded = true;
+        zoneCall(() => { for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; Z.spawn('imp', s.x + Math.cos(a) * 60, s.y + Math.sin(a) * 60); } Z.spawn('shaman', s.x + 30, s.y - 40); });
+      },
+      touch(s) { run.quest.leg = true; banner('Wirt\'s Leg: someone must have needed this…', '#e8c890', true); snd.fx('chest'); burst(s.x, s.y, '#e8c890', 16, 140); return true; } },
+    // The trading sequence: a doll on the shore, then a crying child in the next rift.
+    doll: { r: 22, glow: '150,230,140', arrow: ['#1e3a1a', '#9ae68a'], draw: drawDoll,
+      touch(s) { run.quest.doll = true; banner('A Dino Doll! Some child must be missing it…', '#a8e898', true); snd.fx('chest'); burst(s.x, s.y, '#9ae68a', 14, 140); return true; } },
+    kid: { r: 24, glow: '255,200,220', arrow: ['#4a2030', '#ffb8d0'], draw: drawKid,
+      touch(s) {
+        run.quest.doll = false; run.quest.ribbon = true;
+        banner('"My dino! Thank you! Here, you can have my ribbon!"', '#ffc8dc', true); snd.fx('chest'); burst(s.x, s.y - 10, '#ffb8d0', 18, 150);
+        pops.push({ x: s.x, y: s.y - 40, txt: '♥', col: '#ff8ab0', life: 0, ttl: 1.2, big: true });
+        return true;
+      } },
+    // Praise the Sun: a knight cornered in the mire. Keep him alive for 20 s.
+    knight: { r: 30, glow: '255,220,120', arrow: ['#4a3a10', '#ffd870'], arrowIf: s => s.state === 'wait' || s.state === 'fight', draw: (s, now) => drawKnight(s, now, false), update: updateKnight },
+    // The Oracle on Rookmeadow Isle.
+    oracle: { r: 26, glow: '190,170,255', arrow: ['#2a2048', '#c8b8ff'], draw: drawOracle, touch: touchOracle },
+    // The devil's door after a flawless guardian fight in the Weeping Cellar, and the angel's door after refusing it.
+    devil: { r: 28, glow: '255,70,50', arrow: ['#3a0a08', '#ff5a3a'], draw: (s, now) => drawDoor(s, now, false), touch: touchDevil },
+    angel: { r: 28, glow: '230,240,255', arrow: ['#3a4058', '#f0f4ff'], draw: (s, now) => drawDoor(s, now, true), touch: touchAngel },
+    // Five grubs in glass jars in the Hushed Underhalls (the arrow points at the nearest), then the Grubfather.
+    grub: { r: 20, glow: '200,225,255', arrow: ['#1e2a40', '#d0e4ff'], nearest: true, draw: drawGrubJar,
+      touch(s) {
+        const q = run.quest; q.grubs++;
+        burst(s.x, s.y - 8, '#d8ecff', 18, 160); snd.fx('pick');
+        pops.push({ x: s.x, y: s.y - 34, txt: ['Yay!', 'Free!', '♥', 'Hooray!', 'Thank you!'][q.grubs % 5], col: '#e8f2ff', life: 0, ttl: 1.1, big: true });
+        if (q.grubs >= 5) {
+          const a = Math.random() * TAU; q.spots.push({ kind: 'grubfather', x: P.x + Math.cos(a) * 200, y: P.y + Math.sin(a) * 200 });
+          banner('All five grubs are free! The Grubfather wriggles out to thank you', '#e8f2ff', true); snd.fx('chest');
+        } else banner(`Grub freed (${q.grubs} of 5)`, '#d0e4ff');
+        return true;
+      } },
+    grubfather: { r: 40, glow: '230,235,210', arrow: ['#3a3a28', '#f0f0d0'], draw: drawGrubfather,
+      touch(s) {
+        run.quest.mask = true; addMaxHp(20); heal(S.maxHp);
+        for (let i = 0; i < 25; i++) dropXp(s.x + rnd(-70, 70), s.y + rnd(-50, 50), 10);
+        banner('The Grubfather gives you a Mask Shard: +20 max health', '#f0f0d0', true); snd.fx('evolve'); burst(s.x, s.y, '#f0f0d0', 30, 220);
+        return true;
+      } },
+    // Fireflies for the jar: a lost firefly flitting about a rift, and the jar in the meadow.
+    firefly: { r: 24, glow: '255,226,122', arrow: ['#3a3010', '#ffe27a'], draw: drawLostFly,
+      update(s, d, dt) {
+        // It wanders in slow loops around where it was lost.
+        s.ph += dt; s.a += Math.sin(s.ph * 1.3) * dt * 1.6;
+        s.x += Math.cos(s.a) * 26 * dt; s.y += Math.sin(s.a) * 26 * dt;
+      },
+      touch(s) {
+        const q = run.quest; q.flies = (q.flies || 0) + 1;
+        banner(q.jar || q.home.some(h => h.kind === 'jar') ? 'A lost firefly! Bring it home to the jar' : 'A lost firefly! Bring it home to the meadow', '#ffe27a', true);
+        snd.fx('moonpick'); burst(s.x, s.y, '#ffe27a', 16, 140);
+        return true;
+      } },
+    jar: { r: 26, glow: '255,226,122', arrow: ['#3a3010', '#ffe27a'], arrowIf: () => run.quest.flies > 0, draw: drawJar,
+      touch(s) {
+        const q = run.quest;
+        if (!q.flies) return false;
+        q.jar = Math.min(JAR_FULL, (q.jar || 0) + q.flies); q.flies = 0; snd.fx('chest'); burst(s.x, s.y - 14, '#ffe27a', 20, 150);
+        banner(jarFull() ? 'The jar is full! Its light will stand by you at dawn' : `Fireflies in the jar: ${q.jar} of ${JAR_FULL}`, '#ffe27a', true);
+        return false;
+      } },
+  };
+
+  function updateKnight(s, d, dt) {
+    if (s.state === 'wait') {
+      if (d > 420) return;
+      s.state = 'fight'; s.t = 20; s.hp = s.max = 100; s.wave = 0; s.sw = .5; s.swing = 0;
+      banner('A knight of the sun is cornered! Keep him alive for 20 seconds', '#ffd870', true); snd.fx('warn');
+      return;
+    }
+    if (s.state === 'fight') {
+      s.t -= dt; s.wave -= dt; s.sw -= dt; s.swing = Math.max(0, s.swing - dt);
+      if (s.wave <= 0) {
+        // Hollows keep closing in on him.
+        const n = s.t > 19 ? 8 : 4; s.wave = 5;
+        zoneCall(() => { for (let i = 0; i < n; i++) { const a = i / n * TAU + Math.random(); Z.spawn('hollow', s.x + Math.cos(a) * 130, s.y + Math.sin(a) * 130); } });
+      }
+      const near = foes.filter(e => !e.dead && !e.boss && (e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (62 + e.r) ** 2);
+      s.hp -= near.length * 3 * dt;
+      if (s.sw <= 0 && near.length) {
+        s.sw = .8; s.swing = .25;
+        withSrc('q:sun', () => { for (const e of near) hit(e, 30 * (1 + run.t / 200), 140, s.x, s.y); });
+      }
+      if (s.hp <= 0) { s.state = 'fallen'; s.t = 2; banner('The knight falls… his sign fades away', '#c8a070', true); burst(s.x, s.y, '#c8a070', 20, 160); return; }
+      if (s.t <= 0) {
+        s.state = 'praise'; s.t = 2.4; run.quest.sign = true; renderLoadout();
+        banner('"Praise the sun!" He leaves you his summon sign', '#ffd870', true); snd.fx('evolve'); burst(s.x, s.y - 20, '#ffe08a', 30, 200);
+      }
+    } else if ((s.t -= dt) <= 0) s.gone = true;
+  }
+  function touchOracle(s) {
+    if (run.lv < s.need) {
+      banner(`"Come back when you are level ${s.need}."`, '#c8b8ff', true); snd.fx('pick');
+      return false;
+    }
+    openQuest({ eyebrow: 'The Oracle', title: 'Are you prepared to face your destiny?', text: 'Choose a vocation. It stays with you until dawn.',
+      options: Object.entries(VOCS).map(([id, v]) => ({ name: v.name, sub: v.desc, btn: 'Choose', fn: () => {
+        const before = S.maxHp; run.quest.voc = id; recalc(); run.hp += Math.max(0, S.maxHp - before);
+        s.gone = true; burst(s.x, s.y, '#c8b8ff', 26, 200); snd.fx('evolve');
+        banner(`You are now a ${v.name}!`, '#c8b8ff', true);
+      } })), leave: 'Not yet' });
+    return false;
+  }
+  function touchDevil(s) {
+    const offers = PACTS.filter(o => o.ok() && S.maxHp - o.cost >= 40).sort(() => Math.random() - .5).slice(0, 3);
+    openQuest({ eyebrow: 'A red door', title: 'A deal with the devil', text: 'Flawless. Something behind the door was watching. It wants a piece of your life, and it pays well.',
+      options: offers.map(o => ({ name: `${o.name} (−${o.cost} max health)`, sub: o.sub(), btn: 'Deal', fn: () => {
+        o.take(); addMaxHp(-o.cost); s.gone = true; burst(s.x, s.y, '#ff5a3a', 26, 200); snd.fx('bossdown');
+        banner('The door slams shut. The deal is done', '#ff7a5a', true);
+      } })), leave: 'Walk away', onLeave: () => {
+        s.gone = true; run.quest.angel = true; burst(s.x, s.y, '#ff5a3a', 16, 160);
+        banner('The devil shrugs. Somewhere far off, a bell rings softly…', '#f0f4ff', true);
+      } });
+    return false;
+  }
+  function touchAngel(s) {
+    const offers = ANGEL.filter(o => o.ok()).sort(() => Math.random() - .5).slice(0, 3);
+    openQuest({ eyebrow: 'A white door', title: 'An angel\'s gift', text: 'You turned the devil away. Choose a gift, freely given.',
+      options: offers.map(o => ({ name: o.name, sub: o.sub, btn: 'Accept', fn: () => {
+        o.take(); s.gone = true; burst(s.x, s.y, '#f0f4ff', 26, 200); snd.fx('evolve');
+      } })), leave: 'Leave it', onLeave: () => { s.gone = true; } });
+    return false;
+  }
+
+  function questSpots() { return run.zone ? run.quest.spots : run.quest.home; }
   function updateQuest(dt) {
-    const c = run.quest.corpse;
-    if (!c || !run.zone || run.zone.def.id !== 'd2') return;
-    const d = Math.hypot(P.x - c.x, P.y - c.y);
-    if (!c.guarded && d < 520) {
-      // A gutling pack and its shaman keep watch over the body.
-      c.guarded = true;
-      zoneCall(() => {
-        for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; Z.spawn('imp', c.x + Math.cos(a) * 60, c.y + Math.sin(a) * 60); }
-        Z.spawn('shaman', c.x + 30, c.y - 40);
-      });
+    const list = questSpots();
+    for (const s of list) {
+      const D = SPOTS[s.kind], d = Math.hypot(P.x - s.x, P.y - s.y);
+      s.d = d;
+      if (D.update) D.update(s, d, dt);
+      if (s.gone || !D.touch) continue;
+      // Touching fires once per visit: walk away a little to touch it again.
+      if (d > D.r + P.r + 24) s.armed = true;
+      else if (s.armed !== false && d < D.r + P.r) { s.armed = false; if (D.touch(s)) s.gone = true; renderLoadout(); }
+      if (state !== 'play') break;
     }
-    if (d < 26 + P.r) {
-      run.quest.leg = true; run.quest.corpse = null;
-      banner('Wirt\'s Leg: someone must have needed this…', '#e8c890', true); snd.fx('chest');
-      burst(c.x, c.y, '#e8c890', 16, 140); renderLoadout();
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].gone) list.splice(i, 1);
+    if (!run.zone) updatePhantom(dt);
+  }
+  function questEnter(def) {
+    const q = run.quest, id = def.id; q.spots = []; q.grubs = 0;
+    const add = (kind, lo, hi, o) => { const a = Math.random() * TAU, d = rnd(lo, hi), s = Object.assign({ kind, x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d }, o); q.spots.push(s); return s; };
+    if (id === 'd2' && !q.leg && !q.used && peddlerAhead() && Math.random() < LEG_CHANCE) add('wirt', 1100, 1500);
+    // The leg and tome are spent opening the pasture.
+    if (id === 'cow' && q.leg && q.tome) { q.leg = q.tome = false; q.used = true; renderLoadout(); }
+    if (id === 'zelda' && !q.doll && !q.ribbon && !q.traded && !q.dollSeen && peddlerAhead() && Math.random() < DOLL_CHANCE) { q.dollSeen = true; add('doll', 800, 1200); banner('Something small glints on the shore…', '#a8e898'); }
+    else if (q.doll && id !== 'cow') { add('kid', 700, 1000); banner('Somewhere, a child is crying…', '#ffc8dc', true); }
+    if (id === 'ds' && !q.sign && !q.knightSeen && bossAhead() && Math.random() < KNIGHT_CHANCE) { q.knightSeen = true; add('knight', 650, 950, { state: 'wait' }); banner('Someone is calling for help in the mire…', '#ffd870', true); }
+    if (id === 'tibia' && !q.voc && Math.random() < ORACLE_CHANCE) { const s = add('oracle', 550, 850, { need: oracleLv() }); banner(`The Oracle waits on the isle. She will see heroes of level ${s.need}`, '#c8b8ff', true); }
+    if (id === 'hk' && !q.mask && !q.grubSeen && Math.random() < GRUB_CHANCE) {
+      q.grubSeen = true; const a0 = Math.random() * TAU;
+      for (let i = 0; i < 5; i++) { const a = a0 + i / 5 * TAU + rnd(-.3, .3), d = rnd(450, 1250); q.spots.push({ kind: 'grub', x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, ph: Math.random() * 6 }); }
+      banner('Muffled cries echo from glass jars all around…', '#d0e4ff', true);
     }
+    if (q.angel) { q.angel = false; if (Math.random() < ANGEL_CHANCE) { add('angel', 330, 460); banner('A white door glows softly nearby…', '#f0f4ff', true); } }
+    if (id !== 'cow' && (q.flies || 0) + (q.jar || 0) < JAR_FULL && Math.random() < FLY_CHANCE) { add('firefly', 900, 1400, { ph: Math.random() * 6, a: Math.random() * TAU }); banner('A lost firefly glimmers somewhere in this rift', '#ffe27a'); }
+  }
+  function questExit() {
+    const q = run.quest; q.spots = [];
+    if (q.flies > 0 && !q.home.some(s => s.kind === 'jar')) {
+      const a = Math.random() * TAU; q.home.push({ kind: 'jar', x: P.x + Math.cos(a) * 380, y: P.y + Math.sin(a) * 380 });
+      banner('A glass jar glimmers in the meadow. Bring the fireflies home!', '#ffe27a', true);
+    }
+  }
+  // A rift guardian falls: in the Weeping Cellar, a flawless fight opens the devil's door.
+  function questGuardianDown(e) {
+    if (run.zone.def.id === 'isaac' && !run.zone.hitBoss) {
+      run.quest.spots.push({ kind: 'devil', x: e.x + 120, y: e.y + 30 });
+      banner('Flawless! A red door creaks open…', '#ff5a3a', true);
+    }
+  }
+  // A main-map boss arrives: the summon sign brings the Sun Knight's phantom.
+  function questBossArrives(e) {
+    if (!run.quest.sign) return;
+    run.quest.sign = false; renderLoadout();
+    run.quest.phantom = { x: P.x - 50, y: P.y + 30, sw: 1, sp: 3, swing: 0, face: 1, leave: null };
+    banner('Your summon sign glows: the Sun Knight answers!', '#ffd870', true); snd.fx('evolve');
+  }
+  // A main-map boss falls: quick enough, and it leaves a moon shard.
+  function questBossDown(e) {
+    const q = run.quest;
+    if (!SHARD_BOSSES.includes(e.kind) || e.born == null || run.clock - e.born > SHARD_T[e.kind]) return;
+    q.shards = (q.shards || 0) + 1; renderLoadout();
+    banner(`A moon shard! (${q.shards} of 3)`, '#ff9aa6', true);
+    if (q.shards >= 3) banner('Three shards… at dawn they can call a stranger moon', '#ff7a8a', true);
+  }
+  // The Sun Knight's golden phantom: stays by the boss, swings at it and anything close, throws a sunlight spear.
+  // Its damage scales with the boss's health, so it helps about as much against any of them (~1/270 of it per second).
+  function updatePhantom(dt) {
+    const ph = run.quest.phantom;
+    if (!ph) return;
+    ph.swing = Math.max(0, ph.swing - dt);
+    if (ph.leave != null) { if ((ph.leave -= dt) <= 0) run.quest.phantom = null; return; }
+    const b = run.boss;
+    if (!b || b.dead) { ph.leave = 2; banner('"Praise the sun!"', '#ffd870', true); burst(ph.x, ph.y - 20, '#ffe08a', 24, 180); return; }
+    const dx = b.x - ph.x, dy = b.y - ph.y, d = Math.hypot(dx, dy) || 1, want = b.r + 34;
+    if (d > want) { const k = Math.min(d - want, 280 * dt); ph.x += dx / d * k; ph.y += dy / d * k; }
+    if (d > 1400) { ph.x = b.x - dx / d * want; ph.y = b.y - dy / d * want; }
+    ph.face = dx < 0 ? -1 : 1;
+    withSrc('q:sun', () => {
+      if ((ph.sw -= dt) <= 0 && d < want + 60) {
+        ph.sw = .8; ph.swing = .25;
+        hit(b, b.max * .0025, 0, ph.x, ph.y);
+        for (const e of foes) if (e !== b && !e.dead && (e.x - ph.x) ** 2 + (e.y - ph.y) ** 2 < (70 + e.r) ** 2) hit(e, 40 * (1 + run.t / 200), 160, ph.x, ph.y);
+      }
+      if ((ph.sp -= dt) <= 0) {
+        ph.sp = 5; hit(b, b.max * .006, 0, ph.x, ph.y); snd.fx('chain');
+        beams.push({ x1: ph.x, y1: ph.y - 30, x2: b.x, y2: b.y, life: 0, col: '#ffe08a' });
+        burst(b.x, b.y, '#ffe08a', 14, 200);
+      }
+    });
   }
   const NOT_FIRST = ['z', 'moo2'];   // The Robot Wars and The Antaran Deep are too hard as a first rift.
   function nextBossIn() { for (let i = run.ev; i < EVENTS.length; i++) if (EVENTS[i].kind === 'boss') return EVENTS[i].t - run.t; return Infinity; }
@@ -21987,19 +22354,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     snd.setZone(def.music); snd.setBoss(false); snd.fx('portal');
     banner(def.name, `rgb(${def.portal})`, true);
     shake = Math.max(shake, 8);
-    // Wirt's Leg quest: the body may lie somewhere off in the crypts; the leg and tome are spent opening the pasture.
-    if (def.id === 'd2' && !run.quest.leg && !run.quest.used && peddlerAhead() && Math.random() < LEG_CHANCE) {
-      const a = Math.random() * TAU, d = rnd(1100, 1500);
-      run.quest.corpse = { x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d };
-    }
-    if (def.id === 'cow' && run.quest.leg && run.quest.tome) { run.quest.leg = run.quest.tome = false; run.quest.used = true; renderLoadout(); }
+    questEnter(def);
   }
   function exitZone() {
     const z = run.zone, sv = run.saved;
     // Glow left in the rift comes home with you, and so does an unopened chest.
     let xp = 0; const chests = [];
     for (const m of motes) { if (m.kind === 'xp') xp += m.v; if (m.kind === 'chest') chests.push(m); }
-    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = []; run.quest.corpse = null;
+    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = [];
     foes = sv.foes; motes = sv.motes; bullets = []; strikes = sv.strikes; hazards = sv.hazards; shots = sv.shots;
     run.zone = null; run.saved = null; run.boss = null;
     P.x = sv.x; P.y = sv.y; cam.x = P.x; cam.y = P.y; P.inv = 2;
@@ -22013,6 +22375,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     warp = { t: 1, col: z.def.portal };
     snd.setZone(null); snd.setBoss(false); snd.fx('portal');
     banner('Back in the meadow', '#ffe27a', true);
+    questExit();
   }
   function updateZone(z) {
     while (z.ev < z.events.length && z.events[z.ev].t <= z.t) { const ev = z.events[z.ev++]; zoneCall(() => ev.run(Z)); }
@@ -22041,7 +22404,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     animateHero(dt);
     if (S.regen) run.hp = Math.min(S.maxHp, run.hp + S.regen * dt);
 
-    if (zone) { updateQuest(dt); if (updateZone(zone)) return; }
+    updateQuest(dt); if (state !== 'play') return;
+    if (zone) { if (updateZone(zone)) return; }
     else {
       updatePeddler(dt); if (state !== 'play') return;
       while (run.ev < EVENTS.length && EVENTS[run.ev].t <= run.t) fireEvent(EVENTS[run.ev++]);
@@ -22418,11 +22782,15 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     motes = motes.filter(m => !m.got);
     foes = foes.filter(e => !e.dead && !e.gone);
 
-    if (run.t >= DAWN && !run.finale) startFinale();
+    if (run.t >= DAWN && !run.finale) {
+      // Three moon shards: choose which moon to face.
+      if ((run.quest.shards || 0) >= 3 && !run.quest.moon) { askMoon(); return; }
+      startFinale(run.quest.moon === 'blood');
+    }
     if (run.finale) {
       run.finale.t += dt;
-      if (run.finale.boss.dead) { gameOver(true, 'perfect'); return; }
-      if (run.finale.t >= FINALE_TIME) { gameOver(true, 'fled'); return; }
+      if (run.finale.boss.dead) { gameOver(true, run.finale.blood ? 'blood' : 'perfect'); return; }
+      if (run.finale.t >= FINALE_TIME) { gameOver(true, run.finale.blood ? 'bloodfled' : 'fled'); return; }
     }
     if (run.pending > 0) openLevel();
   }
@@ -22439,16 +22807,24 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   const sellPicks = lv => Math.max(1, Math.ceil(lv / 2));
   // The tome is paid with one level of any weapon or charm (an item at Lv 1 is given away).
+  // Quest offers: the Tome of Town Portal (Wirt's Leg) and the Pink Ribbon trade (the trading sequence).
   function renderTome() {
-    const box = $('tomeOffer'), q = run.quest;
-    box.hidden = !(q.leg && !q.tome); box.innerHTML = '';
-    if (box.hidden) return;
-    const row = document.createElement('div'), label = document.createElement('span'), b = document.createElement('button');
-    label.innerHTML = q.paying ? '<strong>Tome of Town Portal</strong><span>Pick the item to pay with: it loses one level.</span>'
-      : '<strong>Tome of Town Portal</strong><span>"That leg… Hah! Take this tome with it. You\'ll want to see where they lead."</span>';
-    b.className = 'btn'; b.textContent = q.paying ? 'Cancel' : 'Buy (1 item level)';
-    b.onclick = () => { q.paying = !q.paying; renderSell(); };
-    row.append(label, b); box.appendChild(row);
+    const box = $('tomeOffer'), q = run.quest; box.innerHTML = '';
+    const offer = (html, btn, fn) => {
+      const row = document.createElement('div'), label = document.createElement('span'), b = document.createElement('button');
+      label.innerHTML = html; b.className = 'btn'; b.textContent = btn; b.onclick = fn;
+      row.append(label, b); box.appendChild(row);
+    };
+    if (q.leg && !q.tome) offer(q.paying ? '<strong>Tome of Town Portal</strong><span>Pick the item to pay with: it loses one level.</span>'
+      : '<strong>Tome of Town Portal</strong><span>"That leg… Hah! Take this tome with it. You\'ll want to see where they lead."</span>',
+      q.paying ? 'Cancel' : 'Buy (1 item level)', () => { q.paying = !q.paying; renderSell(); });
+    if (q.ribbon) offer('<strong>Pink Ribbon</strong><span>"Where did you find that? It shimmers like the northern sky… I\'ll trade you something far stranger for it."</span>', 'Trade', () => {
+      q.ribbon = false; q.traded = true;
+      motes.push({ kind: 'chest', x: P.x + 48, y: P.y + 12, boss: false, bob: 0, relic: 'aurora' });
+      banner('The peddler hands you a chest that hums with northern light', '#b8ffd8', true); snd.fx('chest');
+      renderSell(); renderLoadout();
+    });
+    box.hidden = !box.children.length;
   }
   function payTome(kind, id) {
     const q = run.quest;
@@ -22643,6 +23019,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       ctx.fillStyle = white ? '#fff' : '#c8b8e8';
       for (let i = 0; i < 5; i++) { const a = i * 1.3 + e.seed; ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * s * .5, e.y - s * .1 + Math.sin(a) * s * .35, 2.2, 0, TAU); ctx.fill(); }
     }
+    else if (e.kind === 'bloodmoon') drawBloodMoon(e, now);
     else if (e.kind === 'eclipse') { if (e.blink) ctx.globalAlpha = Math.max(.05, e.blink.t / .6 * .6); drawEclipse(e, now); ctx.globalAlpha = 1; }
     else if (e.kind === 'stag') drawBeetle(e.x, e.y, s, e.ang, white ? '#fff' : '#5a2f2a', '#c07a5a', true);
     else if (e.kind === 'luna') drawMoth(e.x, e.y, s, white ? '#fff' : '#8fd8a4', white ? '#fff' : '#d8f0d0', flap, e);
@@ -22687,6 +23064,222 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = '#eafff2';
     for (const [ox, oy, r] of [[-4, -10, 1.8], [3, -11, 1.5], [6, -8, 1.2], [-1, -8, 1]]) { ctx.beginPath(); ctx.arc(m.x + ox * s, m.y + oy * s, r * s, 0, TAU); ctx.fill(); }
     ctx.globalAlpha = 1;
+  }
+  /* ---------- Quest figures ---------- */
+  // A green dino plush lying on the sand: round body, white belly, red saddle, big shoes.
+  function drawDoll(s, now) {
+    const { x, y } = s;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + 7, 16, 4.5, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#1a2a14'; ctx.lineWidth = 1.4;
+    ctx.fillStyle = '#d84a3a'; for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x + k * 7, y + 5, 4.5, 3, 0, 0, TAU); ctx.fill(); ctx.stroke(); }   // shoes
+    ctx.fillStyle = '#5ac850'; ctx.beginPath(); ctx.ellipse(x - 2, y - 1, 11, 8, 0, 0, TAU); ctx.fill(); ctx.stroke();   // body
+    ctx.fillStyle = '#f4f0e0'; ctx.beginPath(); ctx.ellipse(x + 1, y + 1, 6, 5, 0, 0, TAU); ctx.fill();   // belly
+    ctx.fillStyle = '#d84a3a'; ctx.beginPath(); ctx.ellipse(x - 5, y - 7, 6, 3, -.3, 0, TAU); ctx.fill(); ctx.stroke();   // saddle
+    ctx.fillStyle = '#5ac850'; ctx.beginPath(); ctx.ellipse(x + 9, y - 9, 7, 6, .2, 0, TAU); ctx.fill(); ctx.stroke();   // head
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 10, y - 12, 2.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x + 10.6, y - 11.6, 1.2, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(255,255,255,${.5 + .5 * Math.sin(now * 4)})`; ctx.fillRect(x - 10, y - 14, 2, 2);
+  }
+  // A small crying child in a pink dress; tears drip and the shoulders shake.
+  function drawKid(s, now) {
+    const { x, y } = s, sob = Math.sin(now * 12) * .8;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + 12, 11, 3.5, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#2a1820'; ctx.lineWidth = 1.4;
+    ctx.fillStyle = '#5a3a2a'; ctx.fillRect(x - 5, y + 4, 3, 8); ctx.fillRect(x + 2, y + 4, 3, 8);
+    ctx.fillStyle = '#f08ab0'; ctx.beginPath(); ctx.moveTo(x - 9, y + 6); ctx.lineTo(x - 5, y - 8 + sob); ctx.lineTo(x + 5, y - 8 + sob); ctx.lineTo(x + 9, y + 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f2c8a0'; ctx.beginPath(); ctx.arc(x, y - 14 + sob, 7, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#8a4a20'; ctx.beginPath(); ctx.arc(x, y - 16 + sob, 7, Math.PI * 1.05, TAU * .97); ctx.fill();
+    ctx.beginPath(); ctx.arc(x - 7, y - 13 + sob, 2.6, 0, TAU); ctx.arc(x + 7, y - 13 + sob, 2.6, 0, TAU); ctx.fill();
+    // hands over the eyes, and falling tears
+    ctx.fillStyle = '#f2c8a0'; for (const k of [-1, 1]) { ctx.beginPath(); ctx.arc(x + k * 3, y - 13 + sob, 2.4, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#9ad8ff';
+    for (let i = 0; i < 3; i++) { const ph = (now * 1.6 + i / 3) % 1, k = i % 2 ? 1 : -1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(x + k * (6 + ph * 3), y - 11 + ph * 16, 1.6, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  // The knight of the sun: bucket helm, mail, a white tabard with a painted sun, straight sword. The phantom is gold.
+  function drawKnight(s, now, phantom) {
+    const x = s.x, y = s.y, f = phantom ? s.face : 1, sw = s.swing > 0 ? 1 : 0;
+    const c = phantom ? { metal: '#ffe8a0', dark: '#a8802a', cloth: '#fff6cc', sun: '#ffb030', skin: '#ffe8a0' } : { metal: '#b8bcc4', dark: '#3a3a44', cloth: '#f2ece0', sun: '#f0a020', skin: '#8a8a94' };
+    const praise = s.state === 'praise' || (phantom && s.leave != null);
+    if (phantom) ctx.globalAlpha = .78 + .12 * Math.sin(now * 5);
+    if (s.state === 'fallen') ctx.globalAlpha = Math.max(0, s.t / 2);
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + 16, 14, 4, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = c.dark; ctx.lineWidth = 1.5;
+    ctx.fillStyle = c.dark; ctx.fillRect(x - 6, y + 4, 4, 12); ctx.fillRect(x + 2, y + 4, 4, 12);   // legs
+    ctx.fillStyle = c.metal; ctx.beginPath(); ctx.roundRect(x - 9, y - 12, 18, 18, 4); ctx.fill(); ctx.stroke();   // mail
+    ctx.fillStyle = c.cloth; ctx.fillRect(x - 6, y - 10, 12, 18); ctx.strokeRect(x - 6, y - 10, 12, 18);   // tabard
+    ctx.fillStyle = c.sun; ctx.beginPath(); ctx.arc(x, y - 2, 3.6, 0, TAU); ctx.fill();
+    ctx.strokeStyle = c.sun; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; ctx.moveTo(x + Math.cos(a) * 4.6, y - 2 + Math.sin(a) * 4.6); ctx.lineTo(x + Math.cos(a) * 6.6, y - 2 + Math.sin(a) * 6.6); }
+    ctx.stroke();
+    ctx.strokeStyle = c.dark; ctx.lineWidth = 1.5;
+    ctx.fillStyle = c.metal; ctx.beginPath(); ctx.roundRect(x - 6.5, y - 25, 13, 14, 3); ctx.fill(); ctx.stroke();   // bucket helm
+    ctx.fillStyle = c.dark; ctx.fillRect(x - 5, y - 20, 10, 2); ctx.fillRect(x - .8, y - 20, 1.6, 6);
+    // arms: raised high in praise, else the sword arm swings
+    ctx.strokeStyle = c.metal; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    if (praise) { ctx.beginPath(); ctx.moveTo(x - 8, y - 9); ctx.lineTo(x - 14, y - 26); ctx.moveTo(x + 8, y - 9); ctx.lineTo(x + 14, y - 26); ctx.stroke(); }
+    else {
+      const a = sw ? .9 : -1.1, hx = x + f * 11, hy = y - 4;
+      ctx.beginPath(); ctx.moveTo(x + f * 8, y - 9); ctx.lineTo(hx, hy); ctx.moveTo(x - f * 8, y - 9); ctx.lineTo(x - f * 11, y - 2); ctx.stroke();
+      ctx.strokeStyle = phantom ? '#fffbe0' : '#e8ecf0'; ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + f * Math.cos(a) * 24, hy + Math.sin(a) * 24); ctx.stroke();
+      if (sw) { ctx.strokeStyle = phantom ? 'rgba(255,230,140,.7)' : 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 24, f > 0 ? -1.1 : Math.PI - .9, f > 0 ? .9 : Math.PI + 1.1); ctx.stroke(); }
+    }
+    ctx.lineCap = 'butt';
+    if (praise) { ctx.fillStyle = '#ffe08a'; ctx.globalAlpha *= .8; ctx.font = '800 13px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('\\o/', x, y - 34); }
+    ctx.globalAlpha = 1;
+    // While cornered: his health and the seconds left.
+    if (!phantom && s.state === 'fight') {
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(x - 20, y - 40, 40, 5);
+      ctx.fillStyle = s.hp < s.max * .35 ? '#ff7a8a' : '#ffd870'; ctx.fillRect(x - 20, y - 40, 40 * Math.max(0, s.hp / s.max), 5);
+      ctx.fillStyle = '#ffe9b0'; ctx.font = '800 14px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(Math.ceil(s.t), x, y - 46);
+    } else if (!phantom && s.state === 'wait') { ctx.fillStyle = '#ffe9b0'; ctx.font = '800 16px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Help!', x, y - 36 + Math.sin(now * 5) * 2); }
+  }
+  // The Oracle: a hooded old seer with a crooked staff and a floating violet orb; she names the level she asks for.
+  function drawOracle(s, now) {
+    const { x, y } = s, f = Math.sin(now * 2) * 2;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + 14, 15, 4, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#1a1428'; ctx.lineWidth = 1.5;
+    ctx.fillStyle = '#4a3a78'; ctx.beginPath(); ctx.moveTo(x - 12, y + 14); ctx.quadraticCurveTo(x - 10, y - 16, x, y - 24); ctx.quadraticCurveTo(x + 10, y - 16, x + 12, y + 14); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2a2048'; ctx.beginPath(); ctx.ellipse(x, y - 13, 6, 6.5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e8e0ff'; for (const k of [-1, 1]) { ctx.beginPath(); ctx.arc(x + k * 2.4, y - 13, 1.2, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#d8d0e8'; ctx.beginPath(); ctx.moveTo(x - 3, y - 9); ctx.lineTo(x + 3, y - 9); ctx.lineTo(x, y + 1); ctx.closePath(); ctx.fill();   // beard
+    ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(x + 13, y + 14); ctx.lineTo(x + 14, y - 22); ctx.quadraticCurveTo(x + 15, y - 28, x + 10, y - 28); ctx.stroke();
+    ctx.fillStyle = '#c8a8ff'; ctx.beginPath(); ctx.arc(x + 14, y - 34 + f, 4, 0, TAU); ctx.fill();
+    if (s.d < 260) {
+      ctx.font = '800 13px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = run.lv >= s.need ? '#c8ffd0' : '#d8c8ff'; ctx.fillText(`Level ${s.need}`, x, y - 44 + f * .5);
+    }
+  }
+  // A freestanding door in a stone arch: the devil's is red with horns, the angel's white with gold light and wings.
+  function drawDoor(s, now, angel) {
+    const { x, y } = s, p = .5 + .5 * Math.sin(now * 3);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 4, 26, 6, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = angel ? '#6a7090' : '#1a0806'; ctx.lineWidth = 2;
+    ctx.fillStyle = angel ? '#e8ecf6' : '#3a2a28'; ctx.beginPath(); ctx.moveTo(x - 20, y + 2); ctx.lineTo(x - 20, y - 30); ctx.arc(x, y - 30, 20, Math.PI, 0); ctx.lineTo(x + 20, y + 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = angel ? `rgb(255,${236 + 14 * p},${170 + 40 * p})` : `rgb(${150 + 60 * p},20,16)`;
+    ctx.beginPath(); ctx.moveTo(x - 13, y + 2); ctx.lineTo(x - 13, y - 29); ctx.arc(x, y - 29, 13, Math.PI, 0); ctx.lineTo(x + 13, y + 2); ctx.closePath(); ctx.fill();
+    if (angel) {
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#a8b0c8'; ctx.lineWidth = 1.2;
+      for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + k * 20, y - 30); ctx.quadraticCurveTo(x + k * 40, y - 46 + p * 3, x + k * 36, y - 20); ctx.quadraticCurveTo(x + k * 30, y - 26, x + k * 20, y - 18); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = '#e8d8c0'; ctx.strokeStyle = '#1a0806'; ctx.lineWidth = 1.2;
+      for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + k * 10, y - 46); ctx.quadraticCurveTo(x + k * 22, y - 56, x + k * 26, y - 66); ctx.quadraticCurveTo(x + k * 18, y - 52, x + k * 4, y - 49); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    }
+  }
+  // A glass jar with a pale grub inside, squirming and pressing against the glass.
+  function drawGrubJar(s, now) {
+    const { x, y } = s, w = Math.sin(now * 6 + s.ph) * 1.5;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 4, 14, 4, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#eaf2ff';
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(x - 4 + i * 2.6, y - 6 - Math.abs(Math.sin(now * 6 + s.ph + i)) * 2 + (i === 3 ? -3 : 0), 4 - i * .3, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#1a2030'; ctx.beginPath(); ctx.arc(x + 4.5, y - 11 + w * .3, 1.1, 0, TAU); ctx.arc(x + 7, y - 11 + w * .3, 1.1, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(190,220,255,.22)'; ctx.strokeStyle = 'rgba(220,235,255,.85)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.roundRect(x - 12, y - 24, 24, 27, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#7a6a5a'; ctx.fillRect(x - 9, y - 28, 18, 5);
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.moveTo(x - 8, y - 19); ctx.lineTo(x - 8, y - 6); ctx.stroke();
+    if (Math.sin(now * 2 + s.ph) > .4) { ctx.fillStyle = '#e8f2ff'; ctx.font = '700 11px Bricolage Grotesque, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('mmf!', x + 12, y - 30); }
+  }
+  // The Grubfather: a huge, happy, pale grub, bouncing.
+  function drawGrubfather(s, now) {
+    const { x, y } = s, b = Math.abs(Math.sin(now * 3)) * 4;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 18, 40, 9, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#6a6a58'; ctx.lineWidth = 1.6;
+    for (let i = 3; i >= 0; i--) { ctx.fillStyle = i % 2 ? '#e8e8d0' : '#f4f4e0'; ctx.beginPath(); ctx.ellipse(x - 18 + i * 12, y + 4 - b * (i / 3) - i * 4, 18 - i * 1.5, 16 - i, 0, 0, TAU); ctx.fill(); ctx.stroke(); }
+    const hx = x + 22, hy = y - 14 - b;
+    ctx.fillStyle = '#1a1a14'; ctx.beginPath(); ctx.arc(hx - 4, hy - 3, 2.2, 0, TAU); ctx.arc(hx + 6, hy - 3, 2.2, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx + 1, hy + 5, 5, 3.5 + Math.abs(Math.sin(now * 6)) * 2, 0, 0, TAU); ctx.fill();
+  }
+  // A lost firefly: a dark little bug with flickering wings and a glowing tail.
+  function drawLostFly(s, now) {
+    const x = s.x, y = s.y - 10 + Math.sin(now * 3 + s.ph) * 4, fl = Math.abs(Math.sin(now * 30));
+    ctx.fillStyle = 'rgba(220,230,255,.55)'; for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x + k * 4, y - 4, 5, 2 + fl * 2, k * .5, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#2a2418'; ctx.beginPath(); ctx.ellipse(x, y, 3, 5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff2a0'; ctx.beginPath(); ctx.arc(x, y + 4, 3, 0, TAU); ctx.fill();
+  }
+  // The firefly jar in the meadow: its fireflies drift inside, more light the fuller it is.
+  function drawJar(s, now) {
+    const { x, y } = s, n = run.quest.jar || 0;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 4, 17, 5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,180,.12)'; ctx.strokeStyle = 'rgba(255,245,220,.85)'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.roundRect(x - 15, y - 34, 30, 37, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x - 11, y - 39, 22, 6);
+    ctx.strokeStyle = '#e8d0a0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 11, y - 36); ctx.quadraticCurveTo(x - 20, y - 40, x - 15, y - 26); ctx.stroke();
+    ctx.fillStyle = '#fff2a0';
+    for (let i = 0; i < n; i++) { const a = now * (1.4 + i * .2) + i * 2.1; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 8, y - 16 + Math.sin(a * 1.3) * 10, 2.2, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#fff4c8'; ctx.font = '800 12px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${n}/${JAR_FULL}`, x, y + 18);
+  }
+  // Quest things in the current rift (or the meadow): bodies, dolls, knights, doors, jars…
+  function drawQuest(now) {
+    for (const s of questSpots()) if (onScreen(s, 70)) SPOTS[s.kind].draw(s, now);
+    const ph = run.quest.phantom;
+    if (ph && !run.zone && onScreen(ph, 60)) drawKnight(ph, now, true);
+  }
+  function drawQuestGlow(now) {
+    for (const s of questSpots()) { const D = SPOTS[s.kind]; if (D.glow && onScreen(s, 70)) drawGlow(D.glow, s.kind === 'firefly' ? 26 : 46, s.x, s.y - 8, .45 + .2 * Math.sin(now * 2.5 + s.x)); }
+    const ph = run.quest.phantom;
+    if (ph && !run.zone) drawGlow('255,214,120', 48, ph.x, ph.y - 8, .55);
+    // A full jar's fireflies circle Hexel through the finale.
+    if (run.finale && jarFull()) for (let i = 0; i < JAR_FULL; i++) { const a = now * 1.8 + i / JAR_FULL * TAU; drawGlow('255,226,122', 14, P.x + Math.cos(a) * 42, P.y + Math.sin(a) * 30 - 6, .9); }
+  }
+  // Edge arrows toward quest things that are off screen (only the nearest of kinds marked `nearest`).
+  function drawQuestArrows() {
+    const best = {};
+    for (const s of questSpots()) {
+      const D = SPOTS[s.kind];
+      if (!D.arrow || onScreen(s, -10) || (D.arrowIf && !D.arrowIf(s))) continue;
+      if (D.nearest) { if (best[s.kind] && best[s.kind].d <= s.d) continue; best[s.kind] = s; continue; }
+      questArrow(s, D.arrow);
+    }
+    for (const k in best) questArrow(best[k], SPOTS[k].arrow);
+  }
+  function questArrow(s, [bg, fg]) {
+    const a = Math.atan2(s.y - P.y, s.x - P.x);
+    const cx = Math.max(28, Math.min(W - 28, W / 2 + Math.cos(a) * (W / 2 - 38))), cy = Math.max(74, Math.min(H - 54, H / 2 + Math.sin(a) * (H / 2 - 38)));
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill();
+    ctx.rotate(a); ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
+    ctx.restore();
+  }
+  // The Blood Moon: a vast cracked red moon with a furious face, dripping blood, ringed by orbiting moon shards.
+  function drawBloodMoon(e, now) {
+    const s = e.r, white = e.flash > 0, ns = e.hp > e.max * .66 ? 3 : 5;
+    ctx.strokeStyle = `rgba(255,70,90,${.22 + .1 * Math.sin(now * 2)})`; ctx.lineWidth = 16;
+    ctx.beginPath(); ctx.arc(e.x, e.y, s * 1.45 + Math.sin(now * 2) * 5, 0, TAU); ctx.stroke();
+    // drips of blood hanging from the lower rim
+    ctx.fillStyle = '#7a0a18';
+    for (let i = 0; i < 7; i++) {
+      const dx = (i - 3) * s * .2, rim = Math.sqrt(Math.max(0, s * s - dx * dx)) * .94, len = s * (.18 + .12 * ((i * 37) % 5) / 5) + Math.sin(now * 2 + i) * s * .06;
+      ctx.beginPath(); ctx.moveTo(e.x + dx - 5, e.y + rim - 4); ctx.quadraticCurveTo(e.x + dx - 2, e.y + rim + len, e.x + dx, e.y + rim + len + 4); ctx.quadraticCurveTo(e.x + dx + 2, e.y + rim + len, e.x + dx + 5, e.y + rim - 4); ctx.fill();
+      const ph = (now * .7 + i * .29) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(e.x + dx, e.y + rim + len + 8 + ph * 60, 2.6, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    const g = ctx.createRadialGradient(e.x - s * .3, e.y - s * .35, s * .1, e.x, e.y, s);
+    g.addColorStop(0, white ? '#ffffff' : '#ff7a64'); g.addColorStop(.55, white ? '#ffe0e0' : '#c41a2c'); g.addColorStop(1, white ? '#ffc0c0' : '#4a0410');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, s, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(60,0,10,.35)';
+    for (const [cx, cy, r] of [[-.45, .3, .16], [.4, .45, .12], [.55, -.1, .1], [-.2, .6, .08], [-.6, -.25, .09]]) { ctx.beginPath(); ctx.arc(e.x + cx * s, e.y + cy * s, r * s, 0, TAU); ctx.fill(); }
+    // glowing cracks
+    ctx.strokeStyle = `rgba(255,190,110,${.6 + .3 * Math.sin(now * 5)})`; ctx.lineWidth = 2.2; ctx.beginPath();
+    ctx.moveTo(e.x - s * .15, e.y - s * .95); ctx.lineTo(e.x - s * .05, e.y - s * .6); ctx.lineTo(e.x - s * .2, e.y - s * .45); ctx.lineTo(e.x - s * .1, e.y - s * .2);
+    ctx.moveTo(e.x + s * .9, e.y + s * .2); ctx.lineTo(e.x + s * .6, e.y + s * .15); ctx.lineTo(e.x + s * .5, e.y + s * .35);
+    ctx.moveTo(e.x - s * .85, e.y + s * .45); ctx.lineTo(e.x - s * .55, e.y + s * .35); ctx.stroke();
+    // the face: slanted burning eyes and a jagged grin
+    ctx.fillStyle = '#2a0006';
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + k * s * .12, e.y - s * .12); ctx.lineTo(e.x + k * s * .52, e.y - s * .32); ctx.lineTo(e.x + k * s * .44, e.y - s * .06); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle = white ? '#fff' : '#ffe08a';
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + k * s * .36, e.y - s * .17, s * .06, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#2a0006'; ctx.beginPath(); ctx.moveTo(e.x - s * .4, e.y + s * .22);
+    for (let i = 0; i <= 8; i++) ctx.lineTo(e.x - s * .4 + i * s * .1, e.y + s * (.22 + (i % 2 ? .14 : .04)));
+    ctx.lineTo(e.x + s * .4, e.y + s * .3); ctx.quadraticCurveTo(e.x, e.y + s * .55, e.x - s * .4, e.y + s * .3); ctx.closePath(); ctx.fill();
+    // orbiting moon shards (they fire at Hexel)
+    for (let k = 0; k < ns; k++) {
+      const a = (e.orb || 0) + k / ns * TAU, x = e.x + Math.cos(a) * s * 2, y = e.y + Math.sin(a) * s * 2;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a + now * 2);
+      ctx.fillStyle = '#ffb8c0'; ctx.strokeStyle = '#6a0a18'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(6, 0); ctx.lineTo(0, 11); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
   }
   // Wirt's body: a small heap under a torn tunic, one wooden peg leg sticking up out of a scatter of bones.
   function drawWirt(c, now) {
@@ -23519,6 +24112,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     g.addColorStop(0, 'rgba(3,5,12,0)'); g.addColorStop(.5, `rgba(3,5,12,${dark * .55})`); g.addColorStop(1, `rgba(3,5,12,${dark})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     if (dawnK > 0 && !inZone) { ctx.fillStyle = `rgba(255,170,120,${dawnK * .16})`; ctx.fillRect(0, 0, W, H); }
+    // The Blood Moon stains the sky red (deeper in its last phase).
+    if (live && run.finale && run.finale.blood) { const b = run.finale.boss; ctx.fillStyle = `rgba(150,10,30,${b.hp < b.max * .33 ? .2 : .1})`; ctx.fillRect(0, 0, W, H); }
 
     world();
     if (live) { drawTraps(now); drawLamps(now); }
@@ -23530,7 +24125,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (const s of shrooms) drawGlow('90,200,220', 18, s.x, s.y - 6, .35 + .2 * Math.sin(now * 2 + s.h * 50));
     if (live && run.portal) drawGlow(run.portal.def.portal, 80, run.portal.x, run.portal.y, .8);
     if (live && run.peddler && !run.zone) drawGlow('255,210,120', 70, run.peddler.x - 22, run.peddler.y - 30, .7 + .15 * Math.sin(now * 3));
-    if (live && run.quest.corpse && run.zone) drawGlow('232,200,144', 46, run.quest.corpse.x, run.quest.corpse.y - 4, .45 + .2 * Math.sin(now * 2.5));
+    if (live) drawQuestGlow(now);
+    if (live && run.finale && run.finale.blood && onScreen(run.finale.boss, 160)) drawGlow('255,50,70', 128, run.finale.boss.x, run.finale.boss.y, .4 + .1 * Math.sin(now * 2));
     if (inZone && run.zone.exit) drawGlow('220,230,255', 80, run.zone.exit.x, run.zone.exit.y, .8);
     if (!live) for (const a of amb) {
       a.a += rnd(-1, 1) * .05; a.x += Math.cos(a.a) * .4; a.y += Math.sin(a.a) * .4;
@@ -23733,7 +24329,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (const e of foes) {
         if (e.dead || !onScreen(e)) continue;
         if (e.def) continue;   // rift foes are drawn above the darkness, so they need no glints
-        if (e.kind === 'eclipse' || e.kind === 'snail') continue;   // they draw their own eyes
+        if (e.kind === 'eclipse' || e.kind === 'snail' || e.kind === 'bloodmoon') continue;   // they draw their own eyes
         const s = e.r;
         let fx = e.x, fy = e.y - s * .55;
         if (e.kind === 'spider') { fx = e.x; fy = e.y - s * .55; }
@@ -23766,7 +24362,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         }
       }
       if (run.peddler && !run.zone && onScreen(run.peddler, 80)) drawPeddler(run.peddler, now);
-      if (run.quest.corpse && run.zone && onScreen(run.quest.corpse, 40)) drawWirt(run.quest.corpse, now);
+      drawQuest(now);
       if (run.weapons.mine && run.weapons.mine.mines) for (const m of run.weapons.mine.mines) if (onScreen(m, 20)) drawPuffcap(m, now, run.weapons.mine.evo);
       for (const id in run.weapons) if (id === 'bat') for (const b of run.weapons[id].bats) drawBat(b, now, run.weapons[id].evo);
       drawRelicActors(now);
@@ -23822,16 +24418,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         ctx.rotate(a); ctx.fillStyle = '#ffcf4a'; ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
         ctx.restore();
       }
-      // Point toward the fallen boy's body (a small bone-coloured peg).
-      if (run.quest.corpse && run.zone && !onScreen(run.quest.corpse, -10)) {
-        const c = run.quest.corpse, a = Math.atan2(c.y - P.y, c.x - P.x);
-        const cx = Math.max(28, Math.min(W - 28, W / 2 + Math.cos(a) * (W / 2 - 38))), cy = Math.max(74, Math.min(H - 54, H / 2 + Math.sin(a) * (H / 2 - 38)));
-        ctx.save(); ctx.translate(cx, cy);
-        ctx.fillStyle = '#3a2410'; ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#c8955a'; ctx.fillRect(-1.6, -5, 3.2, 10); ctx.fillRect(-3.2, -5.5, 6.4, 2.4);
-        ctx.rotate(a); ctx.fillStyle = '#e8c890'; ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
-        ctx.restore();
-      }
+      // Point toward quest things (a body, a doll, a crying child, jars…) that are off screen.
+      drawQuestArrows();
       // Point toward an open rift or the way home.
       const goal = run.zone ? run.zone.exit && { x: run.zone.exit.x, y: run.zone.exit.y, col: '#e6ecff' } : run.portal && { x: run.portal.x, y: run.portal.y, col: `rgb(${run.portal.def.portal})` };
       if (goal && !onScreen(goal, -10)) {
@@ -23970,6 +24558,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (questReady()) { banner('The leg twitches toward the pasture…', '#e8c890', true); run.portalT = Math.min(run.portalT, 8); }
     resume();
   });
+  $('qBye').addEventListener('click', () => { const f = questLeave; questLeave = null; if (f) f(); renderLoadout(); resume(); });
   $('relicTake').addEventListener('click', () => {
     if (pendingRelic) { run.relic = newRelic(pendingRelic); allies = []; banner(`Relic equipped: ${RELICS[pendingRelic].name}`, '#ffb33b'); }
     pendingRelic = null; renderLoadout(); resume();
@@ -24023,7 +24612,18 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     burns: { get: () => burns },
     chunkBench: { value: (id, n = 12) => { const zd = ZONES.find(z => z.id === id), ts = []; for (let i = 0; i < n; i++) { const t0 = performance.now(); const c = renderChunk(zd, (Math.random() * 40 - 20) | 0, (Math.random() * 40 - 20) | 0, Math.min(dpr, 1)); c.getContext('2d').getImageData(0, 0, 1, 1); ts.push(performance.now() - t0); chunkPool.length < 8 && chunkPool.push(c); } return { id, avg: +(ts.reduce((x, y) => x + y) / n).toFixed(1), max: +Math.max(...ts).toFixed(1) }; } },
     relic: { value: (id, minis) => { run.relic = newRelic(id); if (minis != null) run.minis = minis; allies = []; renderLoadout(); } },
-    finale: { value: () => { run.t = DAWN; } } });
+    finale: { value: () => { run.t = DAWN; } },
+    // Quest helpers: the quest state, and spot lists in the current rift / the meadow.
+    quest: { get: () => run && run.quest },
+    // Applies a build like the boss arena's: fj.build(60, [['lance', 7, 1], ['flame', 7]], { keen: 3 }, ['bay', 3]).
+    build: { value: (lv, weps, pas, relic) => {
+      run.start = false; run.lv = lv; run.need = needFor(lv); run.xp = 0; run.pending = 0;
+      run.weapons = {}; for (const [id, wl, evo] of weps) run.weapons[id] = Object.assign(newWeapon(), { lv: wl, evo: !!evo });
+      run.passives = { ...pas }; recalc(); run.hp = S.maxHp;
+      if (relic) { run.relic = newRelic(relic[0]); run.minis = relic[1]; } else run.relic = null;
+      allies = []; renderLoadout();
+    } },
+    spots: { get: () => run && (run.zone ? run.quest.spots : run.quest.home) } });
 
   /* ---------- Preview tour (open index.html#tour) ----------
      ~20 s of the meadow, then ~20 s of every rift with its guardian arriving 9 s in, so both the regular and the
@@ -24041,7 +24641,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // The night meadow first: main-map foes are drawn by drawFoe onto the game canvas, then copied into the page.
     if (!pick || pick.includes('meadow')) {
       const list = [['moth'], ['dust'], ['wasp'], ['beetle'], ['ghost'], ['mosq'], ['locust'], ['spider'], ['bomber'], ['centi'], ['brood'], ['rhino'], ['cricket'], ['snail'], ['ember'], ['beetle', 'golden beetle (elite)', true],
-        ['luna', null, false, true], ['stag', null, false, true], ['queen', null, false, true], ['eclipse', null, false, true]];
+        ['luna', null, false, true], ['stag', null, false, true], ['queen', null, false, true], ['eclipse', null, false, true], ['bloodmoon', null, false, true]];
       const cells = list.map(([k, label, elite, boss]) => {
         const e = spawnFoe(k, P.x + 160, P.y);
         if (elite) { e.elite = true; e.r = 26; }
@@ -24119,7 +24719,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Boss arena (index.html#arena): pick a main-map boss and a build, then fight it right away. Rifts are off, and the
   // night clock starts 2 s before the boss arrives. "God mode" ignores all damage. Game over goes back to the picker.
   if (location.hash === '#arena') {
-    const BOSSES = { luna: 'Great Luna Moth (2:00)', stag: 'Stag Beetle (5:00)', queen: 'Moth Queen (8:00)', eclipse: 'Eclipse Moth (dawn)' };
+    const BOSSES = { luna: 'Great Luna Moth (2:00)', stag: 'Stag Beetle (5:00)', queen: 'Moth Queen (8:00)', eclipse: 'Eclipse Moth (dawn)', bloodmoon: 'Blood Moon (dawn, secret)' };
     // Builds: [level, weapons [id, lv, evolved], charms, relic [zone, guardians beaten] or null]
     const BUILDS = {
       luna: { typical: [15, [['bolt', 4], ['flame', 3], ['thorn', 3]], { net: 1, wings: 1 }, null],
@@ -24131,6 +24731,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       eclipse: { typical: [75, [['lance', 8, 1], ['flame', 8], ['star', 8], ['slam', 8], ['wisp', 8, 1], ['hammer', 8]], { keen: 3, ember: 3, net: 3, steady: 3, heart: 3, wax: 2 }, ['bay', 3]],
         strong: [90, [['bow', 8, 1], ['hammer', 8, 1], ['lance', 8, 1], ['nova', 8, 1], ['star', 8], ['slam', 8]], { ember: 5, keen: 5, net: 5, steady: 5, gold: 5, bell: 5 }, ['homm', 4]] },
     };
+    BUILDS.bloodmoon = BUILDS.eclipse;
     let pick = { boss: 'luna', build: 'typical', god: false };
     const panel = document.createElement('div'); panel.className = 'arena';
     const btns = (key, opts) => `<div class="arow">${Object.entries(opts).map(([k, v]) => `<button class="btn ghost${pick[key] === k ? ' sel' : ''}" data-${key}="${k}">${v}</button>`).join('')}</div>`;
@@ -24150,7 +24751,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       run.passives = { ...pas }; recalc(); run.hp = S.maxHp; run.god = pick.god;
       if (relic) { run.relic = newRelic(relic[0]); run.minis = relic[1]; }
       run.portalT = 1e9;
-      if (pick.boss === 'eclipse') { run.t = DAWN - 2; run.ev = EVENTS.length; }
+      if (pick.boss === 'eclipse' || pick.boss === 'bloodmoon') { run.t = DAWN - 2; run.ev = EVENTS.length; run.quest.moon = pick.boss === 'bloodmoon' ? 'blood' : 'eclipse'; }
       else { const i = EVENTS.findIndex(ev => ev.kind === 'boss' && ev.boss === pick.boss); run.t = EVENTS[i].t - 2; run.ev = i; }
       resume(); renderLoadout();
       banner(`Arena: ${BOSSES[pick.boss]} · ${pick.build} build${pick.god ? ' · god mode' : ''}`, '#ffe27a');
