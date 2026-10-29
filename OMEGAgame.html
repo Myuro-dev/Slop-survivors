@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Till Dawn: Rifts</title>
+<title>Till Dawn: Rifts (Hard)</title>
 <style>
 /* Fonts are embedded (Latin subset, variable weight) so the game makes no network requests.
    Grandstander (c) The Grandstander Project Authors; Bricolage Grotesque (c) The Bricolage Grotesque Project Authors.
@@ -223,7 +223,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 <div class="overlay" id="title">
   <div class="card">
-    <span class="eyebrow">Firefly Jar · Rifts</span>
+    <span class="eyebrow">Firefly Jar · Rifts · <b style="color:#ff8a8a">Hard mode</b></span>
     <h1>Till Dawn</h1>
     <p>You are Hexel, a little hexagon of living light, and every moth in the night wants you. Your fireflies fight on their own. Collect the glow the moths leave behind to level up, and survive ten minutes until sunrise. Three bosses come for you along the way, and a final shadow rises at dawn. Rifts tear open in the night: step through into strange worlds, beat their guardian and come back stronger.</p>
     <div class="legend">
@@ -380,8 +380,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const AC = window.AudioContext || window.webkitAudioContext;
     const LOW_POWER = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const prefs = { music: true, sfx: true, musicVol: .8, sfxVol: .8 };
-    try { Object.assign(prefs, JSON.parse(localStorage.getItem('fjt-audio') || '{}')); } catch {}
-    const save = () => { try { localStorage.setItem('fjt-audio', JSON.stringify(prefs)); } catch {} };
+    try { Object.assign(prefs, JSON.parse(localStorage.getItem('fjh-audio') || '{}')); } catch {}
+    const save = () => { try { localStorage.setItem('fjh-audio', JSON.stringify(prefs)); } catch {} };
     const mtof = m => 440 * 2 ** ((m - 69) / 12);
     const MUSIC_VOL = .7, SFX_VOL = .85, STEP = 60 / 146 / 2;
     let ac = null, musicIn, musicOut, sfxOut, sfxWet, verbIn, noiseBuf, droneG, windG, zoneMusic = null, zoneErr = 0;
@@ -842,6 +842,22 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Weapons level to 8 (levels 7–8 are generic power steps); evolution needs level 6 plus the paired charm.
   const WMAX = 8, EVO_LV = 6, SLOTS = 6;
 
+  /* ---------- Hard mode ----------
+     This fork flattens how much stronger weapons and relics grow, and makes the night's creatures tougher but richer
+     in glow. Every knob is here:
+     - wLv: weapon damage × by weapon level (index = Lv); applied in hit() to anything credited to that weapon.
+     - evo: extra × for an evolved weapon.
+     - relic: relic power by level (the main game uses [1, 1, 1.45, 1.9, 2.8]).
+     - hp(m): extra × on regular foe HP (meadow and rifts) after m minutes of night.
+     - boss: × on a main-map or dawn boss's HP, by kind (the weapon nerf alone made them 2.5–3× slower to kill and
+       left the Eclipse Moth unbeatable). guardian: × on rift guardian HP.
+     - xp: × on all glow gained. */
+  const HARD = {
+    wLv: [1, 1, .9, .8, .7, .62, .55, .48, .42], evo: .65,
+    relic: [1, 1, 1.15, 1.3, 1.6],
+    hp: m => 1 + .03 * m, boss: { stag: .75, queen: .7, eclipse: 62000 / 110000, bloodmoon: 80000 / 160000 }, guardian: 1,
+    xp: 1.25,
+  };
   function wstat(id, lv, evo) {
     const st = baseStat(id, Math.min(lv, 6), evo), k = Math.max(0, lv - 6);
     if (k) {
@@ -19978,8 +19994,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   let joy = null;
   const amb = Array.from({ length: 28 }, () => ({ x: rnd(-600, 600), y: rnd(-400, 400), a: rnd(0, TAU), ph: rnd(0, 6) }));
 
-  const getBest = () => { try { return +localStorage.getItem('fjt-best') || 0; } catch { return 0; } };
-  const setBest = v => { try { localStorage.setItem('fjt-best', v); } catch {} };
+  const getBest = () => { try { return +localStorage.getItem('fjh-best') || 0; } catch { return 0; } };
+  const setBest = v => { try { localStorage.setItem('fjh-best', v); } catch {} };
   const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
   const showBest = () => {
     const b = getBest();
@@ -20286,7 +20302,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      local Hall of Fame (top 10 per board on this device); with LB_URL set, it can also be submitted to the online
      board (a Cloudflare Worker, see server/). Debug, arena, tour, bestiary and god-mode runs are never ranked. */
   const GAME_VERSION = '2026.10';
-  const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
+  const LB_URL = '';   // the hard fork never talks to the main game's leaderboard or play tracking
   const BOARDS = {
     banish: { label: 'Fastest banish', fmt: v => v.toFixed(1) + ' s', key: 'banish_t', low: true, only: r => r.banished },
     damage: { label: 'Most damage', fmt: v => Math.round(v).toLocaleString(), key: 'dmg' },
@@ -20304,16 +20320,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   // Keep this device's top 10 per board; returns the boards where the run placed, e.g. { damage: 2 }.
   function recordLocal(sc) {
-    const hof = lbStore.get('fjr-hof', {}), placed = {};
+    const hof = lbStore.get('fjh-hof', {}), placed = {};
     for (const [id, b] of Object.entries(BOARDS)) {
       if (b.only && !b.only(sc)) continue;
-      const list = (hof[id] || []).concat([{ ...sc, name: lbStore.get('fjr-name', '') || 'You' }]);
+      const list = (hof[id] || []).concat([{ ...sc, name: lbStore.get('fjh-name', '') || 'You' }]);
       list.sort((a, b2) => b.low ? a[b.key] - b2[b.key] : b2[b.key] - a[b.key]);
       hof[id] = list.slice(0, 10);
       const at = hof[id].findIndex(r => r.created === sc.created);
       if (at >= 0) placed[id] = at + 1;
     }
-    lbStore.set('fjr-hof', hof);
+    lbStore.set('fjh-hof', hof);
     return placed;
   }
   const relicName = id => id && RELICS[id] ? RELICS[id].name : '';
@@ -20341,7 +20357,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const placed = recordLocal(lastScore), best = Object.entries(placed).filter(([, n]) => n <= 3);
     $('lbBest').hidden = !best.length;
     $('lbBest').textContent = best.length ? 'Personal best! ' + best.map(([id, n]) => `${BOARDS[id].label} #${n}`).join(' · ') : '';
-    $('lbName').value = lbStore.get('fjr-name', '');
+    $('lbName').value = lbStore.get('fjh-name', '');
     $('lbStatus').textContent = LB_URL ? '' : 'Saved to this device\'s Hall of Fame.';
     $('lbSend').hidden = !LB_URL; $('lbName').hidden = !LB_URL;
     $('lbSend').disabled = false; box.hidden = false;
@@ -20350,7 +20366,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (!lastScore) return;
     const name = $('lbName').value.trim().replace(/\s+/g, ' ');
     if (!/^[A-Za-z0-9 _-]{3,16}$/.test(name)) { $('lbStatus').textContent = 'Names are 3–16 letters, digits, spaces, _ or -.'; return; }
-    lbStore.set('fjr-name', name);
+    lbStore.set('fjh-name', name);
     $('lbSend').disabled = true; $('lbStatus').textContent = 'Submitting…';
     try {
       const r = await lbFetch('/runs', { method: 'POST', body: JSON.stringify({ ...lastScore, name }) });
@@ -20386,7 +20402,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const t = document.createElement('button'); t.className = 'btn ghost' + (id === lbTab ? ' sel' : ''); t.textContent = b.label;
       t.onclick = () => { lbTab = id; renderBoards(); }; $('lbTabs').appendChild(t);
     }
-    const b = BOARDS[lbTab], me = lbStore.get('fjr-name', '');
+    const b = BOARDS[lbTab], me = lbStore.get('fjh-name', '');
     const fill = (rows, note) => {
       $('lbNote').textContent = note; const ol = $('lbList'); ol.innerHTML = '';
       if (!rows.length) { const li = document.createElement('li'); li.textContent = lbTab === 'banish' ? 'No banished Eclipse Moths yet.' : 'No runs yet.'; ol.appendChild(li); }
@@ -20400,7 +20416,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       });
     };
     $('lbMe').textContent = '';
-    if (!LB_URL) { fill(lbStore.get('fjr-hof', {})[lbTab] || [], 'Your best runs on this device. (Online boards are not connected yet.)'); return; }
+    if (!LB_URL) { fill(lbStore.get('fjh-hof', {})[lbTab] || [], 'Your best runs on this device. (Online boards are not connected yet.)'); return; }
     $('lbNote').textContent = 'Loading…';
     try {
       const tab = lbTab, ver = lbVer, top = await lbFetch(`/top?board=${tab}&version=${encodeURIComponent(ver)}`);
@@ -20410,7 +20426,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const m = await lbFetch(`/me?board=${tab}&version=${encodeURIComponent(ver)}&name=${encodeURIComponent(me)}`).catch(() => null);
         if (m && m.best && tab === lbTab && ver === lbVer) $('lbMe').textContent = `Your best: ${b.fmt(m.best[b.key])} (rank #${m.rank})`;
       }
-    } catch { fill(lbStore.get('fjr-hof', {})[lbTab] || [], 'Online board unavailable; showing your best runs on this device.'); }
+    } catch { fill(lbStore.get('fjh-hof', {})[lbTab] || [], 'Online board unavailable; showing your best runs on this device.'); }
   }
   function gameOver(win, how) {
     state = 'over';
@@ -20437,7 +20453,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     document.querySelector('#over .card').classList.toggle('perfect', how === 'perfect' || how === 'blood');
     document.querySelector('#over .card').classList.toggle('blood', how === 'blood');
     if (how === 'perfect' || how === 'blood') {
-      const key = how === 'blood' ? 'fjt-bloodmoon' : 'fjt-banished';
+      const key = how === 'blood' ? 'fjh-bloodmoon' : 'fjh-banished';
       try { localStorage.setItem(key, (+localStorage.getItem(key) || 0) + 1); } catch {}
       for (let i = 0; i < 8; i++) burst(P.x + rnd(-300, 300), P.y + rnd(-200, 200), how === 'blood' ? (i % 2 ? '#ff8a9a' : '#ffe27a') : i % 2 ? '#ffe27a' : '#ffb33b', 30, 380);
       snd.fx('evolve');
@@ -20479,7 +20495,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const zd = run.zone ? (kind === 'boss' ? run.zone.def.boss : run.zone.def.foes[kind]) : null;
     const f = zd || FOES[kind];
     // Rift foes are a touch tougher; rift guardians grow with how deep into the night you are.
-    const hpMul = zd ? (kind === 'boss' ? (1 + run.t / 400) * riftK(RIFT_BOSS_HP) : (1 + run.t / 60 * .35) * 1.1 * riftK(RIFT_HP)) : f.boss ? 1 : 1 + run.t / 60 * .35 + .04 * (run.t / 60) ** 2;
+    const hpMul = (zd ? (kind === 'boss' ? (1 + run.t / 400) * riftK(RIFT_BOSS_HP) * HARD.guardian : (1 + run.t / 60 * .35) * 1.1 * riftK(RIFT_HP)) : f.boss ? HARD.boss[kind] || 1 : 1 + run.t / 60 * .35 + .04 * (run.t / 60) ** 2)
+      * (f.boss || kind === 'boss' ? 1 : HARD.hp(run.t / 60));
     const e = { kind, x, y, hp: f.hp * hpMul, max: f.hp * hpMul, sp: f.sp * rnd(.92, 1.08) * (1 + .04 * (run.passives.dusk || 0)), dmg: zd ? f.dmg * riftK(RIFT_DMG) : f.dmg, xp: f.xp, r: zd ? f.r * 1.15 : f.r, heavy: !!f.heavy, boss: !!f.boss || (!!zd && kind === 'boss'), def: zd,
       kx: 0, ky: 0, flash: 0, seed: Math.random() * 6, ph: 0, ang: 0, cds: {}, t1: 2, t2: 5, t3: 9, mode: 'walk', mt: 2.5 };
     foes.push(e);
@@ -20606,6 +20623,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function hit(e, dmg, kb, sx, sy) {
     if (e.dead || e.blink) return;
     let crit = false;
+    if (dmg > 0) { const w = run.weapons[dsrc]; if (w) dmg *= HARD.wLv[Math.min(w.lv, 8)] * (w.evo ? HARD.evo : 1); }
     if (dmg > 0 && e.markT > run.clock) dmg *= 1.25;
     if (dmg > 0 && run.finale && e === run.finale.boss && jarFull()) dmg *= 1.25;   // a full firefly jar lights the finale
     if (dmg > 0 && S.brute && (e.heavy || e.boss || e.elite)) dmg *= 1 + S.brute;
@@ -20680,7 +20698,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   function gainXp(v) {
-    run.xp += v * S.growth;
+    run.xp += v * S.growth * HARD.xp;
     while (run.xp >= run.need) { run.xp -= run.need; run.lv++; run.need = needFor(run.lv); run.pending++; }
   }
 
@@ -21534,7 +21552,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function updateRelic(dt) {
     const r = run.relic;
     if (!r) return;
-    const lv = relicLv(), mega = lv === 4, pow = [1, 1, 1.45, 1.9, 2.8][lv] * S.might;
+    const lv = relicLv(), mega = lv === 4, pow = HARD.relic[lv] * S.might;
     r.t -= dt;
     switch (r.id) {
       case 'd2': {
@@ -22012,10 +22030,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      - The grubs (hk): free five grubs from their jars; the Grubfather gives a Mask Shard.
      - Fireflies for the jar (any rift → meadow): five lost fireflies fill a jar that lights the finale.
      - Moon shards (main-map bosses): beat each within SHARD_T[boss] s of its arrival; three shards call the Blood Moon.
-       The windows were timed on autopilot with the boss arena's builds: the "typical" builds miss all three, the
-       "strong" ones made them in 2.1 / 22.9 / 10.9 s. */
+       Hard mode: timed on autopilot (fresh runs, god mode) with the boss arena's "strong" builds, which made them in
+       17.7 / 34.9 / 31.2 s; the "typical" builds don't come close. */
   const LEG_CHANCE = .5, DOLL_CHANCE = .5, KNIGHT_CHANCE = .5, ORACLE_CHANCE = .6, GRUB_CHANCE = .5, FLY_CHANCE = .8, ANGEL_CHANCE = .6;
-  const JAR_FULL = 5, SHARD_T = { luna: 8, stag: 30, queen: 20 }, SHARD_BOSSES = Object.keys(SHARD_T);
+  const JAR_FULL = 5, SHARD_T = { luna: 24, stag: 45, queen: 40 }, SHARD_BOSSES = Object.keys(SHARD_T);
   const peddlerAhead = () => !!run.peddler || EVENTS.slice(run.ev).some(e => e.kind === 'peddler');
   const bossAhead = () => EVENTS.slice(run.ev).some(e => e.kind === 'boss');
   const questReady = () => run.quest.leg && run.quest.tome && !run.seen.includes('cow');
@@ -24769,9 +24787,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     let tour = null;
     const ORDER = ['meadow', ...ZONES.map(z => z.id)];
     // The picks are remembered on this device (fjr-tour), so they survive the reload at the end of a non-looping tour.
-    const saved = lbStore.get('fjr-tour', null);
+    const saved = lbStore.get('fjh-tour', null);
     const sel = new Set(saved && Array.isArray(saved.sel) ? saved.sel.filter(id => ORDER.includes(id)) : ORDER); let loop = saved ? saved.loop !== false : true;
-    const keep = () => lbStore.set('fjr-tour', { sel: [...sel], loop });
+    const keep = () => lbStore.set('fjh-tour', { sel: [...sel], loop });
     const panel = document.createElement('div'); panel.className = 'arena';
     const paint = () => {
       panel.innerHTML = '<span class="eyebrow">Preview tour</span>'
