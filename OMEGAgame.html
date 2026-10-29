@@ -75,6 +75,7 @@ body { background: var(--night); color: var(--ink); font-family: var(--body); ov
 .pinfo { width: 100%; max-width: 460px; min-height: 4.6em; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); text-align: left; font-size: 14px; color: var(--muted); }
 .pinfo b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 2px; }
 .pinfo i { display: block; font-style: normal; color: var(--evo); font-size: 13px; margin-top: 4px; }
+.chip.quest { border-color: rgba(232,200,144,.85); color: #f0d8a8; border-style: dashed; }
 .chip.relic { border-color: rgba(255,179,59,.85); color: var(--gold); box-shadow: 0 0 12px rgba(255,179,59,.3); }
 .overlay { position: fixed; inset: 0; z-index: 3; display: grid; place-items: center; padding-inline: 16px; padding-block: 24px; background: rgba(8, 12, 24, .66); backdrop-filter: blur(2px); overflow-y: auto; }
 .card { max-width: 620px; width: 100%; text-align: center; display: grid; gap: 14px; justify-items: center; }
@@ -128,6 +129,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .loot div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; text-align: left; display: grid; gap: 2px; }
 .loot.sell div { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 .loot.sell .btn { padding: 6px 14px; font-size: 14px; }
+#tomeOffer strong { display: block; color: #f0d8a8; }
+#tomeOffer span span { font-size: 13px; }
 .loot div.evo { border-color: rgba(217,184,255,.7); box-shadow: 0 0 18px rgba(217,184,255,.2); }
 .loot strong { font-family: var(--display); font-size: 17px; }
 .loot div.evo strong { color: var(--evo); }
@@ -261,6 +264,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <span class="eyebrow">Wandering peddler</span>
     <h2>Trade in your gear</h2>
     <p class="sub">Sell any weapon or charm you regret. Each sale gives you fresh level-up picks: one for every two levels it had (at least one).</p>
+    <div class="loot sell" id="tomeOffer" hidden></div>
     <div class="loot sell" id="sellList"></div>
     <button class="btn" id="peddlerBye">Farewell</button>
   </div>
@@ -960,7 +964,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const TAU = Math.PI * 2;
     const W = (white, c) => white ? '#fff' : c;
 
-    // Recent imp deaths, so an ashen count (vampire) can raise them. Entries expire by age (cache only).
+    // Recent imp deaths, so a shaman can raise them. Entries expire by age (cache only).
     const corpses = [];
 
     // ---------- Isometric helpers (2:1 diamonds) ----------
@@ -1247,23 +1251,20 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       zomHead: poly([3.4, -11.8, 3.8, -15.6, 6.4, -17.4, 9.4, -16.2, 10.4, -13.6, 9.4, -12.8, 9.8, -9.8, 7.6, -9.2, 5.4, -10.4]),
       zomHole: poly([7.2, -15.4, 9.8, -15, 9.4, -13.6, 7.4, -13.8], [7.9, -12.4, 9.4, -12.4, 9.2, -10.2, 8, -10.6]),
       zomEye: poly([8.4, -14.9, 9.4, -14.7, 9.2, -13.9, 8.4, -14.1]),
-      // Ashen Count (vampire): high-collared cape (black outside, crimson lining), narrow coat, pale gaunt head
-      vCape: poly([-3, -9, -6.6, -17.4, -8, -9, -9, 0, -10.6, 10.6, -7.6, 8.8, -5, 11.2, -2.5, 9.2, 0, 11.4, 2.5, 9.2, 5, 11.2, 7.6, 8.8,
-        10.6, 10.6, 9, 0, 8, -9, 6.6, -17.4, 3, -9]),
-      vLining: poly([-2.4, -9.8, -5.6, -15.6, -6.6, -9.2, -7.6, 0, -8.6, 8.6, -5, 9.6, 0, 9.8, 5, 9.6, 8.6, 8.6, 7.6, 0, 6.6, -9.2, 5.6, -15.6, 2.4, -9.8]),
-      vCoat: poly([-3.2, -9.6, 3.2, -9.6, 3.8, -4, 2.6, 2, 3.4, 8.6, 0, 7.4, -3.4, 8.6, -2.6, 2, -3.8, -4]),
-      vJabot: poly([-1.2, -9.4, 1.2, -9.4, 1.7, -6, 0, -3.4, -1.7, -6]),
-      vHead: poly([-2.4, -10.4, -3, -13.4, -4.8, -15.8, -2.8, -14.6, -2.6, -16.2, .6, -17.6, 3.4, -16.4, 4.2, -13.6, 3.5, -11.6, 1.4, -9.2, -.8, -9.8]),
-      vHair: poly([-3.1, -12.8, -3.3, -16.4, .4, -18.4, 3.7, -17.1, 4.4, -15, 3, -15.8, 1.8, -14.3, .8, -15.8, -1.2, -15.4, -2, -12.6]),
-      vEye: poly([.8, -14.3, 2.3, -13.9, .9, -13.4], [2.9, -13.9, 4, -14.3, 3.9, -13.4]),
-      vMouth: poly([.9, -12, 3.6, -12.2, 3.3, -11, 1.1, -11]),
-      vFang: poly([1.4, -11.2, 2, -11.2, 1.7, -10.1], [2.7, -11.2, 3.3, -11.2, 3, -10.1]),
-      // open clawed hand, palm at the origin, talons up
-      vHand: poly([-1, 1, -1.8, -1.2, -1.6, -3.8, -.6, -1.4, .2, -4.2, .7, -1.4, 2, -3.6, 1.5, -.5, 2.8, .2, 1.2, 1.3]),
+      // Gutling shaman: hunched torso, long snout, bone mask, loincloth, feathered headdress, skull for the staff
+      shBody: poly([-4.6, 6, -5.4, 1, -4.4, -4.6, -1.6, -8, 2.2, -8.8, 4.6, -7.4, 5.4, -3.6, 4.6, 1.4, 3.2, 6]),
+      shHead: poly([.2, -8.6, -.6, -12.4, 1.8, -14.8, 5.2, -14.6, 7.2, -12.4, 10.2, -11.6, 9.8, -9.6, 6.4, -9.2, 3.6, -7.6]),
+      shMask: poly([1.6, -14.2, 6.4, -14.2, 7.4, -11.6, 6.2, -9.4, 3.8, -9, 2, -10.6]),
+      shHole: poly([3, -13.2, 4.6, -12.8, 4.2, -11.6, 2.8, -11.8], [5.4, -13.2, 6.6, -12.8, 6.4, -11.6, 5.2, -11.6]),
+      shCloth: poly([-4.4, 2.6, 4, 2.6, 4.8, 8.8, 2.4, 7.2, 0, 9.4, -2.4, 7.2, -4.8, 8.4]),
+      shFeather: poly([-1, -13, -6.4, -22.6, -3.6, -22.8, .6, -14.4], [1.2, -14.4, .4, -25.4, 3, -25, 3, -14.6], [3.8, -14.6, 7, -24, 9, -22.2, 5.2, -13.8]),
+      shTips: poly([-6.4, -22.6, -3.6, -22.8, -4.6, -19.8], [.4, -25.4, 3, -25, 2, -22], [7, -24, 9, -22.2, 6.8, -21]),
+      shTeeth: (() => { const p = new Path2D(); for (let i = 0; i < 4; i++) { const x = -2.6 + i * 1.8; p.moveTo(x, -6.6); p.lineTo(x + .5, -4.8); p.lineTo(x + 1, -6.6); p.closePath(); } return p; })(),
+      shSkull: poly([-2.4, -1.4, -2.6, -4, -.8, -5.6, 1.6, -5.4, 2.8, -3.6, 2.2, -1.2, 1, -.4, -1.2, -.4]),
     });
 
     // ---------- Foes ----------
-    // Gutling: cowardly little red fiend with a curved knife. Weaves in packs, bolts when stung or when its vampire master falls.
+    // Gutling: cowardly little red fiend with a curved knife. Weaves in packs, bolts when stung or when its shaman falls.
     const imp = {
       hp: 10, sp: 96, dmg: 6, xp: 1, r: 10, eye: false,
       init(e) { e.flee = 0; e.rise = 0; e.champ = false; },
@@ -1320,7 +1321,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       },
     };
 
-    // Ashen Count: gaunt caped vampire (kind id stays "shaman"). Keeps its distance, lobs fireballs, raises fallen gutlings.
+    // Gutling shaman: a hunched, older gutling in a feathered headdress and bone mask with a skull-topped staff.
+    // Keeps its distance, lobs fireballs, raises fallen gutlings.
     const shaman = {
       hp: 42, sp: 58, dmg: 8, xp: 4, r: 11, eye: false,
       init(e, Z) { e.t1 = Z.rnd(1.5, 3); e.t2 = Z.rnd(4, 6); e.cast = 0; },
@@ -1351,41 +1353,50 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         }
       },
       draw(e, Z, white) {
-        // Ashen Count: drawn in 11-unit design space. Casting (e.cast > 0) flares the cape wide and raises a
-        // clawed hand with a blood-fire glow in the palm; the glow eases back down as the cast ends.
-        const c = Z.ctx, A = art(), s = e.r / 11, bob = Math.sin(e.ph * 3 + e.seed) * 1.2, u = Math.min(1, Math.max(0, e.cast) * 6);
-        const O = W(white, '#2a0a14'), st = Math.sin(e.ph * 6 + e.seed);
-        c.save(); c.translate(e.x, e.y + bob * s); faceS(c, e, s);
+        // Gutling shaman: drawn in 11-unit design space. It hops as it shuffles; casting (e.cast > 0) thrusts the
+        // staff overhead and the flame over the skull flares.
+        const c = Z.ctx, A = art(), s = e.r / 11, hop = Math.abs(Math.sin(e.ph * 7 + e.seed)), u = Math.min(1, Math.max(0, e.cast) * 6);
+        const O = W(white, '#3a0806'), st = Math.sin(e.ph * 7 + e.seed);
+        c.save(); c.translate(e.x, e.y - hop * 1.6 * s); faceS(c, e, s);
         c.lineCap = 'round'; c.lineJoin = 'round';
-        // cape: black outside, crimson lining; billows slightly as it glides, flares wide on a cast
-        c.save(); c.scale(1 + .04 * st + u * .32, 1 - u * .03);
-        c.strokeStyle = O; c.lineWidth = 2; c.stroke(A.vCape); c.fillStyle = W(white, '#140d18'); c.fill(A.vCape);
-        c.fillStyle = W(white, '#a8121e'); c.fill(A.vLining); c.restore();
-        // boots peeking under the coat
-        c.fillStyle = W(white, '#0c080e'); c.fillRect(-2.8 + st * .8, 8.2, 2.4, 2.6); c.fillRect(.6 - st * .8, 8.2, 2.4, 2.6);
-        // narrow black coat, white jabot, blood-red brooch
-        c.strokeStyle = O; c.lineWidth = 1.8; c.stroke(A.vCoat); c.fillStyle = W(white, '#2c2234'); c.fill(A.vCoat);
-        c.fillStyle = W(white, '#ece4ee'); c.fill(A.vJabot);
-        c.fillStyle = W(white, '#ff2a3a'); c.fillRect(-.7, -7.6, 1.4, 1.4);
-        // pale gaunt head, pointed ear, slicked hair with a widow's peak, red eyes, fangs
-        c.strokeStyle = O; c.lineWidth = 1.8; c.stroke(A.vHead); c.fillStyle = W(white, '#dcd6e8'); c.fill(A.vHead);
-        c.fillStyle = W(white, '#120c18'); c.fill(A.vHair);
-        c.fillStyle = W(white, '#ff1e2e'); c.fill(A.vEye);
-        c.fillStyle = W(white, '#3a0610'); c.fill(A.vMouth);
-        c.fillStyle = W(white, '#ffffff'); c.fill(A.vFang);
-        // casting arm: talon held at the chest, thrust overhead while casting
-        const ex = 5 + u * 2.8, ey = -4.8 - u * 6.6, hx = 8 + u * 1.2, hy = -6.4 - u * 10.2;
-        c.beginPath(); c.moveTo(2.6, -8.6); c.lineTo(ex, ey); c.lineTo(hx, hy);
-        c.strokeStyle = O; c.lineWidth = 3.6; c.stroke(); c.strokeStyle = W(white, '#1c1424'); c.lineWidth = 2; c.stroke();
-        c.translate(hx, hy);
-        c.strokeStyle = O; c.lineWidth = 1.4; c.stroke(A.vHand); c.fillStyle = W(white, '#dcd6e8'); c.fill(A.vHand);
-        // palm fire: a faint ember at rest, a bright orange-red flare while casting
-        if (!white) Z.glow('255,80,40', 6 + u * 12, 0, -1.2, .4 + .5 * u);
-        c.beginPath(); c.arc(0, -1.2, 1 + u * 1.6, 0, TAU); c.fillStyle = W(white, u > 0 ? '#ff6a1e' : '#c8202a'); c.fill();
-        c.fillStyle = W(white, '#fff0b0'); c.fillRect(-.5, -1.7, 1, 1);
+        // feathered headdress behind the head
+        c.save(); c.translate(0, hop * .6);
+        c.strokeStyle = O; c.lineWidth = 1.6; c.stroke(A.shFeather); c.fillStyle = W(white, '#efe2c2'); c.fill(A.shFeather);
+        c.fillStyle = W(white, '#c8261a'); c.fill(A.shTips); c.restore();
+        // crooked legs
+        c.beginPath();
+        c.moveTo(-2.4, 5); c.lineTo(-3 + st * 1.6, 8.4); c.lineTo(-1.6 + st * 2, 10.6);
+        c.moveTo(2, 5); c.lineTo(2.6 - st * 1.6, 8.4); c.lineTo(4 - st * 2, 10.6);
+        c.strokeStyle = O; c.lineWidth = 3.2; c.stroke(); c.strokeStyle = W(white, '#a81c10'); c.lineWidth = 1.7; c.stroke();
+        // staff: crooked dark wood held forward, raised overhead while casting
+        const hx = 6 + u * .6, hy = -2 - u * 9, tx = hx + 3 - u * 2, ty = hy - 14 + u * 3;
+        c.beginPath(); c.moveTo(hx - 1.4, hy + 9); c.lineTo(hx, hy); c.lineTo(hx + 1.2, hy - 6); c.lineTo(tx, ty);
+        c.strokeStyle = O; c.lineWidth = 3; c.stroke(); c.strokeStyle = W(white, '#5a3a1c'); c.lineWidth = 1.6; c.stroke();
+        // body, loincloth, tooth necklace
+        c.strokeStyle = O; c.lineWidth = 2; c.stroke(A.shBody); c.fillStyle = W(white, '#b82214'); c.fill(A.shBody);
+        if (!white) { c.fillStyle = '#8a160c'; c.fillRect(-4.4, -3, 2.6, 6); }
+        c.strokeStyle = O; c.lineWidth = 1.4; c.stroke(A.shCloth); c.fillStyle = W(white, '#5a3418'); c.fill(A.shCloth);
+        c.fillStyle = W(white, '#f2e6c8'); c.fill(A.shTeeth);
+        // head with a bone mask and glowing eyes
+        c.strokeStyle = O; c.lineWidth = 1.8; c.stroke(A.shHead); c.fillStyle = W(white, '#c42a18'); c.fill(A.shHead);
+        c.fillStyle = W(white, '#ece0c4'); c.fill(A.shMask);
+        c.fillStyle = W(white, '#2a0604'); c.fill(A.shHole);
+        if (!white) { c.fillStyle = '#ffd23a'; c.fillRect(3.4, -12.6, 1, 1); c.fillRect(5.7, -12.6, 1, 1); }
+        // arm gripping the staff
+        c.beginPath(); c.moveTo(2.6, -5.6); c.lineTo(4.6, -2 - u * 5); c.lineTo(hx, hy);
+        c.strokeStyle = O; c.lineWidth = 3; c.stroke(); c.strokeStyle = W(white, '#b82214'); c.lineWidth = 1.6; c.stroke();
+        // skull atop the staff, a flame dancing over it
+        c.save(); c.translate(tx, ty);
+        c.strokeStyle = O; c.lineWidth = 1.3; c.stroke(A.shSkull); c.fillStyle = W(white, '#efe4c8'); c.fill(A.shSkull);
+        c.fillStyle = W(white, '#2a0604'); c.fillRect(-1.6, -3.6, 1.2, 1.2); c.fillRect(.6, -3.6, 1.2, 1.2);
+        if (!white) Z.glow('255,110,30', 6 + u * 12, 0, -7, .45 + .5 * u);
+        const fh = 3 + u * 3 + Math.sin(Z.now * 18 + e.seed) * .6;
+        c.beginPath(); c.moveTo(-1.8, -5.6); c.quadraticCurveTo(-1.2, -6 - fh * .8, 0, -5.8 - fh); c.quadraticCurveTo(1.2, -6 - fh * .8, 1.8, -5.6); c.closePath();
+        c.fillStyle = W(white, u > 0 ? '#ffb02a' : '#ff6a1e'); c.fill();
+        c.restore();
         c.restore();
       },
-      death(e, Z) { // gutlings near a fallen count panic
+      death(e, Z) { // gutlings near a fallen shaman panic
         Z.burst(e.x, e.y, '#ff8a2a', 12, 120);
         const fs = Z.foes();
         for (let i = 0; i < fs.length; i++) {
@@ -13270,7 +13281,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     };
 
     /* ================= Foes: wandering monster stacks ================= */
-    const BOX = { pike: ['#4a2272', '#c8a0f0'], wolf: ['#5e3a1c', '#d8b080'], garg: ['#4a2272', '#c8a0f0'], archer: ['#8a6410', '#f6dc80'], airelem: ['#8a6410', '#f6dc80'] };
+    const BOX = { pike: ['#4a2272', '#c8a0f0'], wolf: ['#5e3a1c', '#d8b080'], garg: ['#4a2272', '#c8a0f0'], archer: ['#8a6410', '#f6dc80'], airelem: ['#8a6410', '#f6dc80'], vamp: ['#4a1022', '#e890a8'] };
     const stackInit = (e, Z) => { e.base = 4 + fl(Math.random() * 37); };
     const stackBox = (c, e, kind) => {
       const k = e.max > 0 ? Math.max(0, e.hp) / e.max : 1, n = Math.max(1, Math.ceil((e.base || 1) * k)), t = String(n), w = 5 + t.length * 5, x = e.x, y = e.y + e.r + 3, col = BOX[kind];
@@ -13431,6 +13442,91 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         stackBox(c, e, 'garg');
       },
       death(e, Z) { Z.burst(e.x, e.y, '#9a9eaa', 14, 110); },
+    };
+
+    // Vampires: caped undead lords. Glide in, dissolve into red mist and re-form beside the hero (a red ring marks the
+    // spot), then lunge. Touching the hero drains life back into the stack (HoMM's life drain).
+    const vp = (...ls) => { const p = new Path2D(); for (const a of ls) poly(p, a); return p; };
+    let VA = null;
+    const vart = () => VA || (VA = {
+      cape: vp([-3, -9, -6.6, -17.4, -8, -9, -9, 0, -10.6, 10.6, -7.6, 8.8, -5, 11.2, -2.5, 9.2, 0, 11.4, 2.5, 9.2, 5, 11.2, 7.6, 8.8, 10.6, 10.6, 9, 0, 8, -9, 6.6, -17.4, 3, -9]),
+      lining: vp([-2.4, -9.8, -5.6, -15.6, -6.6, -9.2, -7.6, 0, -8.6, 8.6, -5, 9.6, 0, 9.8, 5, 9.6, 8.6, 8.6, 7.6, 0, 6.6, -9.2, 5.6, -15.6, 2.4, -9.8]),
+      coat: vp([-3.2, -9.6, 3.2, -9.6, 3.8, -4, 2.6, 2, 3.4, 8.6, 0, 7.4, -3.4, 8.6, -2.6, 2, -3.8, -4]),
+      jabot: vp([-1.2, -9.4, 1.2, -9.4, 1.7, -6, 0, -3.4, -1.7, -6]),
+      head: vp([-2.4, -10.4, -3, -13.4, -4.8, -15.8, -2.8, -14.6, -2.6, -16.2, .6, -17.6, 3.4, -16.4, 4.2, -13.6, 3.5, -11.6, 1.4, -9.2, -.8, -9.8]),
+      hair: vp([-3.1, -12.8, -3.3, -16.4, .4, -18.4, 3.7, -17.1, 4.4, -15, 3, -15.8, 1.8, -14.3, .8, -15.8, -1.2, -15.4, -2, -12.6]),
+      eye: vp([.8, -14.3, 2.3, -13.9, .9, -13.4], [2.9, -13.9, 4, -14.3, 3.9, -13.4]),
+      mouth: vp([.9, -12, 3.6, -12.2, 3.3, -11, 1.1, -11]),
+      fang: vp([1.4, -11.2, 2, -11.2, 1.7, -10.1], [2.7, -11.2, 3.3, -11.2, 3, -10.1]),
+      hand: vp([-1, 1, -1.8, -1.2, -1.6, -3.8, -.6, -1.4, .2, -4.2, .7, -1.4, 2, -3.6, 1.5, -.5, 2.8, .2, 1.2, 1.3]),
+    });
+    const vamp = {
+      hp: 46, sp: 70, dmg: 10, xp: 5, r: 12, eye: false,
+      init(e, Z) { stackInit(e, Z); e.base = 3 + fl(Math.random() * 18); e.mode = 'glide'; e.t1 = Z.rnd(2.5, 4.5); e.mt = 0; e.ca = 0; e.bite = 0; e.baseDmg = e.dmg; },
+      update(e, Z) {
+        const dt = Z.dt, d = Z.dist(e);
+        e.bite = Math.max(0, e.bite - dt);
+        // life drain: touching the hero heals the stack (at most once a second)
+        if (e.mode !== 'mist' && e.bite <= 0 && d < e.r + Z.P.r + 4) {
+          e.bite = 1; e.hp = Math.min(e.max, e.hp + e.max * .18); Z.burst(e.x, e.y - 8, '#ff3050', 6, 60);
+        }
+        if (e.mode === 'mist') {
+          // dissolved: harmless, then re-forms on the marked spot
+          e.dmg = 0; Z.move(e, 0, 0);
+          if ((e.mt -= dt) <= 0) {
+            e.x = e.tx; e.y = e.ty; e.dmg = e.baseDmg; e.mode = 'lunge'; e.mt = .32; e.ca = Z.angTo(e);
+            Z.burst(e.x, e.y, '#c0203a', 10, 90);
+          }
+          return;
+        }
+        if (e.mode === 'lunge') { Z.move(e, Math.cos(e.ca) * 270, Math.sin(e.ca) * 270); e.ang = e.ca; if ((e.mt -= dt) <= 0) { e.mode = 'glide'; e.t1 = Z.rnd(3.5, 5.5); } return; }
+        Z.chase(e, e.sp * (.85 + .2 * Math.sin(e.ph * 2 + e.seed)));
+        if ((e.t1 -= dt) <= 0) {
+          if (d < 380 && d > 90) {
+            const a = Z.angTo(e) + Math.PI + (Math.random() < .5 ? 1 : -1) * Z.rnd(.9, 1.6);
+            e.mode = 'mist'; e.mt = .6; e.tx = Z.P.x + Math.cos(a) * 85; e.ty = Z.P.y + Math.sin(a) * 85;
+            Z.burst(e.x, e.y, '#8a1028', 10, 70);
+          } else e.t1 = .6;
+        }
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, A = vart(), s = e.r / 11, bob = Math.sin(e.ph * 3 + e.seed) * 1.2, O = W(white, '#2a0a14'), st = Math.sin(e.ph * 6 + e.seed);
+        if (e.mode === 'mist') {
+          // red mist where it was, and a tightening ring where it will re-form
+          const k = Math.max(0, e.mt / .6);
+          c.globalAlpha = .35 * k; c.fillStyle = '#8a1028';
+          for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(e.x + Math.cos(i * 1.7 + Z.now * 3) * 8, e.y - 6 + Math.sin(i * 2.3 + Z.now * 2) * 5, 7 + i, 0, TAU); c.fill(); }
+          c.globalAlpha = .4 + .4 * (1 - k); c.strokeStyle = '#ff3050'; c.lineWidth = 2;
+          c.beginPath(); c.ellipse(e.tx, e.ty + 4, 14 * (1 + .4 * k), 5 * (1 + .4 * k), 0, 0, TAU); c.stroke();
+          c.globalAlpha = 1;
+          return;
+        }
+        const u = e.mode === 'lunge' ? 1 : 0;
+        c.save(); c.translate(e.x, e.y + bob * s); c.scale(s, s); face(c, e);
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        c.save(); c.scale(1 + .04 * st + u * .3, 1 - u * .03);
+        c.strokeStyle = O; c.lineWidth = 2; c.stroke(A.cape); c.fillStyle = W(white, '#140d18'); c.fill(A.cape);
+        c.fillStyle = W(white, '#a8121e'); c.fill(A.lining); c.restore();
+        c.fillStyle = W(white, '#0c080e'); c.fillRect(-2.8 + st * .8, 8.2, 2.4, 2.6); c.fillRect(.6 - st * .8, 8.2, 2.4, 2.6);
+        c.strokeStyle = O; c.lineWidth = 1.8; c.stroke(A.coat); c.fillStyle = W(white, '#2c2234'); c.fill(A.coat);
+        c.fillStyle = W(white, '#ece4ee'); c.fill(A.jabot);
+        c.fillStyle = W(white, '#ff2a3a'); c.fillRect(-.7, -7.6, 1.4, 1.4);
+        c.strokeStyle = O; c.lineWidth = 1.8; c.stroke(A.head); c.fillStyle = W(white, '#dcd6e8'); c.fill(A.head);
+        c.fillStyle = W(white, '#120c18'); c.fill(A.hair);
+        c.fillStyle = W(white, '#ff1e2e'); c.fill(A.eye);
+        c.fillStyle = W(white, '#3a0610'); c.fill(A.mouth);
+        c.fillStyle = W(white, '#ffffff'); c.fill(A.fang);
+        // clawed hand: at the chest, reaching forward in a lunge
+        const ex = 5 + u * 3, ey = -4.8 - u * 2, hx = 8 + u * 4, hy = -6.4 - u * 2;
+        c.beginPath(); c.moveTo(2.6, -8.6); c.lineTo(ex, ey); c.lineTo(hx, hy);
+        c.strokeStyle = O; c.lineWidth = 3.6; c.stroke(); c.strokeStyle = W(white, '#1c1424'); c.lineWidth = 2; c.stroke();
+        c.translate(hx, hy); c.rotate(u * 1.2);
+        c.strokeStyle = O; c.lineWidth = 1.4; c.stroke(A.hand); c.fillStyle = W(white, '#dcd6e8'); c.fill(A.hand);
+        c.restore();
+        if (e.bite > .7 && !white) Z.glow('255,40,70', 18, e.x, e.y - 8, (e.bite - .7) * 2.5);
+        stackBox(c, e, 'vamp');
+      },
+      death(e, Z) { Z.burst(e.x, e.y, '#8a1028', 14, 110); Z.burst(e.x, e.y - 6, '#1a1020', 8, 70); },
     };
 
     // Marksmen: crimson-clad longbowmen. Keep their distance, draw (telegraph), loose arrows.
@@ -13775,6 +13871,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         Z.banner('Week of the Gargoyle!', '#b8c0d8', true); Z.sfx('boss'); Z.shake(5);
         for (let i = 0; i < 9; i++) { const a = i / 9 * TAU, n = Z.spawn('garg', Z.P.x + Math.cos(a) * 420, Z.P.y + Math.sin(a) * 420); if (n) { n.t1 = 1 + i * .3; n.base = 10 + fl(Math.random() * 30); } }
       } },
+      { t: 100, run(Z) {
+        Z.banner('Vampires rise from the old graveyard!', '#ff6a80', false); Z.sfx('warn');
+        for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + .3, n = Z.spawn('vamp', Z.P.x + Math.cos(a) * 400, Z.P.y + Math.sin(a) * 400); if (n) n.t1 = 1 + i * .5; }
+      } },
       { t: 112, run(Z) {
         Z.banner('Marksmen take the high ground!', '#ff8a6a', false); Z.sfx('warn');
         const p = ahead(Z, 360), px = -Math.sin(p.a), py = Math.cos(p.a);
@@ -13849,9 +13949,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     return {
       id: 'homm', name: 'The Land of Might and Magic', nod: 'Heroes of Might and Magic III', portal: '60,100,230', bg: BG, dark: .35, dim: .12,
       ground, under, ambient,
-      mix: { pike: 5, wolf: 3, garg: 1.4, archer: 1.2 },
+      mix: { pike: 5, wolf: 3, garg: 1.4, archer: 1.2, vamp: .9 },
       target: 1,
-      foes: { pike, wolf, garg, archer, airelem },
+      foes: { pike, wolf, garg, archer, airelem, vamp },
       boss, events, music,
     };
   })());
@@ -19900,7 +20000,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   function newRun() {
     snd.init(); snd.setZone(null); warp = null;
-    run = { t: 0, lv: 1, xp: 0, need: needFor(1), kills: 0, dmg: 0, dmgBy: {}, bosses: 0, chests: 0, weapons: {}, passives: {}, rerolls: 2, hp: 100, pending: 0, ev: 0, spawnAcc: 0, boss: null, start: true, regenAcc: 0, zone: null, saved: null, portal: null, portalT: rnd(45, 70), seen: [], rifts: 0, minis: 0, relic: null, clock: 0, finale: null };
+    run = { t: 0, lv: 1, xp: 0, need: needFor(1), kills: 0, dmg: 0, dmgBy: {}, bosses: 0, chests: 0, weapons: {}, passives: {}, rerolls: 2, hp: 100, pending: 0, ev: 0, spawnAcc: 0, boss: null, start: true, quest: {}, regenAcc: 0, zone: null, saved: null, portal: null, portalT: rnd(45, 70), seen: [], rifts: 0, minis: 0, relic: null, clock: 0, finale: null };
     recalc();
     run.rid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); setTimeout(() => playPing('start'), 0);
     foes = []; motes = []; shots = []; bullets = []; strikes = []; parts = []; pops = []; banners = []; beams = []; rings = [];
@@ -20080,7 +20180,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       : `<span class="chip w" data-k="w:${id}">${WEAPONS[id].name} <b>${w.lv}</b></span>`);
     const p = Object.entries(run.passives).map(([id, k]) => `<span class="chip" data-k="p:${id}">${PASSIVES[id].name}${PASSIVES[id].max > 1 ? ` <b>${k}</b>` : ''}</span>`);
     const rl = run.relic ? [`<span class="chip relic" data-k="r:${run.relic.id}">${run.minis >= RELIC_MEGA ? RELICS[run.relic.id].mega : RELICS[run.relic.id].name} <b>${relicLabel()}</b></span>`] : [];
-    return rl.concat(w, p).join('');
+    const q = [run.quest.leg && '<span class="chip quest" data-k="q:leg">Wirt\'s Leg</span>', run.quest.tome && '<span class="chip quest" data-k="q:tome">Tome of Town Portal</span>'].filter(Boolean);
+    return rl.concat(q, w, p).join('');
   }
   function srcName(k) {
     if (k.startsWith('r:')) { const Rl = RELICS[k.slice(2)]; return Rl ? (run.relic && run.relic.id === k.slice(2) && run.minis >= RELIC_MEGA ? Rl.mega : Rl.name) : 'Relic'; }
@@ -20150,6 +20251,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       box.appendChild(document.createTextNode(d.desc));
       const ev = Object.entries(WEAPONS).find(([, w]) => w.evo === id);
       if (ev) add('i', `Evolves ${ev[1].name}`);
+    } else if (kind === 'q') {
+      add('b', id === 'leg' ? 'Wirt\'s Leg' : 'Tome of Town Portal');
+      box.appendChild(document.createTextNode(id === 'leg'
+        ? 'A wooden peg leg from a poor boy who met a bad end. It smells faintly of cows.'
+        : 'A tome that opens a portal. Paired with the leg, it can open somewhere very strange.'));
+      add('i', run.quest.leg && run.quest.tome ? 'Quest item: the next rift to open goes somewhere special' : id === 'leg' ? 'Quest item: the wandering peddler may know what it is for' : 'Quest item');
     } else if (kind === 'r') {
       const d = RELICS[id], mega = run.minis >= RELIC_MEGA;
       if (!d) return;
@@ -20501,7 +20608,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const col = { ghost: '#cfe0ff', wasp: '#ffcf5a', beetle: '#6f8ac0', stag: '#6f8ac0', locust: '#8ac060', spider: '#8a7090', bomber: '#ff8a50', centi: '#a0603a', mosq: '#9a90a0', brood: '#a090b8', rhino: '#7a6448', cricket: '#7a5a30', snail: '#8adf5a', ember: '#ff7a3a' }[e.kind] || '#b8a888';
     burst(e.x, e.y, col, e.boss ? 80 : 7, e.boss ? 420 : 160);
     if (e.boss || e.elite) {
-      motes.push({ kind: 'chest', x: e.x, y: e.y, boss: e.boss, bob: 0, relic: e.def && e.boss && run.zone ? run.zone.def.id : null });
+      motes.push({ kind: 'chest', x: e.x, y: e.y, boss: e.boss, bob: 0, relic: e.def && e.boss && run.zone ? RELIC_DROP[run.zone.def.id] ?? run.zone.def.id : null });
       if (e.boss) {
         if (e.def) {
           run.minis++;
@@ -21315,7 +21422,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Not dropped by any rift yet (no zone has this id); try it with fj.relic('aurora', minis) in #debug.
     // Not dropped by any rift yet; try it with fj.relic('orb', minis) in #debug. A violet take on a frozen orb.
     hk: { name: 'Wailing Mask', mega: 'Void Mask', desc: 'Every moth you slay feeds the mask. When it is full it howls: a ring of pale spirits bursts out, piercing through moths, and you mend a little.', megaDesc: 'Fills faster and howls a wider ring of dark void spirits that hit harder and mend more.' },
-    orb: { name: 'Mesmer Orb', mega: 'Twin Mesmer Orbs', desc: 'Launches a slow, spinning violet orb that sprays mesmerizing shards in a spiral as it drifts, then bursts into a ring of shards. Struck moths are dazed and slowed.', megaDesc: 'Two orbs at once, denser spirals and a bigger burst.' },
+    orb: { name: 'Chaos Orb', mega: 'Twin Chaos Orbs', desc: 'Launches a slow, spinning violet orb that sprays chaotic shards in a spiral as it drifts, then bursts into a ring of shards. Struck moths are dazed and slowed.', megaDesc: 'Two orbs at once, denser spirals and a bigger burst.' },
     aurora: { name: 'Aurora Ribbon', mega: 'Northern Veil', desc: 'A long ribbon of shimmering light trails behind you as you move, burning every moth it touches. Standing still, it curls around you.', megaDesc: 'A wider, longer curtain of aurora that also stops enemy bullets crossing it.' },
     lol:   { name: 'Allied Minion Wave', mega: 'Empowered Siege Wave', desc: 'Every so often a wave of your own blue minions marches out to fight for you.', megaDesc: 'Bigger waves, faster, with cannon minions.' },
   };
@@ -21812,8 +21919,35 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Guardians climb much steeper from the 3rd rift on (builds snowball much faster than the night clock).
   const RIFT_HP = [.75, .9, 1, 1.1, 1.2], RIFT_BOSS_HP = [.75, .9, 1.4, 2, 2.6, 3.2], RIFT_DMG = [.8, .9, 1, 1.1, 1.15];
   const riftK = tbl => run && run.zone ? tbl[Math.max(0, Math.min(tbl.length - 1, run.rifts - 1))] : 1;
-  // Rare rifts: the secret cow pasture opens a fifth as often as a normal rift.
-  const RIFT_WEIGHT = { cow: .2 };
+  // Rare rifts: the secret cow pasture never opens on its own. It only opens through the Wirt's Leg quest (see updateQuest).
+  const RIFT_WEIGHT = {};
+  const QUEST_ZONES = ['cow'];
+  // Relics a guardian drops instead of its own zone's (the cow king drops the Chaos Orb; the Peg Leg became the quest key).
+  const RELIC_DROP = { cow: 'orb' };
+  // Wirt's Leg: a fallen boy's body sometimes lies in the Bloodmoor Crypts (only while the peddler is still to come or
+  // camped, so the tome can be bought). The peddler sells a Tome of Town Portal for one level of any item;
+  // leg + tome make the next rift the cow pasture, and the leg and tome are used up when you step in.
+  const LEG_CHANCE = .5;
+  const peddlerAhead = () => !!run.peddler || EVENTS.slice(run.ev).some(e => e.kind === 'peddler');
+  const questReady = () => run.quest.leg && run.quest.tome && !run.seen.includes('cow');
+  function updateQuest(dt) {
+    const c = run.quest.corpse;
+    if (!c || !run.zone || run.zone.def.id !== 'd2') return;
+    const d = Math.hypot(P.x - c.x, P.y - c.y);
+    if (!c.guarded && d < 520) {
+      // A gutling pack and its shaman keep watch over the body.
+      c.guarded = true;
+      zoneCall(() => {
+        for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; Z.spawn('imp', c.x + Math.cos(a) * 60, c.y + Math.sin(a) * 60); }
+        Z.spawn('shaman', c.x + 30, c.y - 40);
+      });
+    }
+    if (d < 26 + P.r) {
+      run.quest.leg = true; run.quest.corpse = null;
+      banner('Wirt\'s Leg: someone must have needed this…', '#e8c890', true); snd.fx('chest');
+      burst(c.x, c.y, '#e8c890', 16, 140); renderLoadout();
+    }
+  }
   const NOT_FIRST = ['z', 'moo2'];   // The Robot Wars and The Antaran Deep are too hard as a first rift.
   function nextBossIn() { for (let i = run.ev; i < EVENTS.length; i++) if (EVENTS[i].kind === 'boss') return EVENTS[i].t - run.t; return Infinity; }
   function updatePortal(dt) {
@@ -21830,11 +21964,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (run.portalT > 0 || run.boss || run.t > DAWN - 50 || nextBossIn() < 35) return false;
     run.portalT = rnd(70, 105);
     // Some rifts are too tough to be a run's first: they only open once you've been through another one.
-    const fresh = ZONES.filter(z => !run.seen.includes(z.id) && !(run.rifts === 0 && NOT_FIRST.includes(z.id))), pool = fresh.length ? fresh : ZONES;
+    const open = ZONES.filter(z => !QUEST_ZONES.includes(z.id));
+    const fresh = open.filter(z => !run.seen.includes(z.id) && !(run.rifts === 0 && NOT_FIRST.includes(z.id))), pool = fresh.length ? fresh : open;
     // Weighted pick: secret rifts (RIFT_WEIGHT below 1) turn up far less often than the rest.
     const wsum = pool.reduce((t, z) => t + (RIFT_WEIGHT[z.id] ?? 1), 0);
     let roll = Math.random() * wsum, def = pool[pool.length - 1];
     for (const z of pool) if ((roll -= RIFT_WEIGHT[z.id] ?? 1) <= 0) { def = z; break; }
+    if (questReady()) def = ZONES.find(z => z.id === 'cow') || def;
     const a = Math.random() * TAU, R = Math.min(W, H) * .32 + 60;
     run.portal = { x: P.x + Math.cos(a) * R, y: P.y + Math.sin(a) * R, def, life: 28 };
     banner(`A rift opens: ${def.name}`, `rgb(${def.portal})`, true); snd.fx('rift');
@@ -21851,13 +21987,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     snd.setZone(def.music); snd.setBoss(false); snd.fx('portal');
     banner(def.name, `rgb(${def.portal})`, true);
     shake = Math.max(shake, 8);
+    // Wirt's Leg quest: the body may lie somewhere off in the crypts; the leg and tome are spent opening the pasture.
+    if (def.id === 'd2' && !run.quest.leg && !run.quest.used && peddlerAhead() && Math.random() < LEG_CHANCE) {
+      const a = Math.random() * TAU, d = rnd(1100, 1500);
+      run.quest.corpse = { x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d };
+    }
+    if (def.id === 'cow' && run.quest.leg && run.quest.tome) { run.quest.leg = run.quest.tome = false; run.quest.used = true; renderLoadout(); }
   }
   function exitZone() {
     const z = run.zone, sv = run.saved;
     // Glow left in the rift comes home with you, and so does an unopened chest.
     let xp = 0; const chests = [];
     for (const m of motes) { if (m.kind === 'xp') xp += m.v; if (m.kind === 'chest') chests.push(m); }
-    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = [];
+    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = []; run.quest.corpse = null;
     foes = sv.foes; motes = sv.motes; bullets = []; strikes = sv.strikes; hazards = sv.hazards; shots = sv.shots;
     run.zone = null; run.saved = null; run.boss = null;
     P.x = sv.x; P.y = sv.y; cam.x = P.x; cam.y = P.y; P.inv = 2;
@@ -21899,7 +22041,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     animateHero(dt);
     if (S.regen) run.hp = Math.min(S.maxHp, run.hp + S.regen * dt);
 
-    if (zone) { if (updateZone(zone)) return; }
+    if (zone) { updateQuest(dt); if (updateZone(zone)) return; }
     else {
       updatePeddler(dt); if (state !== 'play') return;
       while (run.ev < EVENTS.length && EVENTS[run.ev].t <= run.t) fireEvent(EVENTS[run.ev++]);
@@ -22147,7 +22289,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         continue;
       }
       if (s.type === 'orb') {
-        // Mesmer Orb: drifts, spins out violet shards in a spiral, bursts into a ring at the end of its path.
+        // Chaos Orb: drifts, spins out violet shards in a spiral, bursts into a ring at the end of its path.
         s.x += s.vx * dt; s.y += s.vy * dt; s.dist += Math.hypot(s.vx, s.vy) * dt; s.spin += dt * 7;
         const shard = (a, sp, life) => shots.push({ type: 'bolt', x: s.x, y: s.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: s.dmg, pierce: 1, life, r: 4, hit: new Set(), col: '190,110,255', aoe: 0, daze: true, src: s.src });
         if ((s.emit -= dt) <= 0) { s.emit = s.mega ? .045 : .07; shard(s.spin, 360, .55); if (s.mega) shard(s.spin + Math.PI, 360, .55); }
@@ -22296,7 +22438,26 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     renderSell(); show('peddler'); $('peddlerBye').focus();
   }
   const sellPicks = lv => Math.max(1, Math.ceil(lv / 2));
+  // The tome is paid with one level of any weapon or charm (an item at Lv 1 is given away).
+  function renderTome() {
+    const box = $('tomeOffer'), q = run.quest;
+    box.hidden = !(q.leg && !q.tome); box.innerHTML = '';
+    if (box.hidden) return;
+    const row = document.createElement('div'), label = document.createElement('span'), b = document.createElement('button');
+    label.innerHTML = q.paying ? '<strong>Tome of Town Portal</strong><span>Pick the item to pay with: it loses one level.</span>'
+      : '<strong>Tome of Town Portal</strong><span>"That leg… Hah! Take this tome with it. You\'ll want to see where they lead."</span>';
+    b.className = 'btn'; b.textContent = q.paying ? 'Cancel' : 'Buy (1 item level)';
+    b.onclick = () => { q.paying = !q.paying; renderSell(); };
+    row.append(label, b); box.appendChild(row);
+  }
+  function payTome(kind, id) {
+    const q = run.quest;
+    if (kind === 'w') { if (--run.weapons[id].lv <= 0) delete run.weapons[id]; } else if (--run.passives[id] <= 0) delete run.passives[id];
+    recalc(); run.hp = Math.min(run.hp, S.maxHp);
+    q.tome = true; q.paying = false; snd.fx('chest'); renderSell(); renderLoadout();
+  }
   function renderSell() {
+    renderTome();
     const box = $('sellList'); box.innerHTML = '';
     const items = [...Object.entries(run.weapons).map(([id, w]) => ['w', id, w.evo ? WEAPONS[id].evoName : WEAPONS[id].name, w.lv]),
       ...Object.entries(run.passives).map(([id, lv]) => ['p', id, PASSIVES[id].name, lv])];
@@ -22305,6 +22466,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const row = document.createElement('div'), label = document.createElement('span'), b = document.createElement('button');
       label.textContent = `${name} · Lv ${lv}`; b.className = 'btn ghost'; const n = sellPicks(lv);
       b.textContent = `Sell (+${n} pick${n > 1 ? 's' : ''})`;
+      if (run.quest.paying) { b.textContent = lv > 1 ? 'Pay 1 Lv' : 'Pay (lose it)'; b.onclick = () => payTome(kind, id); row.append(label, b); box.appendChild(row); continue; }
       b.onclick = () => {
         if (kind === 'w') delete run.weapons[id]; else delete run.passives[id];
         recalc(); run.hp = Math.min(run.hp, S.maxHp); run.pending += n; run.sold = (run.sold || 0) + 1;
@@ -22525,6 +22687,25 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = '#eafff2';
     for (const [ox, oy, r] of [[-4, -10, 1.8], [3, -11, 1.5], [6, -8, 1.2], [-1, -8, 1]]) { ctx.beginPath(); ctx.arc(m.x + ox * s, m.y + oy * s, r * s, 0, TAU); ctx.fill(); }
     ctx.globalAlpha = 1;
+  }
+  // Wirt's body: a small heap under a torn tunic, one wooden peg leg sticking up out of a scatter of bones.
+  function drawWirt(c, now) {
+    const x = c.x, y = c.y;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, 22, 6, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5a1810'; ctx.beginPath(); ctx.ellipse(x + 6, y + 4, 12, 4, .2, 0, TAU); ctx.fill(); // old blood
+    ctx.strokeStyle = '#1a0e08'; ctx.lineWidth = 1.5;
+    ctx.fillStyle = '#6a7a3a'; ctx.beginPath(); ctx.ellipse(x - 4, y, 13, 7, -.15, 0, TAU); ctx.fill(); ctx.stroke(); // green tunic
+    ctx.fillStyle = '#d8b48a'; ctx.beginPath(); ctx.arc(x - 17, y - 2, 5, 0, TAU); ctx.fill(); ctx.stroke(); // head
+    ctx.fillStyle = '#8a5a2a'; ctx.beginPath(); ctx.arc(x - 18, y - 4, 4, Math.PI, TAU); ctx.fill(); // hair
+    ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 6, y + 6); ctx.lineTo(x - 12, y + 10); ctx.moveTo(x + 2, y + 6); ctx.lineTo(x + 9, y + 9); ctx.stroke(); // bones
+    // the peg leg, tilted up, gently glinting
+    const t = .5 + .5 * Math.sin(now * 3);
+    ctx.save(); ctx.translate(x + 8, y - 1); ctx.rotate(-.7);
+    ctx.fillStyle = '#1a0e08'; ctx.fillRect(-3, -20, 6, 22);
+    ctx.fillStyle = '#b07a42'; ctx.fillRect(-2, -19, 4, 20);
+    ctx.fillStyle = '#7a4a22'; ctx.fillRect(-3.5, -21, 7, 4); ctx.fillRect(-2.5, -6, 5, 2);
+    ctx.fillStyle = `rgba(255,240,200,${.4 + .5 * t})`; ctx.fillRect(-1, -18, 1.4, 8);
+    ctx.restore();
   }
   // The wandering peddler: a hooded moth merchant with a huge pack, a lantern on a pole and a little rug of wares.
   function drawPeddler(pd, now) {
@@ -23349,6 +23530,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (const s of shrooms) drawGlow('90,200,220', 18, s.x, s.y - 6, .35 + .2 * Math.sin(now * 2 + s.h * 50));
     if (live && run.portal) drawGlow(run.portal.def.portal, 80, run.portal.x, run.portal.y, .8);
     if (live && run.peddler && !run.zone) drawGlow('255,210,120', 70, run.peddler.x - 22, run.peddler.y - 30, .7 + .15 * Math.sin(now * 3));
+    if (live && run.quest.corpse && run.zone) drawGlow('232,200,144', 46, run.quest.corpse.x, run.quest.corpse.y - 4, .45 + .2 * Math.sin(now * 2.5));
     if (inZone && run.zone.exit) drawGlow('220,230,255', 80, run.zone.exit.x, run.zone.exit.y, .8);
     if (!live) for (const a of amb) {
       a.a += rnd(-1, 1) * .05; a.x += Math.cos(a.a) * .4; a.y += Math.sin(a.a) * .4;
@@ -23584,6 +23766,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         }
       }
       if (run.peddler && !run.zone && onScreen(run.peddler, 80)) drawPeddler(run.peddler, now);
+      if (run.quest.corpse && run.zone && onScreen(run.quest.corpse, 40)) drawWirt(run.quest.corpse, now);
       if (run.weapons.mine && run.weapons.mine.mines) for (const m of run.weapons.mine.mines) if (onScreen(m, 20)) drawPuffcap(m, now, run.weapons.mine.evo);
       for (const id in run.weapons) if (id === 'bat') for (const b of run.weapons[id].bats) drawBat(b, now, run.weapons[id].evo);
       drawRelicActors(now);
@@ -23637,6 +23820,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         ctx.fillStyle = '#ffcf4a'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill(); ctx.strokeStyle = '#a87410'; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = '#a87410'; ctx.fillRect(-1, -4, 2, 8);
         ctx.rotate(a); ctx.fillStyle = '#ffcf4a'; ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
+        ctx.restore();
+      }
+      // Point toward the fallen boy's body (a small bone-coloured peg).
+      if (run.quest.corpse && run.zone && !onScreen(run.quest.corpse, -10)) {
+        const c = run.quest.corpse, a = Math.atan2(c.y - P.y, c.x - P.x);
+        const cx = Math.max(28, Math.min(W - 28, W / 2 + Math.cos(a) * (W / 2 - 38))), cy = Math.max(74, Math.min(H - 54, H / 2 + Math.sin(a) * (H / 2 - 38)));
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = '#3a2410'; ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#c8955a'; ctx.fillRect(-1.6, -5, 3.2, 10); ctx.fillRect(-3.2, -5.5, 6.4, 2.4);
+        ctx.rotate(a); ctx.fillStyle = '#e8c890'; ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
         ctx.restore();
       }
       // Point toward an open rift or the way home.
@@ -23772,7 +23965,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   $('skip').addEventListener('click', () => choose(null));
   $('chestOk').addEventListener('click', resume);
   $('peddlerBye').addEventListener('click', () => {
-    run.peddler = null; banner(run.sold ? 'The peddler counts his coins and waves goodbye' : 'The peddler shrugs and waves goodbye', '#ffd27a');
+    run.peddler = null; run.quest.paying = false;
+    banner(run.sold ? 'The peddler counts his coins and waves goodbye' : 'The peddler shrugs and waves goodbye', '#ffd27a');
+    if (questReady()) { banner('The leg twitches toward the pasture…', '#e8c890', true); run.portalT = Math.min(run.portalT, 8); }
     resume();
   });
   $('relicTake').addEventListener('click', () => {
