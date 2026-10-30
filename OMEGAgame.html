@@ -134,6 +134,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 #qList span span { color: var(--muted); }
 .card.blood h2 { background: linear-gradient(90deg, #ff8a8a, #ff3b5a, #ffd0c8, #ff8a8a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; }
 .card.blood .eyebrow { color: #ff8a9a; }
+.card.light h2 { background: linear-gradient(90deg, #fff3c4, #ffffff, #ffd86a, #fff3c4); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; }
+.card.light .eyebrow { color: #fff0c0; }
 .loot div.evo { border-color: rgba(217,184,255,.7); box-shadow: 0 0 18px rgba(217,184,255,.2); }
 .loot strong { font-family: var(--display); font-size: 17px; }
 .loot div.evo strong { color: var(--evo); }
@@ -166,6 +168,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .lblist li.blood { background: rgba(150, 10, 30, .28); box-shadow: 0 0 0 1px rgba(255, 90, 110, .8) inset, 0 0 14px rgba(255, 60, 90, .25); }
 .lblist li.blood .vl { color: #ff8a9a; }
 .lblist li.blood.me { box-shadow: 0 0 0 2px rgba(255, 226, 122, .6) inset, 0 0 14px rgba(255, 60, 90, .3); }
+.lblist li.light { background: rgba(255, 236, 180, .14); box-shadow: 0 0 0 1px rgba(255, 244, 210, .85) inset, 0 0 14px rgba(255, 236, 170, .3); }
+.lblist li.light .vl { color: #fff3c4; }
+.lblist li.light.me { box-shadow: 0 0 0 2px rgba(255, 226, 122, .7) inset, 0 0 14px rgba(255, 236, 170, .35); }
 .lblist .rk { color: var(--muted); font-variant-numeric: tabular-nums; }
 .lblist .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lblist .nm small { display: block; color: var(--muted); font-size: 11px; }
@@ -860,7 +865,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const HARD = {
     wLv: [1, 1, .9, .8, .7, .62, .55, .48, .42], evo: .65,
     relic: [1, 1, 1.15, 1.3, 1.6],
-    hp: m => 1 + .03 * m, boss: { stag: .75, queen: .7, eclipse: 62000 / 110000, bloodmoon: 80000 / 160000 }, guardian: 1,
+    hp: m => 1 + .03 * m, boss: { stag: .75, queen: .7, eclipse: 62000 / 110000, bloodmoon: 80000 / 160000, light: 80000 / 160000 }, guardian: 1,
     xp: 1.25,
   };
   function wstat(id, lv, evo) {
@@ -967,6 +972,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     queen:  { hp: 26000, sp: 52,  dmg: 34, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
     eclipse: { hp: 110000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
     bloodmoon: { hp: 160000, sp: 44, dmg: 34, xp: 0, r: 78, boss: true, name: 'The Blood Moon' },
+    light: { hp: 160000, sp: 70, dmg: 30, xp: 0, r: 64, boss: true, name: 'The Forgotten Light' },
   };
   // Spawn mix by run time (seconds).
   const MIX = [
@@ -14006,6 +14012,898 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     };
   })());
 
+  // ===== Zone: necro =====
+  // Zone necro: a crypt that moves to the music. Every regular foe steps one 48 px tile per beat (a quick eased hop,
+  // then an idle bounce) over a disco dance floor whose checkerboard lights up on every beat. Skeletons, bats,
+  // slimes and zombie conga lines; a lich bard holds court with his lute. A nod to Crypt of the NecroDancer.
+  ZONES.push((() => {
+    const TAU = Math.PI * 2, T = 48, BS = 14, H = 20, ZS = 1.3, fl = Math.floor;
+    const W = (white, c) => (white ? '#fff' : c);
+    const poly = (p, a) => { p.moveTo(a[0], a[1]); for (let i = 2; i < a.length; i += 2) p.lineTo(a[i], a[i + 1]); p.closePath(); };
+    const circ = (p, x, y, r) => { if (!(r > 0)) return; p.moveTo(x + r, y); p.arc(x, y, r, 0, TAU); };
+    const ell = (p, x, y, rx, ry) => { if (!(rx > 0 && ry > 0)) return; p.moveTo(x + rx, y); p.ellipse(x, y, rx, ry, 0, 0, TAU); };
+    const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+    const snap = v => (fl(v / T) + .5) * T;
+
+    /* ================= The beat =================
+       BPM matches the music. The clock follows wall time (so it keeps step with the music through level-up pauses)
+       but falls back to sim time when the sim runs faster than real time (debug speed-ups) or the wall clock jumps.
+       The zone score starts ~0.25 s after the rift opens, plus output latency: LAT. */
+    const BPM = 126, BT = 60 / BPM, HOP = .15, LAT = .29;
+    const CLK = { lt: -1, ln: 0, c: 0, skip: 0, rage: false }; // cache: beat clock for the current visit
+    const tick = Z => {
+      if (Z.t === CLK.lt) return;
+      if (CLK.lt < 0 || Z.t < CLK.lt) { CLK.c = Z.t - LAT; CLK.rage = false; CLK.skip = 2; } // a new visit (Z.now may still be stale for a frame)
+      else {
+        const dT = Z.t - CLK.lt, dN = Z.now - CLK.ln;
+        CLK.c += CLK.skip <= 0 && dN > 0 && dN < 120 && dT < dN * 1.5 + .02 ? dN : dT;
+        if (CLK.skip > 0) CLK.skip--;
+      }
+      CLK.lt = Z.t; CLK.ln = Z.now;
+    };
+    const beats = () => CLK.c / BT;
+    const visBeats = Z => (CLK.c + clamp(Z.now - CLK.ln, 0, 120)) / BT; // for drawing: keeps pulsing while paused
+    const pulse = Z => { const b = visBeats(Z), f = b - fl(b); return (1 - f) * (1 - f) * (1 - f); }; // 1 on the beat, decays
+    // New beat for this entity? Returns the beat index once per beat (null otherwise). mul 2 = half beats, off = lag in beats.
+    const nb = (e, key, mul, off) => {
+      const b = fl(beats() * mul - off);
+      if (e[key] === b) return null;
+      const first = e[key] === undefined; e[key] = b;
+      return first ? null : b;
+    };
+
+    /* ================= Tile hops ================= */
+    const hopInit = e => { e.hk = 1; e.fx = e.x; e.fy = e.y; e.tx = e.x; e.ty = e.y; e.hd = HOP; e.face = 1; e.mv = -1e9; e.moved = false; e.ftx = snap(e.x); e.fty = snap(e.y); };
+    const startHop = (e, dx, dy) => {
+      e.fx = e.x; e.fy = e.y; e.tx = snap(e.x) + dx * T; e.ty = snap(e.y) + dy * T;
+      e.hk = 0; e.hd = HOP * (Math.abs(dx) > 1 || Math.abs(dy) > 1 ? 1.4 : 1);
+      if (dx) e.face = dx > 0 ? 1 : -1;
+      if (dx || dy) e.ang = Math.atan2(dy, dx);
+    };
+    const stepHop = (e, Z) => {
+      const dt = Z.dt;
+      if (!(dt > 0)) return;
+      if (e.hk < 1 && (e.fearT > 0 || e.frozen)) e.hk = 1;
+      if (e.hk >= 1) { Z.move(e, 0, 0); return; }
+      e.hk = Math.min(1, e.hk + dt / e.hd);
+      const k = e.hk * (2 - e.hk), gx = e.fx + (e.tx - e.fx) * k, gy = e.fy + (e.ty - e.fy) * k;
+      let vx = (gx - e.x) / dt, vy = (gy - e.y) / dt;
+      const m = Math.hypot(vx, vy);
+      if (m > 1200) { vx *= 1200 / m; vy *= 1200 / m; }
+      Z.move(e, vx, vy);
+    };
+    // One beat's move (dx, dy in tiles). Records where it came from so a conga follower can step into it.
+    const beatMove = (e, b, dx, dy) => {
+      e.mv = b;
+      if (dx || dy) { e.ftx = snap(e.x); e.fty = snap(e.y); e.moved = true; startHop(e, dx, dy); }
+      else e.moved = false;
+    };
+    const canMove = (e, b) => !e.frozen && !(e.fearT > 0) && !(e.slowT > 0 && (b & 1));
+    const axisXY = (e, x, y) => { const dx = x - e.x, dy = y - e.y; return Math.abs(dx) >= Math.abs(dy) ? [dx >= 0 ? 1 : -1, 0] : [0, dy >= 0 ? 1 : -1]; };
+    const dir8 = a => { const k = Math.round(a / (Math.PI / 4)) * Math.PI / 4; return [Math.round(Math.cos(k)), Math.round(Math.sin(k))]; };
+    const hopH = e => (e.hk < 1 ? Math.sin(e.hk * Math.PI) * 7 : 0);
+
+    /* ================= Map: a crypt of dance halls on a 14-tile macro grid =================
+       Each block is a 10x10 room ringed by dirt walls (doorways in the middle of each side) with dirt corridors between.
+       Rooms are halls (pillars, traps), shops (rug, pedestals, the singing shopkeeper), vaults (chests, gold),
+       crypts (coffins, stone walls) or stairwells. Walls are decor only; nothing blocks movement. */
+    const FLOOR = 0, DIRT = 1, WALL = 2;
+    const SKULL = 1, BONES = 2, GOLD = 3, CRACK = 4, BOUNCE = 5, SPIKE = 6, CHEST = 7, COFFIN = 8, RUG = 9, PED = 10,
+      STAIRS = 11, RUBBLE = 12, TORCH = 13, VEIN = 14, PEBB = 15;
+    const HALL = 0, SHOP = 1, VAULT = 2, CRYPT = 3, STAIRK = 4;
+    const pk = (g, o = 0, s = 0) => g | (o << 2) | (s << 6);
+    const gOf = v => v & 3, oOf = v => (v >> 2) & 15, sOf = v => (v >> 6) & 1;
+    const kindOf = (Z, bx, by) => {
+      const h = Z.hash(bx * 7 + 11, by * 13 - 3);
+      return h < .38 ? HALL : h < .56 ? SHOP : h < .72 ? VAULT : h < .88 ? CRYPT : STAIRK;
+    };
+    const cellAt = (Z, tx, ty) => {
+      const bx = fl(tx / BS), by = fl(ty / BS), ix = tx - bx * BS, iy = ty - by * BS, h = Z.hash(tx * 7 + 3, ty * 11 - 5);
+      if (ix === 0 || iy === 0 || ix === 13 || iy === 13) return pk(DIRT, h < .025 ? SKULL : h < .055 ? BONES : h < .07 ? GOLD : h < .16 ? PEBB : 0);
+      const k = kindOf(Z, bx, by), st = k === CRYPT || k === STAIRK ? 1 : 0;
+      if (ix === 1 || iy === 1 || ix === 12 || iy === 12) {
+        const along = ix === 1 || ix === 12 ? iy : ix;
+        if (along === 6 || along === 7) return pk(FLOOR);
+        if ((iy === 1 || iy === 12) && (ix === 3 || ix === 10)) return pk(WALL, TORCH, st);
+        if (h < .045 && along > 2 && along < 11) return pk(DIRT, RUBBLE);
+        return pk(WALL, !st && h < .14 ? VEIN : 0, st);
+      }
+      if (k === SHOP) {
+        if (ix >= 4 && ix <= 9 && iy >= 3 && iy <= 6) return pk(FLOOR, RUG);
+        if (iy === 8 && (ix === 3 || ix === 5 || ix === 8 || ix === 10)) return pk(FLOOR, PED);
+      } else if (k === VAULT) {
+        if ((ix === 3 || ix === 10) && (iy === 3 || iy === 10)) return pk(FLOOR, CHEST);
+        if (ix >= 5 && ix <= 8 && iy >= 5 && iy <= 8 && h < .55) return pk(FLOOR, GOLD);
+        if (h < .07) return pk(FLOOR, GOLD);
+      } else if (k === CRYPT) {
+        if ((ix === 3 || ix === 10) && (iy === 3 || iy === 5 || iy === 8 || iy === 10)) return pk(FLOOR, COFFIN);
+        if (h < .05) return pk(FLOOR, SKULL);
+        if (h < .11) return pk(FLOOR, BONES);
+      } else if (k === STAIRK) {
+        if ((ix === 6 || ix === 7) && iy === 6) return pk(FLOOR, STAIRS);
+        if (h < .06) return pk(FLOOR, SKULL);
+      } else if ((ix === 4 || ix === 9) && (iy === 4 || iy === 9) && Z.hash(bx * 3 + 1, by * 5 + 2) < .6) return pk(WALL, 0, 1); // hall pillars
+      if (h < .02) return pk(FLOOR, SKULL);
+      if (h < .06) return pk(FLOOR, CRACK);
+      if (k === HALL && h < .075) return pk(FLOOR, BOUNCE);
+      if (k === HALL && h < .09) return pk(FLOOR, SPIKE);
+      return pk(FLOOR);
+    };
+
+    /* ================= Floor art (cached) ================= */
+    const C = {
+      f1: '#353040', f2: '#2d2937', fh: '#433d4e', fs: '#221f2a', d1: '#2b231e', dd: '#1d1714', dl: '#3b3029',
+      pe: '#4a3e35', ck: '#17141c',
+    };
+    const QK = ['f1', 'f2', 'fh', 'fs', 'd1', 'dd', 'dl', 'pe'];
+    const ITEM = ['#e8304a', '#c8d0dc', '#a8743c', '#ff9a2a'];
+    const drawSkull = (sk, so, x, y, s) => { circ(sk, x, y, 4.2 * s); sk.rect(x - 2.4 * s, y + 2.4 * s, 4.8 * s, 2.6 * s); so.rect(x - 2.4 * s, y - 1 * s, 1.8 * s, 1.8 * s); so.rect(x + .6 * s, y - 1 * s, 1.8 * s, 1.8 * s); };
+    const drawChest = (c, X, Y) => {
+      const x = X + 8, y = Y + 14, w = 32, h = 22;
+      c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(x + 2, y + h - 2, w, 5);
+      c.fillStyle = '#7a4a22'; c.fillRect(x, y + 8, w, h - 8);
+      c.fillStyle = '#9a6430'; c.fillRect(x, y, w, 9);
+      c.fillStyle = '#c8a040'; c.fillRect(x, y + 8, w, 2.5); c.fillRect(x + 3, y, 3, h); c.fillRect(x + w - 6, y, 3, h);
+      c.fillStyle = '#f4d060'; c.fillRect(x + w / 2 - 3, y + 7, 6, 7);
+      c.strokeStyle = '#140c06'; c.lineWidth = 1.6; c.strokeRect(x, y, w, h);
+    };
+    const drawCoffin = (c, X, Y) => {
+      const x = X + T / 2, y = Y + T / 2, p = new Path2D(), cr = new Path2D();
+      poly(p, [x - 7, y - 21, x + 7, y - 21, x + 11, y - 10, x + 7, y + 21, x - 7, y + 21, x - 11, y - 10]);
+      cr.rect(x - 1.3, y - 13, 2.6, 16); cr.rect(x - 5, y - 8, 10, 2.6);
+      c.fillStyle = '#4a2e1e'; c.fill(p); c.strokeStyle = '#120a06'; c.lineWidth = 1.8; c.stroke(p);
+      c.fillStyle = '#6a4430'; c.fillRect(x - 6, y - 18, 12, 3);
+      c.fillStyle = '#b8a888'; c.fill(cr);
+    };
+    const drawPed = (c, X, Y, i) => {
+      const x = X + T / 2, y = Y + T / 2;
+      c.fillStyle = '#5a5664'; c.fillRect(x - 12, y - 4, 24, 14); c.fillStyle = '#76727f'; c.fillRect(x - 12, y - 10, 24, 7);
+      c.strokeStyle = '#141018'; c.lineWidth = 1.4; c.strokeRect(x - 12, y - 10, 24, 20);
+      const it = new Path2D(), col = ITEM[i & 3];
+      if ((i & 3) === 0) { it.moveTo(x, y - 12); it.bezierCurveTo(x - 9, y - 19, x - 7, y - 28, x, y - 23); it.bezierCurveTo(x + 7, y - 28, x + 9, y - 19, x, y - 12); it.closePath(); }
+      else if ((i & 3) === 1) { poly(it, [x - 1.5, y - 33, x + 1.5, y - 33, x + 2, y - 17, x - 2, y - 17]); it.rect(x - 6, y - 17, 12, 2.5); it.rect(x - 1.5, y - 14.5, 3, 4); }
+      else if ((i & 3) === 2) { it.rect(x - 1.2, y - 32, 2.4, 13); poly(it, [x - 5, y - 20, x + 5, y - 20, x + 4, y - 13, x, y - 11, x - 4, y - 13]); }
+      else { it.rect(x - 1.5, y - 24, 3, 12); ell(it, x, y - 27, 3.5, 5); }
+      c.strokeStyle = '#120c10'; c.lineWidth = 2.4; c.stroke(it); c.fillStyle = col; c.fill(it);
+      const co = new Path2D(); ell(co, x - 6, y + 15, 3, 2); ell(co, x + 6, y + 15, 3, 2); ell(co, x, y + 16, 3, 2);
+      c.fillStyle = '#f2c84a'; c.fill(co);
+    };
+    const drawStairs = (c, X, Y) => {
+      c.fillStyle = '#0a080c'; c.fillRect(X + 2, Y + 2, T - 4, T - 4);
+      const sh = ['#5a5462', '#46414e', '#34303b', '#24212a', '#16141a'];
+      for (let i = 0; i < 5; i++) { c.fillStyle = sh[i]; c.fillRect(X + 4, Y + 4 + i * 8, T - 8, 6); }
+      c.strokeStyle = '#8a2a3a'; c.lineWidth = 2; c.strokeRect(X + 2, Y + 2, T - 4, T - 4);
+    };
+
+    const ground = (Z, x0, y0, x1, y1) => {
+      const c = Z.ctx, hs = Z.hash;
+      const tx0 = fl(x0 / T) - 1, ty0 = fl(y0 / T) - 1, tx1 = fl(x1 / T) + 1, ty1 = fl(y1 / T) + 2;
+      const GW = tx1 - tx0 + 3, GH = ty1 - ty0 + 3, g = new Int32Array(GW * GH);
+      for (let ty = ty0 - 1; ty <= ty1 + 1; ty++) for (let tx = tx0 - 1; tx <= tx1 + 1; tx++) g[(ty - ty0 + 1) * GW + tx - tx0 + 1] = cellAt(Z, tx, ty);
+      const at = (tx, ty) => g[(ty - ty0 + 1) * GW + tx - tx0 + 1];
+      const Q = {}; for (const k of QK) Q[k] = new Path2D();
+      c.fillStyle = '#16131a'; c.fillRect(tx0 * T, ty0 * T, (tx1 - tx0 + 1) * T, (ty1 - ty0 + 1) * T);
+      const ck = new Path2D(), sk = new Path2D(), so = new Path2D(), bn = new Path2D(), gd = new Path2D(), gl = new Path2D(), plate = new Path2D(), arr = new Path2D(), holes = new Path2D(), rub = new Path2D();
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const v = at(tx, ty), gg = gOf(v), o = oOf(v), X = tx * T, Y = ty * T, h = hs(tx * 13 - 2, ty * 3 + 9);
+        if (gg === FLOOR) {
+          if (o === RUG || o === STAIRS) continue;
+          (((tx + ty) & 1) ? Q.f2 : Q.f1).rect(X + 2, Y + 2, T - 4, T - 4);
+          Q.fh.rect(X + 2, Y + 2, T - 4, 2); Q.fh.rect(X + 2, Y + 4, 2, T - 6);
+          Q.fs.rect(X + 4, Y + T - 4, T - 6, 2); Q.fs.rect(X + T - 4, Y + 4, 2, T - 8);
+          if (h < .5) Q.fs.rect(X + 8 + fl(h * 50), Y + 10 + fl(hs(tx, ty * 5) * 24), 3, 3);
+          if (o === CRACK) { const a = X + 10 + h * 20, b = Y + 8; ck.moveTo(a, b); ck.lineTo(a + 6, b + 10); ck.lineTo(a + 2, b + 18); ck.lineTo(a + 9, b + 28); ck.moveTo(a + 6, b + 10); ck.lineTo(a + 14, b + 13); }
+          else if (o === BOUNCE) { plate.rect(X + 9, Y + 9, T - 18, T - 18); const d = fl(h * 400) & 3, cx = X + T / 2, cy = Y + T / 2, ca = [1, 0, -1, 0][d], sa = [0, 1, 0, -1][d]; arr.moveTo(cx - ca * 8 - sa * 8, cy - sa * 8 + ca * 8); arr.lineTo(cx + ca * 6, cy + sa * 6); arr.lineTo(cx - ca * 8 + sa * 8, cy - sa * 8 - ca * 8); }
+          else if (o === SPIKE) { plate.rect(X + 9, Y + 9, T - 18, T - 18); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) holes.rect(X + 14 + i * 8, Y + 14 + j * 8, 3, 3); }
+        } else {
+          Q.d1.rect(X, Y, T, T);
+          for (let i = 0; i < 5; i++) Q.dd.rect(X + fl(hs(tx * 31 + i * 7, ty * 17 - i * 3) * 15) * 3, Y + fl(hs(tx * 5 - i, ty * 29 + i * 11) * 15) * 3, 3, 3);
+          for (let i = 0; i < 3; i++) Q.dl.rect(X + fl(hs(tx * 11 + i * 5, ty * 7 + i) * 15) * 3, Y + fl(hs(tx * 3 + i, ty * 19 - i * 7) * 15) * 3, 3, 3);
+          if (o === PEBB) { ell(Q.pe, X + 14 + h * 20, Y + 30, 5, 3.5); ell(Q.pe, X + 30, Y + 18 + h * 10, 3, 2.2); }
+          if (o === RUBBLE) for (let i = 0; i < 6; i++) ell(rub, X + 8 + hs(tx + i, ty * 3) * 32, Y + 10 + hs(tx * 3, ty + i) * 30, 4 + i % 3, 3 + i % 2);
+        }
+        if (o === SKULL) drawSkull(sk, so, X + 16 + h * 16, Y + 20 + hs(ty, tx) * 12, 1);
+        else if (o === BONES) { const x = X + 14 + h * 18, y = Y + 22; bn.moveTo(x - 8, y - 5); bn.lineTo(x + 8, y + 5); bn.moveTo(x - 8, y + 5); bn.lineTo(x + 8, y - 5); }
+        else if (o === GOLD) for (let i = 0; i < 4; i++) { const x = X + 12 + hs(tx * 3 + i, ty) * 24, y = Y + 14 + hs(tx, ty * 3 + i) * 22; ell(gd, x, y, 4.5, 3); ell(gl, x - 1.2, y - 1, 1.6, 1); }
+      }
+      for (const k of QK) { c.fillStyle = C[k]; c.fill(Q[k]); }
+      c.fillStyle = '#3e3430'; c.fill(rub); c.strokeStyle = '#140e0c'; c.lineWidth = 1.2; c.stroke(rub);
+      c.strokeStyle = C.ck; c.lineWidth = 1.6; c.stroke(ck);
+      c.fillStyle = '#4a4452'; c.fill(plate); c.strokeStyle = '#16131a'; c.lineWidth = 1.5; c.stroke(plate);
+      c.strokeStyle = '#8ad0e8'; c.lineWidth = 2.6; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(arr);
+      c.fillStyle = '#121016'; c.fill(holes);
+      c.strokeStyle = '#3a342c'; c.lineWidth = 4.5; c.stroke(bn); c.strokeStyle = '#a89e8a'; c.lineWidth = 2.4; c.stroke(bn);
+      c.fillStyle = '#1a1410'; c.lineWidth = 1.2; c.strokeStyle = '#1a1410'; c.stroke(sk); c.fillStyle = '#b8ae98'; c.fill(sk); c.fillStyle = '#1a1410'; c.fill(so);
+      c.fillStyle = '#8a6a1a'; c.fill(gd); c.fillStyle = '#e8b830'; c.save(); c.translate(0, -1.2); c.fill(gd); c.restore(); c.fillStyle = '#fff0a0'; c.fill(gl);
+
+      // rugs, pedestals, chests, coffins, stairs
+      const rug = new Path2D(), rugB = new Path2D(), rugD = new Path2D();
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const v = at(tx, ty), o = oOf(v), X = tx * T, Y = ty * T;
+        if (gOf(v) !== FLOOR) continue;
+        if (o === RUG) {
+          rug.rect(X, Y, T, T);
+          if (oOf(at(tx, ty - 1)) !== RUG) rugB.rect(X, Y + 4, T, 3);
+          if (oOf(at(tx, ty + 1)) !== RUG) rugB.rect(X, Y + T - 7, T, 3);
+          if (oOf(at(tx - 1, ty)) !== RUG) rugB.rect(X + 4, Y, 3, T);
+          if (oOf(at(tx + 1, ty)) !== RUG) rugB.rect(X + T - 7, Y, 3, T);
+          poly(rugD, [X + T / 2, Y + 12, X + T - 12, Y + T / 2, X + T / 2, Y + T - 12, X + 12, Y + T / 2]);
+        } else if (o === PED) drawPed(c, X, Y, tx - fl(tx / BS) * BS);
+        else if (o === CHEST) drawChest(c, X, Y);
+        else if (o === COFFIN) drawCoffin(c, X, Y);
+        else if (o === STAIRS) drawStairs(c, X, Y);
+      }
+      c.fillStyle = '#5e1a28'; c.fill(rug); c.fillStyle = '#c89a3a'; c.fill(rugB); c.fillStyle = '#7e2a3a'; c.fill(rugD);
+
+      // walls: raised blocks, top face shifted up by H, front face where the tile below is open
+      const wt = new Path2D(), wts = new Path2D(), wf = new Path2D(), wfs = new Path2D(), wo = new Path2D(), lip = new Path2D(), lips = new Path2D();
+      const sp = new Path2D(), spl = new Path2D(), brk = new Path2D(), vein = new Path2D(), brac = new Path2D();
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const v = at(tx, ty);
+        if (gOf(v) !== WALL) continue;
+        const X = tx * T, Y = ty * T, s = sOf(v), o = oOf(v);
+        const below = gOf(at(tx, ty + 1)) === WALL, above = gOf(at(tx, ty - 1)) === WALL, left = gOf(at(tx - 1, ty)) === WALL, right = gOf(at(tx + 1, ty)) === WALL;
+        (s ? wts : wt).rect(X, Y - H, T, T);
+        const yb = below ? Y + T - H : Y + T;
+        if (!below) { (s ? wfs : wf).rect(X, Y + T - H, T, H); (s ? lips : lip).rect(X, Y + T - H, T, 2.5); wo.moveTo(X, Y + T); wo.lineTo(X + T, Y + T); }
+        if (!above) { wo.moveTo(X, Y - H); wo.lineTo(X + T, Y - H); }
+        if (!left) { wo.moveTo(X, Y - H); wo.lineTo(X, yb); }
+        if (!right) { wo.moveTo(X + T, Y - H); wo.lineTo(X + T, yb); }
+        if (s) {
+          for (let r = 0; r < 3; r++) { brk.rect(X, Y - H + 15 + r * 16, T, 1.4); brk.rect(X + ((r + tx) & 1) * 24 + 11, Y - H + r * 16, 1.4, 15); }
+          if (!below) { brk.rect(X, Y + T - H + 10, T, 1.4); brk.rect(X + 15 + (tx & 1) * 12, Y + T - H + 2, 1.4, 8); }
+        } else {
+          for (let i = 0; i < 6; i++) { const px = X + 3 + fl(hs(tx * 7 + i, ty * 3) * 13) * 3, py = Y - H + 3 + fl(hs(tx * 3, ty * 9 + i) * 13) * 3; (i & 1 ? sp : spl).rect(px, py, 3, 3); }
+          if (!below) for (let i = 0; i < 3; i++) sp.rect(X + 5 + fl(hs(tx + i * 9, ty) * 12) * 3, Y + T - H + 6 + (i % 2) * 5, 4, 2);
+        }
+        if (o === VEIN) for (let i = 0; i < 4; i++) vein.rect(X + 6 + hs(tx * 5 + i, ty) * 34, Y - H + 6 + hs(tx, ty * 5 + i) * 34, 4, 3);
+        if (o === TORCH && !below) { brac.rect(X + T / 2 - 2, Y + T - H + 5, 4, 10); brac.rect(X + T / 2 - 5, Y + T - H + 4, 10, 3); }
+      }
+      c.fillStyle = '#56443a'; c.fill(wt); c.fillStyle = '#4c4a58'; c.fill(wts);
+      c.fillStyle = '#665246'; c.fill(spl); c.fillStyle = '#3e3029'; c.fill(sp);
+      c.fillStyle = '#33271f'; c.fill(wf); c.fillStyle = '#2e2d38'; c.fill(wfs);
+      c.fillStyle = '#76604f'; c.fill(lip); c.fillStyle = '#6a6878'; c.fill(lips);
+      c.fillStyle = '#25232c'; c.fill(brk);
+      c.fillStyle = '#f2c040'; c.fill(vein);
+      c.fillStyle = '#1a1210'; c.fill(brac);
+      c.strokeStyle = '#0b090d'; c.lineWidth = 2.2; c.lineCap = 'butt'; c.stroke(wo);
+      c.lineJoin = 'miter';
+    };
+
+    /* ================= Under (animated, before foes): the dance floor, boss floor warnings, torches, spikes, shopkeeper ================= */
+    const flame = (fo, fi, x, y, now, k) => {
+      const f = Math.sin(now * 12 + k) * .5 + Math.sin(now * 19 + k * 2) * .3, hg = 13 + f * 3;
+      fo.moveTo(x - 4.5, y); fo.quadraticCurveTo(x - 5, y - hg * .5, x + f * 2, y - hg); fo.quadraticCurveTo(x + 5, y - hg * .5, x + 4.5, y); fo.closePath();
+      fi.moveTo(x - 2.4, y); fi.quadraticCurveTo(x - 2, y - hg * .4, x + f, y - hg * .65); fi.quadraticCurveTo(x + 2, y - hg * .4, x + 2.4, y); fi.closePath();
+    };
+    const drawShopkeeper = (c, x, y, p, vb) => {
+      const sw = Math.sin(vb * Math.PI) * 3, open = 2 + p * 4;
+      c.save(); c.translate(x, y + p * 2); c.scale(1 + p * .04, 1 - p * .05);
+      c.lineJoin = 'round'; c.lineCap = 'round';
+      c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(0, 24, 22, 6, 0, 0, TAU); c.fill();
+      const arm = new Path2D(); arm.moveTo(-16, -6); arm.lineTo(-27, -18 + sw); arm.moveTo(16, -6); arm.lineTo(27, -18 - sw);
+      c.strokeStyle = '#120c10'; c.lineWidth = 8; c.stroke(arm); c.strokeStyle = '#3a2a4a'; c.lineWidth = 5; c.stroke(arm);
+      const hand = new Path2D(); circ(hand, -27, -19 + sw, 3.6); circ(hand, 27, -19 - sw, 3.6);
+      const body = new Path2D(); ell(body, 0, 4, 20, 20);
+      c.lineWidth = 2.4; c.strokeStyle = '#120c10'; c.stroke(body); c.fillStyle = '#3a2a4a'; c.fill(body);
+      const apron = new Path2D(); poly(apron, [-10, -8, 10, -8, 14, 20, -14, 20]);
+      c.fillStyle = '#e6dcc8'; c.fill(apron);
+      const str = new Path2D(); for (let i = 0; i < 4; i++) str.rect(-12 + i * 7, -6, 2.4, 25); c.fillStyle = '#b84a5a'; c.fill(str);
+      const head = new Path2D(); circ(head, 0, -24, 11);
+      c.strokeStyle = '#120c10'; c.lineWidth = 2.2; c.stroke(head); c.stroke(hand); c.fillStyle = '#e8c49a'; c.fill(head); c.fill(hand);
+      c.fillStyle = '#fff6e0'; c.fillRect(-5, -32, 4, 2.5);
+      const mo = new Path2D(); ell(mo, 0, -18.5, 3.2, open * .8); c.fillStyle = '#3a0c14'; c.fill(mo);
+      const mu = new Path2D(); mu.moveTo(-9, -21); mu.quadraticCurveTo(-4, -25, 0, -22); mu.quadraticCurveTo(4, -25, 9, -21);
+      c.strokeStyle = '#2a1a10'; c.lineWidth = 2.6; c.stroke(mu);
+      c.fillStyle = '#120c10'; c.fillRect(-5, -27, 2.6, 2.6); c.fillRect(2.4, -27, 2.6, 2.6);
+      c.restore();
+    };
+    const under = Z => {
+      tick(Z);
+      const c = Z.ctx, P = Z.P, now = Z.now, vb = visBeats(Z), bi = fl(vb), f = vb - bi, pl = (1 - f) * (1 - f);
+      const hw = Z.W / 2 + 60, hh = Z.H / 2 + 80;
+      const tx0 = fl((P.x - hw) / T), tx1 = fl((P.x + hw) / T), ty0 = fl((P.y - hh) / T), ty1 = fl((P.y + hh) / T);
+      const on = new Path2D(), off = new Path2D(), fo = new Path2D(), fi = new Path2D(), spk = new Path2D();
+      let nf = 0, ns = 0;
+      const spikes = (bi & 3) === 0 && f < .5;
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const v = cellAt(Z, tx, ty), g = gOf(v), o = oOf(v), X = tx * T, Y = ty * T;
+        if (g === FLOOR) {
+          if (o === RUG || o === STAIRS || o === PED || o === CHEST || o === COFFIN) continue;
+          const cut = gOf(cellAt(Z, tx, ty + 1)) === WALL ? H : 0;
+          (((tx + ty) & 1) === (bi & 1) ? on : off).rect(X + 3, Y + 3, T - 6, T - 6 - cut);
+          if (o === SPIKE && spikes) { ns++; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const sx = X + 15.5 + i * 8, sy = Y + 17 + j * 8; spk.moveTo(sx - 2.5, sy); spk.lineTo(sx, sy - 7); spk.lineTo(sx + 2.5, sy); spk.closePath(); } }
+        } else if (g === WALL && o === TORCH && gOf(cellAt(Z, tx, ty + 1)) !== WALL) { nf++; flame(fo, fi, X + T / 2, Y + T - H + 4, now, tx * 1.7 + ty); }
+      }
+      c.save();
+      const odd = bi & 1;
+      c.globalAlpha = .11 + .23 * pl; c.fillStyle = odd ? '#7af04a' : '#f040c0'; c.fill(on);
+      c.globalAlpha = .06; c.fillStyle = odd ? '#f040c0' : '#7af04a'; c.fill(off);
+      c.globalAlpha = 1;
+      if (ns) { c.fillStyle = '#d8dce8'; c.fill(spk); c.strokeStyle = '#141018'; c.lineWidth = 1; c.stroke(spk); }
+      if (nf) { c.fillStyle = '#ff7a1a'; c.fill(fo); c.fillStyle = '#ffe680'; c.fill(fi); }
+      // the lich bard's dance-floor curse: the marked tiles flash red until they erupt
+      const bs = Z.foes().find(e => e.boss && e.fw && e.fw.length);
+      if (bs) {
+        const red = new Path2D(); let any = false;
+        for (const w of bs.fw) {
+          if (!(w.end > CLK.c)) continue;
+          any = true;
+          for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) {
+            if (Math.abs(i) + Math.abs(j) > 4 || ((i + j) & 1)) continue;
+            red.rect(w.x + i * T - T / 2 + 3, w.y + j * T - T / 2 + 3, T - 6, T - 6);
+          }
+        }
+        if (any) {
+          c.globalAlpha = (fl(vb * 4) & 1) ? .45 : .25; c.fillStyle = '#ff2050'; c.fill(red);
+          c.globalAlpha = .8; c.strokeStyle = '#ffd0dc'; c.lineWidth = 2; c.stroke(red);
+        }
+      }
+      c.restore();
+      // shopkeepers, one per shop room
+      const BW = BS * T;
+      for (let by = fl((P.y - hh) / BW); by <= fl((P.y + hh) / BW); by++) for (let bx = fl((P.x - hw) / BW); bx <= fl((P.x + hw) / BW); bx++) {
+        if (kindOf(Z, bx, by) !== SHOP) continue;
+        const x = (bx * BS + 7) * T, y = (by * BS + 4) * T + 18;
+        if (Math.abs(x - P.x) < hw && Math.abs(y - P.y) < hh) drawShopkeeper(c, x, y, pl, vb);
+      }
+    };
+
+    /* ================= Ambient (after darkness): torchlight, stair glow, shop song, dust, the beat heart ================= */
+    const ambient = Z => {
+      const c = Z.ctx, P = Z.P, now = Z.now, vb = visBeats(Z), bi = fl(vb), f = vb - bi, pl = (1 - f) * (1 - f), hw = Z.W / 2 + 120, hh = Z.H / 2 + 120, BW = BS * T;
+      c.save();
+      const notes = new Path2D(), stems = new Path2D();
+      let n = 0;
+      for (let by = fl((P.y - hh) / BW); by <= fl((P.y + hh) / BW); by++) for (let bx = fl((P.x - hw) / BW); bx <= fl((P.x + hw) / BW); bx++) {
+        for (const ix of [3, 10]) for (const iy of [1, 12]) {
+          const tx = bx * BS + ix, ty = by * BS + iy, x = tx * T + T / 2, y = ty * T + T - H - 4;
+          if (Math.abs(x - P.x) > hw || Math.abs(y - P.y) > hh || n > 30) continue;
+          if (oOf(cellAt(Z, tx, ty)) !== TORCH) continue;
+          Z.glow('255,160,70', 58 + Math.sin(now * 9 + tx) * 4 + pl * 6, x, y, .45); n++;
+        }
+        const k = kindOf(Z, bx, by);
+        if (k === STAIRK) {
+          const x = (bx * BS + 7) * T, y = (by * BS + 6) * T + T / 2;
+          if (Math.abs(x - P.x) < hw && Math.abs(y - P.y) < hh) { Z.glow('230,40,80', 70 + pl * 12, x, y, .4); n++; }
+        } else if (k === SHOP) {
+          const x = (bx * BS + 7) * T, y = (by * BS + 4) * T - 10;
+          if (Math.abs(x - P.x) > hw || Math.abs(y - P.y) > hh) continue;
+          Z.glow('255,210,140', 50 + pl * 10, x, y + 20, .3); n++;
+          for (let i = 0; i < 4; i++) {
+            const u = (now * .35 + i / 4) % 1, nx = x + Math.sin(u * 7 + i * 2) * 18 + (i & 1 ? 14 : -14), ny = y - u * 70;
+            ell(notes, nx, ny, 3.4, 2.6); stems.moveTo(nx + 3, ny); stems.lineTo(nx + 3, ny - 10); stems.lineTo(nx + 7, ny - 7);
+          }
+        }
+      }
+      c.globalAlpha = .75; c.fillStyle = '#ffe0f4'; c.fill(notes); c.strokeStyle = '#ffe0f4'; c.lineWidth = 1.5; c.stroke(stems);
+      // drifting crypt dust
+      const dust = new Path2D(), wv = Z.W + 200, hv = Z.H + 200;
+      for (let i = 0; i < 30; i++) {
+        const a = Z.hash(i, 5), b = Z.hash(i, 11);
+        const x = P.x - wv / 2 + ((((a * wv + now * (6 + b * 8)) % wv) + wv) % wv), y = P.y - hv / 2 + ((((b * hv + Math.sin(now * .6 + i) * 18 - now * 4) % hv) + hv) % hv);
+        dust.rect(x, y, 2, 2);
+      }
+      c.globalAlpha = .35; c.fillStyle = '#d8c8e8'; c.fill(dust);
+      // the beat heart under Hexel: ticks slide in from both sides and land on the heart on each beat
+      const hx = P.x, hy = P.y + 36, sc = 1 + .35 * pl, ht = new Path2D(), tk = new Path2D();
+      ht.moveTo(hx, hy + 5 * sc); ht.bezierCurveTo(hx - 9 * sc, hy - 1 * sc, hx - 6 * sc, hy - 8 * sc, hx, hy - 4 * sc); ht.bezierCurveTo(hx + 6 * sc, hy - 8 * sc, hx + 9 * sc, hy - 1 * sc, hx, hy + 5 * sc); ht.closePath();
+      for (let i = 1; i <= 3; i++) { const o = (i - f) * 20 + 6; tk.rect(hx - o - 1.5, hy - 5, 3, 10); tk.rect(hx + o - 1.5, hy - 5, 3, 10); }
+      c.globalAlpha = .55; c.fillStyle = '#7ae8ff'; c.fill(tk);
+      c.globalAlpha = .6 + .35 * pl; c.fillStyle = CLK.rage ? '#ff3060' : '#ff4a7a'; c.fill(ht);
+      c.globalAlpha = .7; c.strokeStyle = '#2a0812'; c.lineWidth = 1.2; c.stroke(ht);
+      c.restore();
+      if (pl > .3) Z.glow('255,80,130', 14 + pl * 8, hx, hy, .35 * pl);
+    };
+
+    /* ================= Foes ================= */
+    // Skeleton: steps straight at you on the beat, rests every third beat with its arms up. Gold ones never rest.
+    const skeleton = {
+      hp: 12, sp: 66, dmg: 7, xp: 1, r: 11, eye: false,
+      init(e) { hopInit(e); e.gold = Math.random() < .22; if (e.gold) { e.max *= 2.2; e.hp = e.max; e.xp = 2; e.dmg = 9; } e.off = fl(Math.random() * 3); e.arms = 0; },
+      update(e, Z) {
+        tick(Z);
+        const b = nb(e, 'lb', 1, 0);
+        if (b !== null) {
+          const rest = !e.gold && ((b + e.off) % 3 + 3) % 3 === 2;
+          e.arms = rest ? 1 : 0;
+          if (rest || !canMove(e, b)) beatMove(e, b, 0, 0);
+          else { const [dx, dy] = axisXY(e, Z.P.x, Z.P.y); beatMove(e, b, dx, dy); }
+        }
+        stepHop(e, Z);
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, p = pulse(Z), up = e.arms, OL = W(white, '#120e16'), bone = W(white, e.gold ? '#f4c94c' : '#eee8da'), dk = W(white, e.gold ? '#a87a22' : '#9c9486');
+        c.save(); c.translate(e.x, e.y - hopH(e) + p * 1.5); c.scale((e.face || 1) * (1 + p * .08), 1 - p * .1);
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        const L = new Path2D();
+        L.moveTo(-2.5, 4); L.lineTo(-4, 11); L.lineTo(-6.5, 11.5);
+        L.moveTo(2.5, 4); L.lineTo(4, 11); L.lineTo(6.5, 11.5);
+        L.moveTo(0, -7); L.lineTo(0, 4);
+        L.moveTo(-4.5, -5); L.lineTo(-9, up ? -11 : -1); L.lineTo(-9.5, up ? -17 : 5);
+        L.moveTo(4.5, -5); L.lineTo(9, up ? -11 : -1); L.lineTo(9.5, up ? -17 : 5);
+        c.strokeStyle = OL; c.lineWidth = 5; c.stroke(L); c.strokeStyle = bone; c.lineWidth = 2.4; c.stroke(L);
+        const rib = new Path2D(); ell(rib, 0, -2.5, 5.6, 4.6); ell(rib, 0, 4.5, 4, 2);
+        c.lineWidth = 2; c.strokeStyle = OL; c.stroke(rib); c.fillStyle = bone; c.fill(rib);
+        if (!white) {
+          const rl = new Path2D(); rl.moveTo(-4.4, -3.6); rl.lineTo(4.4, -3.6); rl.moveTo(-4, -.6); rl.lineTo(4, -.6); rl.moveTo(0, -7); rl.lineTo(0, 2);
+          c.strokeStyle = dk; c.lineWidth = 1.2; c.stroke(rl);
+        }
+        const sk = new Path2D(); circ(sk, .5, -13, 6.6); sk.rect(-2.8, -9.5, 7.2, 4.2);
+        c.strokeStyle = OL; c.lineWidth = 2.2; c.stroke(sk); c.fillStyle = bone; c.fill(sk);
+        if (!white) {
+          const so = new Path2D(); ell(so, 3.2, -13.5, 1.9, 2.3); ell(so, -1.3, -13.5, 1.7, 2.3); c.fillStyle = '#16101c'; c.fill(so);
+          c.fillStyle = e.gold ? '#fff070' : '#ff3050'; c.fillRect(2.6, -14, 1.4, 1.4); c.fillRect(-1.8, -14, 1.4, 1.4);
+          const th = new Path2D(); for (let i = 0; i < 3; i++) th.rect(-1.8 + i * 2.3, -8.6, .9, 2.8); c.fillStyle = dk; c.fill(th);
+          if (e.gold) { const cr = new Path2D(); poly(cr, [-4.5, -19, -5, -24, -2.2, -21.5, .5, -25, 3.2, -21.5, 6, -24, 5.5, -19]); c.strokeStyle = OL; c.lineWidth = 1.3; c.stroke(cr); c.fillStyle = '#ffd84a'; c.fill(cr); }
+        }
+        c.restore();
+      },
+      death(e, Z) { Z.burst(e.x, e.y, e.gold ? '#f4c94c' : '#eee8da', 10, 110); },
+    };
+
+    // Bat: flits one tile per beat in a random direction, drifting your way. Red bats flit on every half beat.
+    const bat = {
+      hp: 9, sp: 95, dmg: 6, xp: 1, r: 9, eye: false,
+      init(e) { hopInit(e); e.red = Math.random() < .25; if (e.red) { e.max *= 1.6; e.hp = e.max; e.xp = 2; } },
+      update(e, Z) {
+        tick(Z);
+        const b = nb(e, 'lb', e.red ? 2 : 1, 0);
+        if (b !== null) {
+          if (!canMove(e, b)) beatMove(e, b, 0, 0);
+          else {
+            const a = Math.random() < (Z.dist(e) > 320 ? .8 : .5) ? Z.angTo(e) : Math.random() * TAU, [dx, dy] = dir8(a);
+            beatMove(e, b, dx, dy);
+          }
+        }
+        stepHop(e, Z);
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, fp = Math.sin(e.ph * 22 + e.seed), OL = W(white, '#0e0a14'), body = W(white, e.red ? '#e03a50' : '#6a64e8'), wing = W(white, e.red ? '#a01e34' : '#3c38b0');
+        c.save(); c.translate(e.x, e.y - 5 + Math.sin(e.ph * 6 + e.seed) * 1.5); c.scale(e.face || 1, 1);
+        c.lineJoin = 'round';
+        const wg = new Path2D(), u = fp * 5;
+        poly(wg, [-3, -2, -12, -9 - u, -19, -3 - u * .6, -15, 0, -12, 4 - u * .2, -8, 1.5, -4, 4]);
+        poly(wg, [3, -2, 12, -9 - u, 19, -3 - u * .6, 15, 0, 12, 4 - u * .2, 8, 1.5, 4, 4]);
+        c.strokeStyle = OL; c.lineWidth = 2.2; c.stroke(wg); c.fillStyle = wing; c.fill(wg);
+        const bd = new Path2D(); ell(bd, 0, 0, 5.5, 6.5); poly(bd, [-4.6, -3.5, -4, -11, -1, -5]); poly(bd, [4.6, -3.5, 4, -11, 1, -5]);
+        c.stroke(bd); c.fillStyle = body; c.fill(bd);
+        if (!white) {
+          c.fillStyle = '#ffe23a'; c.fillRect(-3.2, -2.6, 2.2, 2.2); c.fillRect(1.2, -2.6, 2.2, 2.2);
+          c.fillStyle = '#ffffff'; c.fillRect(-1.6, 2.4, 1.1, 2); c.fillRect(.6, 2.4, 1.1, 2);
+        }
+        c.restore();
+      },
+      death(e, Z) { Z.burst(e.x, e.y, e.red ? '#e03a50' : '#6a64e8', 8, 90); },
+    };
+
+    // Slime: green ones bounce in place, creep a tile every other beat and swell up before splatting a puddle blast.
+    // Blue ones mark a two-tile lane on one beat and lunge down it on the next.
+    const slime = {
+      hp: 34, sp: 45, dmg: 9, xp: 3, r: 13, eye: false,
+      init(e) { hopInit(e); e.blue = Math.random() < .45; if (e.blue) { e.max *= .85; e.hp = e.max; } e.off = fl(Math.random() * 8); e.swell = 0; e.splat = 0; e.lane = 0; e.ldx = 1; e.ldy = 0; },
+      update(e, Z) {
+        tick(Z);
+        const b = nb(e, 'lb', 1, 0);
+        if (e.splat > 0) e.splat -= Z.dt;
+        if (b !== null) {
+          const ph = ((b + e.off) % 8 + 8) % 8;
+          if (e.blue) {
+            if (ph % 2 === 0) { e.lane = 0; if (canMove(e, b)) { const [dx, dy] = axisXY(e, Z.P.x, Z.P.y); e.ldx = dx; e.ldy = dy; e.lane = 1; } beatMove(e, b, 0, 0); }
+            else if (e.lane && canMove(e, b)) { e.lane = 0; beatMove(e, b, e.ldx * 2, e.ldy * 2); }
+            else { e.lane = 0; beatMove(e, b, 0, 0); }
+          } else if (ph === 6 && Z.dist(e) < 300) { e.swell = 1; beatMove(e, b, 0, 0); }
+          else if (ph === 7 && e.swell) {
+            e.swell = 0; e.splat = .35; beatMove(e, b, 0, 0);
+            Z.hazard(e.x, e.y, { r: 50, t: BT * 1.6, dmg: 8, col: '120,240,80' });
+          } else if (ph % 2 === 1 && canMove(e, b)) { e.swell = 0; const [dx, dy] = axisXY(e, Z.P.x, Z.P.y); beatMove(e, b, dx, dy); }
+          else { e.swell = 0; beatMove(e, b, 0, 0); }
+        }
+        stepHop(e, Z);
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, p = pulse(Z), bl = e.blue, sw = e.swell ? 1.12 + .1 * Math.sin(Z.now * 30) : 1;
+        const OL = W(white, bl ? '#0a0e1e' : '#0a160a'), body = W(white, bl ? '#3a80f4' : '#4ccc3a'), lite = bl ? '#a8ccff' : '#c0f490', dark = bl ? '#2452b4' : '#2c8a22';
+        if (bl && e.lane && !white) {
+          c.save(); c.translate(e.x, e.y); c.rotate(Math.atan2(e.ldy, e.ldx));
+          const L = 2 * T / ZS;
+          c.globalAlpha = .28 + .18 * Math.sin(Z.now * 22); c.fillStyle = '#4a90ff'; c.fillRect(e.r * .5, -e.r * .75, L, e.r * 1.5);
+          const ch = new Path2D(); for (let i = 0; i < 3; i++) { const x = e.r + 6 + i * L / 3.2; ch.moveTo(x, -6); ch.lineTo(x + 6, 0); ch.lineTo(x, 6); }
+          c.globalAlpha = .85; c.strokeStyle = '#d0e4ff'; c.lineWidth = 2; c.stroke(ch);
+          c.restore();
+        }
+        const hy = hopH(e) * (bl ? .4 : 1.3);
+        c.save(); c.translate(e.x, e.y + 5 - hy); c.scale((e.face || 1) * sw * (1 + p * .16), sw * (1 - p * .18));
+        const d = new Path2D(); d.moveTo(-13, 5); d.bezierCurveTo(-14, -8, -6, -14, 0, -14); d.bezierCurveTo(6, -14, 14, -8, 13, 5); d.quadraticCurveTo(0, 9, -13, 5); d.closePath();
+        c.lineJoin = 'round'; c.strokeStyle = OL; c.lineWidth = 2.4; c.stroke(d); c.fillStyle = body; c.fill(d);
+        if (!white) {
+          const sh = new Path2D(); sh.moveTo(-12, 3); sh.quadraticCurveTo(0, 7.5, 12, 3); sh.quadraticCurveTo(0, 5, -12, 3); c.fillStyle = dark; c.fill(sh);
+          const hl = new Path2D(); ell(hl, -6, -8, 3.4, 2.2); ell(hl, -9, -3, 1.4, 1.4); c.fillStyle = lite; c.fill(hl);
+          const ey = new Path2D(); ell(ey, -3.6, -4, 2.6, 3.2); ell(ey, 4.4, -4, 2.6, 3.2); c.fillStyle = '#ffffff'; c.fill(ey);
+          c.fillStyle = '#10141e'; c.fillRect(-3, -4, 2, 2.6); c.fillRect(5, -4, 2, 2.6);
+          if (e.swell) { c.fillStyle = '#10141e'; c.beginPath(); c.ellipse(.5, 1.5, 3, 2.4, 0, 0, TAU); c.fill(); }
+        }
+        if (e.splat > 0 && !white) {
+          const dr = new Path2D(), k = 1 - e.splat / .35;
+          for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + e.seed; circ(dr, Math.cos(a) * (12 + k * 14), Math.sin(a) * (8 + k * 9), 2.6 * (1 - k * .5)); }
+          c.fillStyle = body; c.fill(dr);
+        }
+        c.restore();
+      },
+      death(e, Z) { Z.burst(e.x, e.y, e.blue ? '#3a80f4' : '#4ccc3a', 12, 100); },
+    };
+
+    // Zombie: shambles in a straight line, one tile a beat, and only turns after a few beats or once it has passed you.
+    // In a conga line (e.cg = the one in front) each zombie steps into the tile its leader just left.
+    const zombie = {
+      hp: 55, sp: 90, dmg: 11, xp: 4, r: 13, eye: false,
+      init(e) { hopInit(e); e.cg = null; e.cd = 0; e.dx = 0; e.dy = 0; e.nb = 0; e.turnN = 5; e.lead = false; },
+      update(e, Z) {
+        tick(Z);
+        const b = nb(e, 'lb', 1, e.cd);
+        if (b !== null) {
+          let L = e.cg;
+          if (L && (L.dead || L.remove || Math.hypot(L.x - e.x, L.y - e.y) > 300)) { e.cg = null; L = null; }
+          if (!canMove(e, b)) beatMove(e, b, 0, 0);
+          else if (L) {
+            let tx = null, ty = null;
+            if (L.mv === b && L.moved) { tx = L.ftx; ty = L.fty; }
+            else if (Math.hypot(L.x - e.x, L.y - e.y) > T * 2.2) { const [dx, dy] = axisXY(e, L.x, L.y); tx = snap(e.x) + dx * T; ty = snap(e.y) + dy * T; }
+            if (tx === null) beatMove(e, b, 0, 0);
+            else beatMove(e, b, clamp(Math.round((tx - snap(e.x)) / T), -2, 2), clamp(Math.round((ty - snap(e.y)) / T), -2, 2));
+          } else {
+            const px = Z.P.x - e.x, py = Z.P.y - e.y;
+            if ((!e.dx && !e.dy) || e.nb >= e.turnN || px * e.dx + py * e.dy < -T) {
+              const [dx, dy] = axisXY(e, Z.P.x, Z.P.y); e.dx = dx; e.dy = dy; e.nb = 0;
+              e.turnN = e.lead ? 3 + fl(Math.random() * 2) : 5 + fl(Math.random() * 4);
+            }
+            e.nb++; beatMove(e, b, e.dx, e.dy);
+          }
+        }
+        stepHop(e, Z);
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, p = pulse(Z), cg = !!e.cg || e.lead, vb = visBeats(Z), sway = cg ? Math.sin(vb * Math.PI) * .2 : Math.sin(e.ph * 2 + e.seed) * .06;
+        const st = e.hk < 1 ? Math.sin(e.hk * Math.PI) : 0, OL = W(white, '#0c120e'), skin = W(white, '#8cbc78'), shirt = W(white, '#6a48a8'), pants = W(white, '#3a3a5c');
+        c.save(); c.translate(e.x, e.y - st * 4 + p); c.rotate(sway); c.scale(e.face || 1, 1 - p * .06);
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        const lg = new Path2D(); lg.rect(-5 + st * 2, 3, 4, 9); lg.rect(1 - st * 2, 3, 4, 9);
+        c.strokeStyle = OL; c.lineWidth = 2; c.stroke(lg); c.fillStyle = pants; c.fill(lg);
+        const ba = new Path2D(); ba.moveTo(-1, -6); ba.lineTo(12, -7 + sway * 8);
+        c.lineWidth = 5; c.stroke(ba); c.strokeStyle = W(white, '#6e9a5e'); c.lineWidth = 2.6; c.stroke(ba);
+        const bd = new Path2D(); poly(bd, [-6, -9, 6, -9, 6.5, 4, 4, 2.5, 2, 5, -1, 3, -3.5, 5, -6.5, 3.5]);
+        c.strokeStyle = OL; c.lineWidth = 2.2; c.stroke(bd); c.fillStyle = shirt; c.fill(bd);
+        if (!white) { const rp = new Path2D(); rp.rect(-4, -4, 3, 3); rp.rect(2, 0, 2.5, 2.5); c.fillStyle = '#4a3078'; c.fill(rp); }
+        const fa = new Path2D(); fa.moveTo(2, -6); fa.lineTo(15, -5 - sway * 8);
+        c.strokeStyle = OL; c.lineWidth = 5; c.stroke(fa); c.strokeStyle = skin; c.lineWidth = 2.6; c.stroke(fa);
+        const hd = new Path2D(); circ(hd, 1.5, -14, 6.4);
+        c.strokeStyle = OL; c.lineWidth = 2.2; c.stroke(hd); c.fillStyle = skin; c.fill(hd);
+        if (!white) {
+          const hr = new Path2D(); poly(hr, [-4.5, -16, -3, -21, 0, -19, 2, -21.5, 4.5, -19, 7, -18, 4, -17, -1, -18]); c.fillStyle = '#2a3a22'; c.fill(hr);
+          const ey = new Path2D(); circ(ey, 4.6, -14.5, 2.4); c.fillStyle = '#f4f0c8'; c.fill(ey);
+          c.fillStyle = '#c01828'; c.fillRect(5, -15, 1.6, 1.6);
+          c.fillStyle = '#2a0c10'; c.fillRect(3, -10.5, 4.5, 1.8);
+          if (e.lead) { const hat = new Path2D(); poly(hat, [-3, -19.5, 5, -19.5, 1, -29]); c.strokeStyle = OL; c.lineWidth = 1.2; c.stroke(hat); c.fillStyle = '#ff4ab0'; c.fill(hat); c.fillStyle = '#ffe040'; c.fillRect(0, -31, 2.4, 2.4); }
+        }
+        c.restore();
+      },
+      death(e, Z) { Z.burst(e.x, e.y, '#8cbc78', 10, 100); },
+    };
+
+    /* ================= Guardian: Count Cantabone, the Lich Bard =================
+       Patterns run on beat ticks (half beats once enraged):
+       strum   a beat of wind-up (lute glows), then a ring of notes on each of the next 4 beats (6 when enraged)
+       floor   the checkerboard curse: every tile of your tile's colour within 4 steps is marked; it erupts 2 beats later
+               (enraged: a second wave on the other colour, centred where you stand when the first lands)
+       conga   calls 5 zombies (7 enraged) into a conga line behind him and leads it toward you
+       glide   marks a 7-tile lane (8 directions) and, 2 beats later, power-slides down it, ending in a ring
+               (enraged: two slides in a row) */
+    const NOTE = '255,80,210';
+    const PAT = ['strum', 'floor', 'conga', 'glide', 'strum', 'glide', 'floor', 'conga'];
+    const floorWave = (e, Z) => {
+      const cx = snap(Z.P.x), cy = snap(Z.P.y);
+      for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) {
+        if (Math.abs(i) + Math.abs(j) > 4 || ((i + j) & 1)) continue;
+        Z.hazard(cx + i * T, cy + j * T, { r: 24, t: 2 * BT, dmg: 12, col: '255,50,110' });
+      }
+      e.fw.push({ x: cx, y: cy, end: CLK.c + 2 * BT });
+      if (e.fw.length > 3) e.fw.shift();
+      Z.sfx('warn');
+    };
+    const startPat = (e, Z, m) => {
+      e.mode = m; e.wind = 0;
+      if (m === 'walk') { e.n = e.rage ? 6 : 4; return; }
+      if (m === 'strum') { e.w = e.rage ? 2 : 1; e.k = e.rage ? 6 : 4; e.wind = 1; Z.sfx('charge'); return; }
+      if (m === 'floor') {
+        if (!e.saidF) { e.saidF = true; Z.banner('Count Cantabone: Mind your step on my floor!', '#ff7ae0', false); }
+        floorWave(e, Z); e.n = e.rage ? 8 : 4; return;
+      }
+      if (m === 'conga') {
+        if (Z.foes().filter(f => f.cg).length > 12) { startPat(e, Z, 'strum'); return; }
+        if (!e.saidC) { e.saidC = true; Z.banner('Count Cantabone: Everybody, form a conga line!', '#ff7ae0', false); }
+        Z.sfx('boss'); Z.shake(4);
+        const [ax, ay] = axisXY(e, Z.P.x, Z.P.y), sx = snap(e.x), sy = snap(e.y), n = e.rage ? 7 : 5;
+        let prev = e;
+        for (let i = 0; i < n; i++) {
+          const z = Z.spawn('zombie', sx - ax * T * (i + 2), sy - ay * T * (i + 2));
+          if (!z) break;
+          z.cg = prev; z.cd = Math.min(i + 1, 10) * .07; Z.burst(z.x, z.y, '#8cbc78', 6, 80); prev = z;
+        }
+        e.n = e.rage ? 12 : 8; return;
+      }
+      if (m === 'glide') {
+        const [dx, dy] = dir8(Z.angTo(e)), sx = snap(e.x), sy = snap(e.y), diag = dx && dy;
+        e.gdx = dx; e.gdy = dy; e.n = e.rage ? 4 : 2; e.sl = 0; e.wind = 1;
+        startHop(e, 0, 0); // settle onto the tile so the slide matches the marked lane
+        for (let i = 1; i <= 7; i++) Z.hazard(sx + dx * T * i, sy + dy * T * i, { r: diag ? 34 : 28, t: 2 * BT + i * .035, dmg: 14, col: '90,220,255' });
+        Z.sfx('charge');
+      }
+    };
+    const bossTick = (e, Z) => {
+      switch (e.mode) {
+        case 'walk': if (--e.n <= 0) startPat(e, Z, PAT[e.pi++ % PAT.length]); break;
+        case 'strum':
+          if (e.w > 0 && --e.w > 0) break;
+          e.wind = 0; e.strum = .2;
+          Z.ring(e.x, e.y - 10, e.rage ? 14 : 12, e.rage ? 165 : 145, { r: 7, dmg: 9, life: 5, col: NOTE }, (e.k & 1) * Math.PI / 12 + e.seed);
+          Z.sfx('shoot');
+          if (--e.k <= 0) startPat(e, Z, 'walk');
+          break;
+        case 'floor':
+          e.n--;
+          if (e.rage && e.n === 4) floorWave(e, Z);
+          if (e.n <= 0) startPat(e, Z, 'walk');
+          break;
+        case 'conga': if (--e.n <= 0) startPat(e, Z, 'walk'); break;
+        case 'glide':
+          if (e.sl > 0) break;
+          if (--e.n <= 0) { e.sl = .3; e.wind = 0; Z.sfx('nova'); Z.shake(4); }
+          break;
+        default: startPat(e, Z, 'walk');
+      }
+    };
+    const bossStep = (e, Z, b) => {
+      let dx = 0, dy = 0;
+      if (e.frozen || e.sl > 0) { /* stays */ }
+      else if (e.mode === 'conga') [dx, dy] = axisXY(e, Z.P.x, Z.P.y);
+      else if (e.mode === 'walk' && (b & 1)) {
+        const d = Z.dist(e), [ax, ay] = axisXY(e, Z.P.x, Z.P.y);
+        if (d > 230) { dx = ax; dy = ay; }
+        else if (d < 130) { dx = -ax; dy = -ay; }
+        else { dx = -ay * e.side; dy = ax * e.side; if (Math.random() < .15) e.side = -e.side; }
+      }
+      beatMove(e, b, dx, dy);
+    };
+    const boss = {
+      name: 'Count Cantabone, the Lich Bard', hp: 3800, sp: 50, dmg: 24, xp: 0, r: 44, heavy: true, eye: false,
+      init(e) {
+        hopInit(e); e.mode = 'walk'; e.n = 3; e.pi = 0; e.rage = false; e.fw = []; e.sl = 0; e.gdx = 1; e.gdy = 0;
+        e.w = 0; e.k = 0; e.wind = 0; e.strum = 0; e.g2 = false; e.side = Math.random() < .5 ? 1 : -1; e.saidF = false; e.saidC = false;
+        CLK.rage = false;
+      },
+      update(e, Z) {
+        tick(Z);
+        const dt = Z.dt;
+        if (e.strum > 0) e.strum -= dt;
+        if (!e.rage && e.hp < e.max * .4) {
+          e.rage = true; CLK.rage = true;
+          Z.banner('Count Cantabone doubles the tempo!', '#ff5ad0', true); Z.sfx('boss'); Z.shake(10);
+          Z.ring(e.x, e.y - 10, 16, 150, { r: 7, dmg: 9, col: NOTE }, 0);
+        }
+        const k = nb(e, 'lk', e.rage ? 2 : 1, 0);
+        if (k !== null) bossTick(e, Z);
+        const mb = nb(e, 'lb', 1, 0);
+        if (mb !== null) bossStep(e, Z, mb);
+        if (e.sl > 0) {
+          e.sl -= dt; e.hk = 1;
+          Z.move(e, e.gdx * 7 * T / .3, e.gdy * 7 * T / .3);
+          if (e.sl <= 0) {
+            Z.ring(e.x, e.y, e.rage ? 12 : 10, 140, { r: 7, dmg: 9, col: NOTE }, e.ph); Z.sfx('shoot'); Z.shake(5);
+            if (e.rage && !e.g2) { e.g2 = true; startPat(e, Z, 'glide'); } else { e.g2 = false; startPat(e, Z, 'walk'); }
+          }
+        } else stepHop(e, Z);
+        e.ang = Z.angTo(e);
+        e.face = e.sl > 0 ? (e.gdx < 0 ? -1 : 1) : (Z.P.x >= e.x ? 1 : -1);
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, p = pulse(Z), vb = visBeats(Z), s = e.r / 44, OL = W(white, '#0c0812'), bone = W(white, '#efe8d6'), bd = W(white, '#a89c86');
+        const robe = W(white, '#40266c'), gold = W(white, '#f2c040'), cape = W(white, '#7a1a34');
+        const hy = hopH(e), lean = e.sl > 0 ? .22 : 0, step = (fl(vb) & 1) ? 1 : -1, eyeC = e.rage ? '255,60,90' : '255,90,220';
+        if (!white) {
+          if (e.rage) { c.save(); c.globalAlpha = .3 + .3 * p; c.strokeStyle = '#ff40a0'; c.lineWidth = 3; c.beginPath(); c.arc(e.x, e.y, e.r + 6 + p * 8, 0, TAU); c.stroke(); c.restore(); }
+          Z.glow(e.rage ? '255,60,120' : '255,90,210', 64 + p * 22, e.x, e.y + 10, .22 + p * .25);
+        }
+        c.save(); c.translate(e.x, e.y - hy + p * 2.5); c.scale(s * (e.face || 1), s); c.rotate(lean); c.scale(1 + p * .05, 1 - p * .06);
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        // cape
+        const sw = Math.sin(e.ph * 3) * 3, cp = new Path2D();
+        poly(cp, [-15, -24, 15, -24, 27 + sw, 30, 18 + sw, 26, 9 + sw, 33, sw, 27, -9 + sw, 33, -18 + sw, 26, -27 + sw, 30]);
+        c.strokeStyle = OL; c.lineWidth = 3; c.stroke(cp); c.fillStyle = cape; c.fill(cp);
+        // dancing feet: one lifts on alternate beats
+        const ft = new Path2D(); ell(ft, -10, 37 - (step > 0 ? p * 6 : 0), 6.5, 3.6); ell(ft, 10, 37 - (step < 0 ? p * 6 : 0), 6.5, 3.6);
+        c.lineWidth = 2; c.stroke(ft); c.fillStyle = bone; c.fill(ft);
+        // robe with a zigzag hem
+        const rb = new Path2D(); rb.moveTo(-13, -25); rb.lineTo(13, -25); rb.lineTo(22, 33);
+        for (let i = 0; i < 6; i++) rb.lineTo(22 - (i + .5) * 44 / 6, 33 + (i % 2 ? 4 : 0));
+        rb.lineTo(-22, 33); rb.closePath();
+        c.lineWidth = 2.8; c.stroke(rb); c.fillStyle = robe; c.fill(rb);
+        if (!white) {
+          const fd = new Path2D(); poly(fd, [-13, -23, -6, -23, -12, 33, -22, 33]); c.fillStyle = '#2c1850'; c.fill(fd);
+          const vn = new Path2D(); poly(vn, [-7, -25, 7, -25, 0, -8]); c.fillStyle = '#1a1020'; c.fill(vn);
+          const rl = new Path2D(); rl.moveTo(-4, -21); rl.lineTo(4, -21); rl.moveTo(-3, -17); rl.lineTo(3, -17); rl.moveTo(-1.6, -13); rl.lineTo(1.6, -13);
+          c.strokeStyle = bd; c.lineWidth = 1.6; c.stroke(rl);
+          const tr = new Path2D(); tr.moveTo(-21, 31); tr.lineTo(21, 31); tr.moveTo(0, -8); tr.lineTo(0, 31);
+          c.strokeStyle = gold; c.lineWidth = 2.2; c.stroke(tr);
+          c.fillStyle = '#8a1a2a'; c.fillRect(-16, 4, 32, 4.5); c.fillStyle = gold; c.fillRect(-3, 3, 6, 6.5);
+        }
+        // the lute, held across the body
+        c.save(); c.translate(5, 7); c.rotate(-.65 + (e.strum > 0 ? .14 : 0));
+        const nk = new Path2D(); nk.rect(-36, -2.6, 28, 5.2); poly(nk, [-36, -3, -45, -7, -46, -2, -36, 3]);
+        c.strokeStyle = OL; c.lineWidth = 2.2; c.stroke(nk); c.fillStyle = W(white, '#6a3a1a'); c.fill(nk);
+        const lb = new Path2D(); ell(lb, 0, 0, 14, 11.5); circ(lb, -9, 0, 8.5);
+        c.lineWidth = 2.6; c.stroke(lb); c.fillStyle = W(white, '#c27a34'); c.fill(lb);
+        if (!white) {
+          const fp = new Path2D(); ell(fp, 1, 0, 10.5, 8.5); c.fillStyle = '#de9c52'; c.fill(fp);
+          c.fillStyle = '#2a160a'; c.beginPath(); c.arc(-3, 0, 3.6, 0, TAU); c.fill();
+          c.fillRect(7, -4, 2.4, 8);
+          const pg = new Path2D(); for (let i = 0; i < 3; i++) { pg.rect(-44 + i * 3, -9, 2, 2.6); pg.rect(-44 + i * 3, 2, 2, 2.6); } c.fillStyle = '#e8d8b0'; c.fill(pg);
+          const strs = new Path2D(); for (let i = -1; i <= 1; i++) { strs.moveTo(-36, i * 1.3); strs.lineTo(8, i * 1.6); }
+          c.strokeStyle = e.strum > 0 ? '#ffffff' : '#f2e2b8'; c.lineWidth = e.strum > 0 ? 1.2 : .8; c.stroke(strs);
+          if (e.wind > 0) Z.glow('255,90,210', 28 + Math.sin(Z.now * 20) * 5, -2, 0, .85);
+          if (e.strum > 0) Z.glow('255,170,240', 34, 0, 0, e.strum * 4);
+        }
+        c.restore();
+        // bony arms: one frets the neck, one strums
+        const sa = e.strum > 0 ? Math.sin(Z.now * 50) * 3 : Math.sin(vb * Math.PI) * 1.5, ar = new Path2D();
+        ar.moveTo(11, -19); ar.lineTo(18, -4); ar.lineTo(10, 5 + sa);
+        ar.moveTo(-11, -19); ar.lineTo(-19, -8); ar.lineTo(-17, -17);
+        c.strokeStyle = OL; c.lineWidth = 5.5; c.stroke(ar); c.strokeStyle = bone; c.lineWidth = 2.8; c.stroke(ar);
+        const hn = new Path2D(); circ(hn, 10, 5 + sa, 3.4); circ(hn, -17, -17, 3.4);
+        c.strokeStyle = OL; c.lineWidth = 1.6; c.stroke(hn); c.fillStyle = bone; c.fill(hn);
+        // skull
+        const jaw = e.strum > 0 || e.wind > 0 ? 3 : p * 2, sk = new Path2D(); circ(sk, 0, -38, 14); sk.rect(-8, -30 + jaw, 16, 8);
+        c.lineWidth = 2.6; c.strokeStyle = OL; c.stroke(sk); c.fillStyle = bone; c.fill(sk);
+        if (!white) {
+          const so = new Path2D(); ell(so, -5.5, -39, 4, 4.6); ell(so, 5.5, -39, 4, 4.6); poly(so, [0, -34, -2.2, -30.5, 2.2, -30.5]);
+          c.fillStyle = '#140a1c'; c.fill(so);
+          const tt = new Path2D(); for (let i = 0; i < 4; i++) tt.rect(-6 + i * 3.6, -29.5 + jaw, 1.2, 5); c.fillStyle = bd; c.fill(tt);
+          c.fillStyle = '#140a1c'; c.fillRect(-7, -30 + jaw * .5, 14, Math.max(.5, jaw * .6));
+          Z.glow(eyeC, 9 + p * 4, -5.5, -39, .9); Z.glow(eyeC, 9 + p * 4, 5.5, -39, .9);
+          c.fillStyle = e.rage ? '#ff6a80' : '#ff8ae8'; c.fillRect(-6.5, -40, 2.2, 2.2); c.fillRect(4.5, -40, 2.2, 2.2);
+        }
+        // crown
+        const cr = new Path2D(); poly(cr, [-12, -49, -14, -62, -7.5, -55, -2, -66, 3.5, -55, 9, -63, 12, -50]);
+        c.strokeStyle = OL; c.lineWidth = 2.2; c.stroke(cr); c.fillStyle = gold; c.fill(cr);
+        if (!white) {
+          c.fillStyle = '#e8203a'; c.beginPath(); c.arc(-1, -54, 2.6, 0, TAU); c.fill();
+          c.fillStyle = '#40e0ff'; c.fillRect(-10, -55, 3, 3); c.fillRect(7, -55, 3, 3);
+        }
+        c.restore();
+      },
+      death(e, Z) {
+        CLK.rage = false;
+        Z.burst(e.x, e.y, '#efe8d6', 40, 220); Z.burst(e.x, e.y - 30, '#ff50d2', 26, 180); Z.shake(14);
+        Z.banner('Count Cantabone takes his final bow!', '#ff9ae6', false);
+      },
+    };
+
+    /* ================= Events ================= */
+    const spot = (Z, d) => { const a = Math.random() * TAU; return { x: Z.P.x + Math.cos(a) * d, y: Z.P.y + Math.sin(a) * d, a }; };
+    const congaLine = (Z, n) => {
+      const p = spot(Z, 460), sx = snap(p.x), sy = snap(p.y), [ax, ay] = axisXY({ x: sx, y: sy }, Z.P.x, Z.P.y);
+      let prev = null;
+      for (let i = 0; i < n; i++) {
+        const z = Z.spawn('zombie', sx - ax * T * i, sy - ay * T * i);
+        if (!z) break;
+        if (prev) { z.cg = prev; z.cd = Math.min(i, 10) * .07; } else { z.lead = true; z.dx = ax; z.dy = ay; z.turnN = 3; }
+        prev = z;
+      }
+    };
+    const skelRing = (Z, n, r, gold) => {
+      const off = fl(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const a = i / n * TAU, s = Z.spawn('skeleton', snap(Z.P.x + Math.cos(a) * r), snap(Z.P.y + Math.sin(a) * r));
+        if (s) { s.off = off; if (gold && i % 3 === 0 && !s.gold) { s.gold = true; s.max *= 2.2; s.hp = s.max; s.xp = 2; s.dmg = 9; } }
+      }
+    };
+    const events = [
+      { t: 5, run(Z) { Z.banner('A booming tenor echoes from the crypt shop… keep to the beat!', '#ffd0f0', false); } },
+      { t: 18, run(Z) { Z.banner('The floor drops the bass!', '#f040c0', true); Z.sfx('warn'); skelRing(Z, 10, 400, false); } },
+      { t: 34, run(Z) { Z.banner('Conga line!', '#7af04a', false); Z.sfx('warn'); congaLine(Z, 9); } },
+      { t: 60, run(Z) {
+        Z.banner('A swarm of bats flutters in on the off-beat!', '#9a9aff', false); Z.sfx('warn');
+        const p = spot(Z, 380);
+        for (let i = 0; i < 10; i++) { const b = Z.spawn('bat', p.x + Math.cos(i * 2.4) * (12 + i * 5), p.y + Math.sin(i * 2.4) * (12 + i * 5)); if (b && i % 3 === 0 && !b.red) { b.red = true; b.max *= 1.6; b.hp = b.max; b.xp = 2; } }
+      } },
+      { t: 84, run(Z) {
+        Z.banner('Slimes bubble up between the tiles!', '#6af0a0', false); Z.sfx('warn');
+        for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + .3, s = Z.spawn('slime', snap(Z.P.x + Math.cos(a) * 360), snap(Z.P.y + Math.sin(a) * 360)); if (s) { s.blue = i % 2 === 1; s.off = i % 2; } }
+      } },
+      { t: 104, run(Z) { Z.banner('Another conga line dances in!', '#7af04a', false); Z.sfx('warn'); congaLine(Z, 10); } },
+      { t: 122, run(Z) { Z.banner('The floor drops the bass!', '#f040c0', true); Z.sfx('warn'); skelRing(Z, 10, 420, true); } },
+      { t: 138, run(Z) {
+        Z.banner('Last verse! Dance till the song runs out!', '#ffd0f0', false); Z.sfx('warn');
+        for (const k of ['bat', 'bat', 'bat', 'skeleton', 'skeleton', 'slime']) { const p = spot(Z, 380); Z.spawn(k, snap(p.x), snap(p.y)); }
+      } },
+    ];
+
+    /* ================= Music: original crypt-disco chiptune in A minor, 126 bpm, sixteenth steps ================= */
+    const _ = null;
+    // [root midi, major?]: Am F G E | Am F Dm E | F G Am Am | Dm G E E
+    const PROG = [[45, 0], [41, 1], [43, 1], [40, 1], [45, 0], [41, 1], [38, 0], [40, 1], [41, 1], [43, 1], [45, 0], [45, 0], [38, 0], [43, 1], [40, 1], [40, 1]];
+    const BPROG = [[45, 0], [45, 0], [41, 1], [40, 1], [45, 0], [45, 0], [38, 0], [40, 1], [41, 1], [43, 1], [45, 0], [45, 0], [38, 0], [40, 1], [45, 0], [40, 1]];
+    // melodies: one bar = 8 eighth-note slots, semitones above A4 (A minor, G# over E)
+    const MEL = [
+      [0, _, 3, 7, 12, _, 10, 7], [8, _, 7, 3, 0, _, 3, _], [2, _, 5, 10, 14, _, 12, 10], [11, _, 7, 11, 14, _, 11, _],
+      [12, 12, _, 15, 14, 12, 10, 12], [8, _, 12, _, 15, _, 17, 15], [17, _, 15, 14, 12, _, 8, _], [11, _, 14, _, 7, _, _, _],
+      [_, _, 8, 7, 8, _, 12, _], [_, _, 10, 7, 10, _, 14, _], [15, _, 14, _, 12, _, 7, _], [12, _, 15, _, 19, _, 15, 12],
+      [17, _, 20, _, 17, 15, 14, 12], [14, _, 19, _, 17, _, 14, 10], [11, 14, 19, 23, 20, 19, 17, 14], [11, _, _, _, 7, _, 11, _],
+    ];
+    const BMEL = [
+      [12, _, 12, 15, 12, _, 10, 12], [7, _, 8, 7, 3, _, 2, 3], [8, _, 12, 15, 20, _, 19, 15], [11, _, 14, 11, 7, _, 2, _],
+      [12, 15, 19, 15, 12, 15, 19, 24], [24, _, 22, _, 20, 19, 15, 12], [17, _, 20, 17, 14, _, 12, 14], [11, _, 11, 14, 19, _, 23, _],
+      [20, _, 19, 15, 12, _, 15, 19], [22, _, 19, 14, 10, _, 14, 19], [24, _, _, 19, 15, _, 12, _], [12, 15, 12, 10, 12, 15, 19, 15],
+      [17, _, 17, 20, 24, _, 20, 17], [23, _, 20, 19, 17, _, 14, 11], [12, _, 7, _, 12, _, 15, 19], [23, _, 19, _, 14, _, 11, _],
+    ];
+    const BBASS = [0, 0, 12, 0, 0, 12, 0, 7, 0, 0, 12, 0, 10, 12, 7, 12];
+    const noteLen = (line, i) => { let len = 1; while (i + len < 8 && line[i + len] === null && len < 2) len++; return len; };
+    const music = {
+      bpm: BPM, div: 4,
+      step(s, t, A) {
+        const st = BT / 4, q = s % 16, bar = fl(s / 16) % 16, boss = A.boss, rage = boss && CLK.rage, inten = A.inten || 0;
+        const [root, maj] = (boss ? BPROG : PROG)[bar], ch = maj ? [0, 4, 7] : [0, 3, 7];
+        const arp = [ch[0], ch[1], ch[2], 12, 12 + ch[1], 12, ch[2], ch[1]][q % 8];
+        if (!boss) {
+          const intro = s < 64;
+          if (q % 4 === 0 && s >= 32) A.kick(t, .6);
+          if ((q === 4 || q === 12) && !intro) A.snare(t, .2);
+          if (q % 4 === 2) A.hat(t, .045, true); else if (q % 2 === 1) A.hat(t, .022, false);
+          if (q % 2 === 0) A.tone(t, root - 12 + (q % 4 === 2 ? 12 : 0), st * 1.7, .075, { type: 'sawtooth', cutoff: 520 + inten * 300, sweep: 260, decay: true });
+          A.tone(t, root + 12 + arp, st * .8, .02, { type: 'square', cutoff: 2200, decay: true });
+          if (q % 2 === 0 && !intro) {
+            const line = MEL[bar], i = q / 2, n = line[i];
+            if (n !== null) {
+              const len = noteLen(line, i);
+              A.tone(t, 69 + n, st * 2 * len * .85, .042, { type: 'square', cutoff: 2600 });
+              if (bar >= 8) A.tone(t, 57 + n, st * 2 * len * .85, .016, { type: 'triangle' });
+            }
+          }
+          if (q === 0) A.pad([root + 12 + ch[0], root + 12 + ch[1], root + 12 + ch[2]], t, st * 16, .011, { type: 'sawtooth', cutoff: 700, q: 2, detune: 8 });
+          if (bar % 4 === 3 && q >= 12 && q % 2 === 0) A.tom(t, 190 - (q - 12) * 22, .24);
+          if (bar % 8 === 7 && q === 15) A.bell(81, t, .035);
+        } else {
+          // the guardian's version: driving bass, snare backbeat, sawtooth lead; enraged it goes double time
+          if (q % 4 === 0) A.kick(t, .72); else if (rage && q % 4 === 2) A.kick(t, .5);
+          if (q === 4 || q === 12) A.snare(t, .3); else if (rage && (q === 14 || q === 15)) A.snare(t, .14);
+          A.hat(t, q % 4 === 2 ? .05 : rage ? .035 : .025, q % 4 === 2);
+          A.tone(t, root - 12 + BBASS[q], st * .9, .075, { type: 'sawtooth', cutoff: 820, sweep: 320, decay: true });
+          A.tone(t, root + 24 + arp, st * .7, .02, { type: 'square', cutoff: 2600, decay: true });
+          if (rage) A.tone(t, root + 31 + arp, st * .6, .012, { type: 'square', cutoff: 2600, decay: true });
+          if (q % 2 === 0) {
+            const line = BMEL[bar], i = q / 2, n = line[i];
+            if (n !== null) {
+              const len = noteLen(line, i);
+              A.tone(t, 57 + n, st * 2 * len * .85, .045, { type: 'sawtooth', cutoff: 2400, attack: .006 });
+              A.tone(t, 69 + n, st * 2 * len * .8, .016, { type: 'square', cutoff: 3000 });
+            }
+          }
+          if (q === 0 && bar % 2 === 0) A.pad([root + 12, root + 19], t, st * 32, .012, { type: 'sawtooth', cutoff: 800, q: 3, detune: 10 });
+          if (bar % 4 === 3 && q >= 8 && q % 2 === 0) A.tom(t, 220 - (q - 8) * 18, .3);
+          if (rage && bar % 2 === 1 && q === 0) A.noise(t, st * 16, .02, { type: 'bandpass', f: 900, f2: 6000, q: 2 });
+        }
+      },
+    };
+
+    return {
+      id: 'necro', name: 'The Downbeat Catacombs', nod: 'Crypt of the NecroDancer', portal: '240,64,192', bg: '#16131a', dark: .6, dim: .16,
+      ground, under, ambient,
+      mix: { skeleton: 5, bat: 3, slime: 2.2, zombie: 1.5 },
+      target: 1,
+      foes: { skeleton, bat, slime, zombie },
+      boss, events, music,
+    };
+  })());
+
   // ===== Zone: potato =====
   // Zone potato: a plain, open alien arena overrun by waves of blobby aliens. Flat dusty olive soil with faint mottles,
   // tiny pebbles and alien grass tufts, and only a few scattered props: small alien fruit trees, rocks, slime puddles and
@@ -20035,11 +20933,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     S = {
       area: 1 + .13 * pv('net'),
       cd: 1 - .07 * pv('steady'),
-      might: 1 + .1 * pv('ember') + (run.bonus || 0) + (voc === 'sorcerer' ? .2 : 0),
+      might: 1 + .1 * pv('ember') + (run.bonus || 0) + (voc === 'sorcerer' ? .2 : 0) + (run.quest.groove ? .08 : 0),
       crit: .07 * pv('keen') + (voc === 'paladin' ? .08 : 0),
       ignite: .04 * pv('kindle'),
       maxHp: Math.max(30, Math.round(100 * (1 + .2 * pv('heart')) * (voc === 'knight' ? 1.3 : 1) + (run.quest.hp || 0))),
-      speed: 150 * (1 + .1 * pv('wings')),
+      speed: 150 * (1 + .1 * pv('wings')) * (run.quest.groove ? 1.12 : 1),
       magnet: 110 * (1 + .3 * pv('magnet')),
       dur: 1 + .12 * pv('linger'),
       projSp: 1 + .1 * pv('linger') + (voc === 'paladin' ? .25 : 0),
@@ -20263,7 +21161,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const setText = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
   function updateHud() {
     setText('clock', fmt(run.finale ? FINALE_TIME - run.finale.t : run.zone ? ZONE_DUR - run.zone.t : DAWN - run.t));
-    setText('clockLbl', run.finale ? (run.finale.blood ? 'Shatter the Blood Moon!' : 'Banish the Eclipse Moth!') : run.zone ? `${run.zone.def.name}: rift closes` : 'until dawn');
+    setText('clockLbl', run.finale ? finaleGoal() : run.zone ? `${run.zone.def.name}: rift closes` : 'until dawn');
     setText('kills', String(run.kills));
     setText('lvl', `Level ${run.lv}`);
     setText('hpTxt', `${Math.ceil(run.hp)} / ${S.maxHp}`);
@@ -20331,18 +21229,22 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
     // A shattered Blood Moon (blood) ranks above every banished Eclipse Moth; each group is sorted by its own time.
-    banish: { label: 'Fastest banish', fmt: v => v.toFixed(1) + ' s', key: 'banish_t', low: true, only: r => r.banished, cmp: (a, b) => (b.blood ? 1 : 0) - (a.blood ? 1 : 0) || a.banish_t - b.banish_t },
+    banish: { label: 'Fastest banish', fmt: v => v.toFixed(1) + ' s', key: 'banish_t', low: true, only: r => r.banished, cmp: (a, b) => (secretOf(b) ? 1 : 0) - (secretOf(a) ? 1 : 0) || a.banish_t - b.banish_t },
     damage: { label: 'Most damage', fmt: v => Math.round(v).toLocaleString(), key: 'dmg' },
     kills: { label: 'Most moths', fmt: v => Math.round(v).toLocaleString(), key: 'kills' },
     level: { label: 'Highest level', fmt: v => 'Lv ' + v, key: 'lv' },
   };
-  const isRanked = () => !/^#(debug|arena|tour|bestiary|soundlog)/.test(location.hash) && !run.god;
+  // Which secret dawn boss a run beat (0 none, 1 Blood Moon, 2 Forgotten Light); older rows and local bests say `blood`.
+  const secretOf = r => r.secret_end ?? (r.blood === 2 ? 2 : r.blood ? 1 : 0);
+  const isRanked = () => !/^#(debug|arena|tour|bestiary|soundlog|dance)/.test(location.hash) && !run.god;
   const lbStore = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
   let lastScore = null;
   function scoreOf(how) {
     const build = { w: Object.fromEntries(Object.entries(run.weapons).map(([id, w]) => [id, [w.lv, w.evo ? 1 : 0]])), p: run.passives };
-    const ban = how === 'perfect' || how === 'blood';
-    return { version: GAME_VERSION, banished: ban, banish_t: ban ? +run.finale.t.toFixed(2) : null, blood: how === 'blood',
+    // Every run that banished the Eclipse Moth counts; a secret win ranks above them (secret_end: 1 = Blood Moon, 2 = the
+    // Forgotten Light) and its time is the secret fight alone. A lost secret fight keeps the Eclipse time.
+    const f = run.finale, ban = ['perfect', 'blood', 'light', 'bloodfled', 'lightfled'].includes(how), secret = how === 'blood' || how === 'light';
+    return { version: GAME_VERSION, banished: ban, banish_t: ban ? +(secret ? f.t : f.eclipseT).toFixed(2) : null, secret_end: how === 'light' ? 2 : how === 'blood' ? 1 : 0,
       dmg: Math.round(run.dmg), kills: run.kills, lv: run.lv, survived: +Math.min(DAWN, run.t).toFixed(1), clock: +run.clock.toFixed(1),
       rifts: run.rifts, relic: run.relic ? run.relic.id : null, build: JSON.stringify(build), created: Date.now() };
   }
@@ -20370,7 +21272,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   // Play tracking: an anonymous ping to the leaderboard server when a run starts and when it ends (no name), so the
   // owner can see how many runs are played. Same exclusions as the boards; failures are ignored.
-  const playCounted = () => LB_URL && !/^#(debug|arena|tour|bestiary|soundlog)/.test(location.hash);
+  const playCounted = () => LB_URL && !/^#(debug|arena|tour|bestiary|soundlog|dance)/.test(location.hash);
   function playPing(stage) {
     if (!playCounted() || !run || !run.rid) return;
     const body = stage === 'start' ? { rid: run.rid, stage, version: GAME_VERSION, mobile: !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) }
@@ -20436,12 +21338,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (!rows.length) { const li = document.createElement('li'); li.textContent = lbTab === 'banish' ? 'No banishes yet.' : 'No runs yet.'; ol.appendChild(li); }
       rows.forEach((r, i) => {
         const li = document.createElement('li'); if (me && r.name && r.name.toLowerCase() === me.toLowerCase()) li.className = 'me';
-        const blood = lbTab === 'banish' && !!r.blood; if (blood) li.classList.add('blood');
+        const sec = secretOf(r), tier = lbTab !== 'banish' || !sec ? '' : sec === 2 ? 'light' : 'blood'; if (tier) li.classList.add(tier);
         const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = '#' + (i + 1);
         const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name || 'You';
         const sm = document.createElement('small'); sm.textContent = [relicName(r.relic), r.created ? new Date(r.created).toLocaleDateString() : ''].filter(Boolean).join(' · '); nm.appendChild(sm);
-        if (blood) sm.textContent = ['Blood Moon', sm.textContent].filter(Boolean).join(' · ');
-        const vl = document.createElement('span'); vl.className = 'vl'; vl.textContent = (blood ? '☾ ' : '') + b.fmt(r[b.key]);
+        if (tier) sm.textContent = [tier === 'light' ? 'Forgotten Light' : 'Blood Moon', sm.textContent].filter(Boolean).join(' · ');
+        const vl = document.createElement('span'); vl.className = 'vl'; vl.textContent = (tier === 'light' ? '✦ ' : tier ? '☾ ' : '') + b.fmt(r[b.key]);
         li.append(rk, nm, vl); ol.appendChild(li);
       });
     };
@@ -20465,27 +21367,34 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const best = getBest(), t = Math.min(DAWN, run.t);
     $('newbest').hidden = !(t > best);
     if (t > best) setBest(Math.floor(t));
-    $('overEyebrow').textContent = how === 'perfect' ? 'The shadow is banished' : how === 'blood' ? 'The Blood Moon is shattered' : win ? 'The sun rises over the meadow' : 'The moths swarmed Hexel';
-    $('overTitle').textContent = how === 'perfect' ? 'A new dawn' : how === 'blood' ? 'A crimson dawn' : win ? 'You saw the dawn' : "Hexel's light went out";
-    const burned = run.finale ? Math.min(99, Math.floor((1 - Math.max(0, run.finale.boss.hp) / run.finale.boss.max) * 100)) : 0;
-    const note = how === 'perfect' ? `You banished the Eclipse Moth in ${run.finale.t.toFixed(1)} seconds. The fireflies will sing of Hexel for a hundred summers.`
-      : how === 'blood' ? `You shattered the Blood Moon in ${run.finale.t.toFixed(1)} seconds. No firefly has ever seen a sky like that.`
-      : how === 'bloodfled' ? `The Blood Moon sank behind the hills, but you burned away ${burned}% of it. Find the shards again and finish it.`
+    const f = run.finale, ecl = f && f.eclipseT ? `You banished the Eclipse Moth in ${f.eclipseT.toFixed(1)} seconds` : 'You held the dawn';
+    const EYE = { perfect: 'The shadow is banished', blood: 'The Blood Moon is shattered', light: 'The Forgotten Light is laid to rest', bloodfled: 'The shadow is banished', lightfled: 'The shadow is banished' };
+    const TITLE = { perfect: 'A new dawn', blood: 'A crimson dawn', light: 'A radiant dawn', bloodfled: 'A new dawn', lightfled: 'A new dawn' };
+    $('overEyebrow').textContent = EYE[how] || (win ? 'The sun rises over the meadow' : 'The moths swarmed Hexel');
+    $('overTitle').textContent = TITLE[how] || (win ? 'You saw the dawn' : "Hexel's light went out");
+    const burned = f && f.boss ? Math.min(99, Math.floor((1 - Math.max(0, f.boss.hp) / f.boss.max) * 100)) : 0;
+    const note = how === 'perfect' ? `${ecl}. The fireflies will sing of Hexel for a hundred summers.`
+      : how === 'blood' ? `${ecl}, then shattered the Blood Moon in ${f.t.toFixed(1)} seconds. No firefly has ever seen a sky like that.`
+      : how === 'light' ? `${ecl}, then outshone the Forgotten Light in ${f.t.toFixed(1)} seconds. The moths will remember which light they follow now.`
+      : how === 'bloodfled' ? `${ecl}. Then the Blood Moon rose and sank behind the hills, but you burned away ${burned}% of it. Find the shards again and finish it.`
+      : how === 'lightfled' ? `${ecl}. Then the Forgotten Light rose and faded into the sunrise, but you burned away ${burned}% of it. Light the shrines again and finish it.`
       : !win && how !== 'quit' && run.killer ? `Felled by ${run.killer}.`
       : how === 'fled' ? `The Eclipse Moth slipped away with the last of the night, but you burned away ${Math.min(99, Math.floor((1 - Math.max(0, run.finale.boss.hp) / run.finale.boss.max) * 100))}% of it. Grow stronger and banish it next time.` : '';
     $('overNote').textContent = note; $('overNote').hidden = !note;
     // A fled Eclipse Moth shows how close you came: a bar of the health you burned away.
-    if (how === 'fled' || how === 'bloodfled') {
+    if (how === 'fled' || how === 'bloodfled' || how === 'lightfled') {
       const pct = burned;
       const bar = document.createElement('span'); bar.className = 'fledbar'; bar.innerHTML = `<i style="width:${pct}%"></i><b>${pct}%</b>`;
       $('overNote').appendChild(bar);
     }
-    document.querySelector('#over .card').classList.toggle('perfect', how === 'perfect' || how === 'blood');
+    const won = how === 'perfect' || how === 'blood' || how === 'light';
+    document.querySelector('#over .card').classList.toggle('perfect', won);
     document.querySelector('#over .card').classList.toggle('blood', how === 'blood');
-    if (how === 'perfect' || how === 'blood') {
-      const key = how === 'blood' ? 'fjt-bloodmoon' : 'fjt-banished';
+    document.querySelector('#over .card').classList.toggle('light', how === 'light');
+    if (won) {
+      const key = how === 'blood' ? 'fjt-bloodmoon' : how === 'light' ? 'fjt-light' : 'fjt-banished';
       try { localStorage.setItem(key, (+localStorage.getItem(key) || 0) + 1); } catch {}
-      for (let i = 0; i < 8; i++) burst(P.x + rnd(-300, 300), P.y + rnd(-200, 200), how === 'blood' ? (i % 2 ? '#ff8a9a' : '#ffe27a') : i % 2 ? '#ffe27a' : '#ffb33b', 30, 380);
+      for (let i = 0; i < 8; i++) burst(P.x + rnd(-300, 300), P.y + rnd(-200, 200), how === 'blood' ? (i % 2 ? '#ff8a9a' : '#ffe27a') : how === 'light' ? (i % 2 ? '#fffbe8' : '#ffe9a0') : i % 2 ? '#ffe27a' : '#ffb33b', 30, 380);
       snd.fx('evolve');
     }
     $('finalTime').textContent = fmt(t);
@@ -20493,7 +21402,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
     lbOnOver(how);
-    run.endHow = how === 'perfect' || how === 'fled' || how === 'bloodfled' ? how : how === 'blood' ? 'bloodmoon' : how === 'quit' ? 'quit' : 'death'; playPing('end'); run.rid = null;
+    run.endHow = ['perfect', 'fled', 'bloodfled', 'light', 'lightfled'].includes(how) ? how : how === 'blood' ? 'bloodmoon' : how === 'quit' ? 'quit' : 'death'; playPing('end'); run.rid = null;
     renderLoadout();
     showBest();
     show('over');
@@ -20972,6 +21881,73 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           snd.fx('warn');
         }
       }
+    } else if (e.kind === 'light') {
+      // The Forgotten Light (secret finale, called by three lit moth shrines): a radiant moth goddess who keeps her
+      // distance and blinks around Hexel. Light-sword rings, homing orbs and sword rain (bands of falling light swords
+      // with gaps to slip through). Phase 2 (below 2/3) "The light flares!": double rings, radiant beams, ghosts.
+      // Phase 3 (below 1/3) "Every moth turns to the light!": a sword spiral, moth swarms, light pillars, faster blinks.
+      const ph = e.hp > e.max * .66 ? 1 : e.hp > e.max * .33 ? 2 : 3, COL = '255,236,170';
+      if (ph >= 2 && !e.p2) { e.p2 = true; banner('The light flares!', '#fff0b8', true); shake = Math.max(shake, 10); snd.fx('boss'); }
+      if (ph >= 3 && !e.p3) { e.p3 = true; banner('Every moth turns to the light!', '#fff6d0', true); shake = Math.max(shake, 12); snd.fx('boss'); }
+      const lightRing = (n, sp, off) => { ringBullets(e, n, sp, off, 12); for (let i = bullets.length - n; i < bullets.length; i++) bullets[i].col = COL; };
+      // Her orbs home in on Hexel for their first few seconds.
+      for (const b of bullets) if (b.home === e && b.life > 1.5) {
+        const cur = Math.atan2(b.vy, b.vx), da = Math.atan2(Math.sin(Math.atan2(P.y - b.y, P.x - b.x) - cur), Math.cos(Math.atan2(P.y - b.y, P.x - b.x) - cur));
+        const na = cur + Math.max(-1.5 * dt, Math.min(1.5 * dt, da)), sp = Math.hypot(b.vx, b.vy); b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp;
+      }
+      // Blink: she fades out (can't be hit), a shimmer marks where she returns 260–380 px from Hexel, with a sword ring.
+      if (e.blink) {
+        if ((e.blink.t -= dt) <= 0) {
+          e.x = e.blink.x; e.y = e.blink.y; e.blink = null; lightRing(14, 150, Math.random());
+          burst(e.x, e.y, '#fff6d8', 30, 300); rings.push({ x: e.x, y: e.y, r: 130, life: 0, ttl: .45, col: '255,240,200' }); shake = Math.max(shake, 6);
+        }
+        return;
+      }
+      e.tp = (e.tp ?? 4) - dt;
+      if (e.tp <= 0) {
+        e.tp = [0, 6, 5, 3.6][ph]; const a = Math.random() * TAU, d = rnd(260, 380);
+        e.blink = { t: .6, x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d }; burst(e.x, e.y, '#fff0c0', 24, 260); snd.fx('warn');
+        return;
+      }
+      // She hovers at a distance, drifting sideways around Hexel.
+      const dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy) || 1, sp = e.sp * (ph === 3 ? 1.3 : 1) * (e.slowT > 0 ? .6 : 1);
+      const toward = d > 320 ? 1 : d < 210 ? -.8 : 0, side = e.side || (e.side = Math.random() < .5 ? 1 : -1);
+      e.x += (dx / d * toward - dy / d * side * .6) * sp * dt; e.y += (dy / d * toward + dx / d * side * .6) * sp * dt; e.ang = Math.atan2(dy, dx);
+      // Sword rings, then a spiral in the last phase.
+      if (e.t1 <= 0) {
+        if (ph === 3) { e.t1 = .13; e.spin = (e.spin || 0) + .23; for (let arm = 0; arm < 3; arm++) { const a = e.spin + arm * TAU / 3; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, r: 6, dmg: 12, life: 5, from: e, col: COL }); } }
+        else { e.t1 = ph === 1 ? 2.2 : 1.8; e.spin = (e.spin || 0) + .3; lightRing(16, 150, e.spin); if (ph === 2) lightRing(16, 105, e.spin + TAU / 32); }
+      }
+      // Homing orbs in a fan toward Hexel.
+      if (e.t3 <= 0) {
+        e.t3 = [0, 3.4, 2.8, 2.4][ph]; const n = ph + 2, a0 = Math.atan2(dy, dx);
+        for (let i = 0; i < n; i++) { const a = a0 + (i - (n - 1) / 2) * .45; bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, r: 9, dmg: 13, life: 5.5, from: e, col: '255,250,225', home: e }); }
+        snd.fx('shoot');
+      }
+      // Sword rain: seven parallel bands of falling light swords across Hexel's area, with gaps to slip through.
+      e.t4 = (e.t4 ?? 4) - dt;
+      if (e.t4 <= 0) {
+        e.t4 = [0, 7, 6, 5][ph]; const ax = Math.random() * Math.PI, ux = Math.cos(ax), uy = Math.sin(ax), off = rnd(0, 115);
+        for (let k = 0; k < 7; k++) { const o = (k - 3) * 115 + off - 57; for (let j = -6; j <= 6; j++) strikeAt(P.x - uy * o + ux * j * 56, P.y + ux * o + uy * j * 56, 25, 14, 1.2 + (j + 6) * .02, '255,240,190', e); }
+        banner('Sword rain!', '#fff0c0'); snd.fx('warn');
+      }
+      // Radiant beams from her in phase 2+.
+      if (ph >= 2) {
+        e.t6 = (e.t6 ?? 2) - dt;
+        if (e.t6 <= 0) {
+          e.t6 = ph === 3 ? 4 : 5; e.ray = (e.ray || 0) + .4; const n = ph === 3 ? 8 : 6;
+          for (let k = 0; k < n; k++) { const a = e.ray + k * TAU / n; for (let r = 90; r <= 660; r += 64) hazards.push({ x: e.x + Math.cos(a) * r, y: e.y + Math.sin(a) * r, t: 1 + r / 2200, T: 1 + r / 2200, r: 32, dmg: 13, col: '255,246,210', from: e }); }
+          snd.fx('warn');
+        }
+      }
+      // Summons: moths in phase 1, ghosts in phase 2, and in phase 3 every moth around turns toward the light.
+      if (e.t2 <= 0) {
+        e.t2 = ph === 3 ? 5 : 6;
+        if (ph === 3) for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; spawnFoe('moth', P.x + Math.cos(a) * 340, P.y + Math.sin(a) * 340); }
+        else for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; spawnFoe(ph === 1 ? 'moth' : 'ghost', e.x + Math.cos(a) * 110, e.y + Math.sin(a) * 110); }
+      }
+      // Pillars of light around Hexel in the last phase.
+      if (ph === 3) { e.t5 = (e.t5 ?? 1) - dt; if (e.t5 <= 0) { e.t5 = 1; for (let k = 0; k < 3; k++) { const a = Math.random() * TAU, r = Math.random() * 170; strikeAt(P.x + Math.cos(a) * r, P.y + Math.sin(a) * r, 55, 14, 1.05, '255,250,220', e); } } }
     } else if (e.kind === 'queen') {
       if (e.tele) {
         e.tele.t -= dt;
@@ -21560,6 +22536,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     hk: { name: 'Wailing Mask', mega: 'Void Mask', desc: 'Every moth you slay feeds the mask. When it is full it howls: a ring of pale spirits bursts out, piercing through moths, and you mend a little.', megaDesc: 'Fills faster and howls a wider ring of dark void spirits that hit harder and mend more.' },
     orb: { name: 'Chaos Orb', mega: 'Twin Chaos Orbs', desc: 'Launches a slow, spinning violet orb that sprays chaotic shards in a spiral as it drifts, then bursts into a ring of shards. Struck moths are dazed and slowed.', megaDesc: 'Two orbs at once, denser spirals and a bigger burst.' },
     aurora: { name: 'Aurora Ribbon', mega: 'Northern Veil', desc: 'A long ribbon of shimmering light trails behind you as you move, burning every moth it touches. Standing still, it curls around you.', megaDesc: 'A wider, longer curtain of aurora that also stops enemy bullets crossing it.' },
+    necro: { name: 'Dance Floor', mega: 'Rave of the Dead', desc: 'A checkerboard dance floor follows you, flipping its lit tiles on every beat. Moths caught on a lit tile take a hit each time it lights.', megaDesc: 'A bigger, harder-hitting floor, and every fourth beat the bass drops: the whole floor slams at once and hurls moths back.' },
     lol:   { name: 'Allied Minion Wave', mega: 'Empowered Siege Wave', desc: 'Every so often a wave of your own blue minions marches out to fight for you.', megaDesc: 'Bigger waves, faster, with cannon minions.' },
   };
   let pendingRelic = null;
@@ -21602,6 +22579,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (big && span >= TAU) rings.push({ x: P.x, y: P.y, r: R * 1.25, life: 0, ttl: .4, col: '255,90,60' });
     snd.fx('moon'); shake = Math.max(shake, big ? 4 : 2);
   }
+  const DANCE_BEAT = .5, DANCE_T = 48;   // Dance Floor: 120 beats a minute, 48 px tiles
   function updateRelic(dt) {
     const r = run.relic;
     if (!r) return;
@@ -21837,6 +22815,22 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (mega) for (const b of bullets) if (b.life > 0 && b.x > x0 - w && b.x < x1 + w && b.y > y0 - w && b.y < y1 + w && near(b.x, b.y, w + b.r)) { b.life = 0; burst(b.x, b.y, '#9affd0', 4, 90); }
         break;
       }
+      case 'necro': {
+        // The dance floor: a grid of DANCE_T tiles snapped around Hexel; on every beat (DANCE_BEAT s) the lit half of the
+        // checkerboard flips and every moth on a lit tile is hit. MEGA: 9×9 tiles, and every 4th beat the bass drops.
+        const beat = Math.floor(run.clock / DANCE_BEAT);
+        if (r.beat === beat) break;
+        const T = DANCE_T * S.area, n = mega ? 9 : [0, 5, 5, 7][lv], h = (n - 1) / 2, cx = Math.round(P.x / T), cy = Math.round(P.y / T), drop = mega && beat % 4 === 0;
+        Object.assign(r, { beat, cx, cy, T, n, flash: 1, drop });
+        for (const e of foes) {
+          if (e.dead) continue;
+          const tx = Math.round(e.x / T), ty = Math.round(e.y / T);
+          if (Math.abs(tx - cx) > h || Math.abs(ty - cy) > h || (!drop && (tx + ty + beat) % 2)) continue;
+          hit(e, (drop ? 30 : mega ? 14 : [0, 9, 10, 11][lv]) * pow, drop ? 260 : 0, P.x, P.y);
+        }
+        if (drop) { rings.push({ x: P.x, y: P.y, r: T * h * 1.3, life: 0, ttl: .4, col: '255,80,220' }); shake = Math.max(shake, 4); snd.fx('nova'); }
+        break;
+      }
       case 'tibia': {
         if (r.t > 0) break;
         // Find the densest crowd in reach (a sampled neighbour count keeps this cheap).
@@ -22037,24 +23031,41 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* ---------- The finale: at dawn the Eclipse Moth rises; banish it within FINALE_TIME seconds for the true ending ---------- */
   const FINALE_TIME = 60;
-  // With three moon shards (see questBossDown) you may call the Blood Moon instead: much harder, its own ending.
-  function startFinale(blood) {
+  // Dawn always starts with the Eclipse Moth. Banish it, and quest items can call a secret second fight with its own
+  // FINALE_TIME: three moon shards call the Blood Moon, three lit moth shrines call the Forgotten Light (a choice if
+  // both). Losing the second fight keeps the Eclipse banish; winning it ranks above every Eclipse banish.
+  const SECRETS = {
+    blood: { foe: 'bloodmoon', name: 'The Blood Moon', ready: () => (run.quest.shards || 0) >= 3, col: '#ff5a6a',
+      sub: 'Your three moon shards pull the stranger moon out of the sky. Far harder, and few have ever seen it fall.',
+      intro: 'The Blood Moon rises! The sky runs red', goal: 'Shatter the Blood Moon!', verb: 'Shatter it' },
+    light: { foe: 'light', name: 'The Forgotten Light', ready: () => (run.quest.shrines || 0) >= 3, col: '#fff0b8',
+      sub: 'The three moth shrines you lit call the light the moths once worshipped. It will not be forgotten again.',
+      intro: 'The Forgotten Light awakens! Every moth turns toward it', goal: 'Outshine the Forgotten Light!', verb: 'Outshine it' },
+  };
+  function startFinale(kind = 'eclipse') {
     for (const e of foes) if (e.boss && !e.dead) { e.gone = true; burst(e.x, e.y, '#ffe8b0', 40, 300); }
-    const a = Math.random() * TAU;
-    const b = spawnFoe(blood ? 'bloodmoon' : 'eclipse', P.x + Math.cos(a) * 300, P.y + Math.sin(a) * 300);
+    const a = Math.random() * TAU, sc = SECRETS[kind];
+    const b = spawnFoe(sc ? sc.foe : 'eclipse', P.x + Math.cos(a) * 300, P.y + Math.sin(a) * 300);
     b.t1 = 2; b.t2 = 3;
-    run.boss = b; run.finale = { t: 0, boss: b, blood: !!blood }; run.portal = null;
+    run.boss = b; run.finale = Object.assign(run.finale || {}, { t: 0, boss: b, kind, wait: 0 }); run.portal = null;
     snd.fx('boss'); snd.setBoss(true);
-    if (blood) { banner('The Blood Moon rises! The sky runs red', '#ff5a6a', true); banner(`Shatter it within ${FINALE_TIME} seconds`, '#ff9aa6'); }
+    if (sc) { banner(sc.intro, sc.col, true); banner(`${sc.verb} within ${FINALE_TIME} seconds`, sc.col); }
     else { banner('The Eclipse Moth swallows the sunrise!', '#ffb33b', true); banner(`Banish it within ${FINALE_TIME} seconds`, '#ffe27a'); }
     if (jarFull()) banner('The firefly jar blazes beside you!', '#ffe27a', true);
     shake = Math.max(shake, 12);
   }
-  function askMoon() {
-    openQuest({ eyebrow: 'Dawn', title: 'The three moon shards blaze', text: 'They pull at the sky. Behind the sunrise, something red is waiting to be called.', options: [
-      { name: 'The Eclipse Moth', sub: 'Face the shadow that swallows every sunrise.', btn: 'Face it', fn: () => { run.quest.moon = 'eclipse'; } },
-      { name: 'The Blood Moon', sub: 'Call the stranger moon instead. Far harder, and few have ever seen it fall.', btn: 'Call it', fn: () => { run.quest.moon = 'blood'; } }] });
+  // The Eclipse Moth is banished: a secret boss follows if a quest called one (a choice if more than one did).
+  function eclipseDown() {
+    const f = run.finale; f.eclipseT = f.t;
+    const ready = Object.keys(SECRETS).filter(k => SECRETS[k].ready());
+    if (!ready.length) { gameOver(true, 'perfect'); return; }
+    const go = k => { f.next = k; f.wait = 2.5; f.t = 0; bullets.length = 0; banner('The Eclipse Moth is banished… but the night is not over', '#ffe27a', true); };
+    if (ready.length === 1) { go(ready[0]); return; }
+    f.wait = -1;   // waiting for the choice
+    openQuest({ eyebrow: 'The Eclipse Moth is banished', title: 'Something else answers the dawn', text: 'Your quests called more than one. Choose which to face; your banishing stands either way.',
+      options: ready.map(k => ({ name: SECRETS[k].name, sub: SECRETS[k].sub, btn: 'Face it', fn: () => go(k) })) });
   }
+  function finaleGoal() { return run.finale.kind === 'eclipse' ? 'Banish the Eclipse Moth!' : SECRETS[run.finale.kind].goal; }
 
   /* ---------- Rifts ---------- */
   // Rift difficulty also climbs with how many rifts you have entered this run (on top of the night-clock scaling):
@@ -22085,6 +23096,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      - Moon shards (main-map bosses): beat each within SHARD_T[boss] s of its arrival; three shards call the Blood Moon.
        Timed on autopilot (fresh runs, god mode) with the boss arena's "strong" builds, which made them in
        17.7 / 34.9 / 31.2 s; the "typical" builds don't come close. */
+  // Moth shrines: three rise in the meadow each night (one at a time); stand in one for SHRINE_HOLD s to light it.
+  const SHRINE_T = [40, 200, 370], SHRINE_LIFE = 75, SHRINE_R = 95, SHRINE_HOLD = 5;
+  // The Crooning Keeper's dance-off (the crypt rift): DANCE_STEPS beats of KEEP_STEP s on a 3×3 pad of KEEP_PAD px tiles.
+  const DANCE_STEPS = 8, DANCE_NEED = 6, KEEP_STEP = .7, KEEP_PAD = 60, KEEP_PADY = 110;
   const LEG_CHANCE = .5, DOLL_CHANCE = .5, KNIGHT_CHANCE = .5, ORACLE_CHANCE = .6, GRUB_CHANCE = .5, FLY_CHANCE = 1, ANGEL_CHANCE = .6;
   const JAR_FULL = 5, SHARD_T = { luna: 24, stag: 45, queen: 40 }, SHARD_BOSSES = Object.keys(SHARD_T);
   const peddlerAhead = () => !!run.peddler || EVENTS.slice(run.ev).some(e => e.kind === 'peddler');
@@ -22112,6 +23127,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     shards: [() => `Moon Shards · ${run.quest.shards} of 3`, () => `Beat a main-map boss quickly to earn a shard: the Great Luna Moth within ${SHARD_T.luna} s, the Stag Beetle within ${SHARD_T.stag} s, the Moth Queen within ${SHARD_T.queen} s (watch the ☾ on its health bar).`, () => run.quest.shards >= 3 ? 'At dawn you may call a stranger moon' : 'Three shards can call a stranger moon at dawn'],
     voc: [() => VOCS[run.quest.voc].name, () => VOCS[run.quest.voc].desc, () => 'Vocation chosen at the Oracle'],
     mask: [() => 'Mask Shard', () => '+20 max health, a gift from the Grubfather.', () => 'Quest reward'],
+    groove: [() => 'Groove', () => '+12% speed and +8% damage for the rest of the night. You danced with the Crooning Keeper and never missed a beat (well, hardly).', () => 'Quest reward'],
+    shrines: [() => `Moth Shrines · ${run.quest.shrines} of 3`, () => 'Shrines to the light the moths once worshipped. Three rise in the meadow each night (at 0:40, 3:20 and 6:10); stand in one for 5 seconds to light it before it fades.',
+      () => run.quest.shrines >= 3 ? 'After the Eclipse Moth, a forgotten light may answer' : 'Light all three to call something at dawn'],
   };
   function questChips() {
     const q = run.quest, out = [], c = (k, label) => out.push(`<span class="chip quest" data-k="q:${k}">${label}</span>`);
@@ -22125,6 +23143,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (q.jar) c('jar', `Firefly Jar <b>${q.jar}/${JAR_FULL}</b>`);
     if (q.shards) c('shards', `Moon Shards <b>${q.shards}/3</b>`);
     if (q.mask) c('mask', 'Mask Shard');
+    if (q.groove) c('groove', 'Groove');
+    if (q.shrines) c('shrines', `Moth Shrines <b>${q.shrines}/3</b>`);
     return out;
   }
 
@@ -22234,6 +23254,56 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         banner(jarFull() ? 'The jar is full! Its light will stand by you at dawn' : `Fireflies in the jar: ${q.jar} of ${JAR_FULL}`, '#ffe27a', true);
         return false;
       } },
+    // The Crooning Keeper: a singing crypt merchant on a 3×3 dance pad. Talk to him to start a dance-off: each beat a pad
+    // tile lights (the next one is outlined), and you must stand on it when the beat lands. DANCE_NEED of DANCE_STEPS
+    // wins a gift; otherwise walk away and try again. His song pushes moths back from the pad while you dance.
+    keeper: { r: 34, glow: '255,200,120', arrow: ['#3a2410', '#ffc890'], draw: drawKeeper,
+      touch(s) {
+        if (s.state !== 'idle') return false;
+        // each step is a neighbouring tile (at most 85 px, reachable within one beat)
+        const seq = []; let cur = 4;
+        for (let i = 0; i < DANCE_STEPS; i++) { const opts = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(k => k !== cur && Math.max(Math.abs(k % 3 - cur % 3), Math.abs(((k / 3) | 0) - ((cur / 3) | 0))) <= 1); cur = opts[Math.floor(Math.random() * opts.length)]; seq.push(cur); }
+        Object.assign(s, { state: 'dance', seq, step: -1, t: 1.2, hits: 0 });
+        banner('"Dance with me! Step on the lit tile when the beat lands!"', '#ffc890', true); snd.fx('warn');
+        return false;
+      },
+      update(s, d, dt) {
+        if (s.state !== 'dance' || (s.t -= dt) > 0) return;
+        if (s.step >= 0) {
+          const [tx, ty] = keeperTile(s, s.seq[s.step]), ok = Math.abs(P.x - tx) < KEEP_PAD / 2 + 6 && Math.abs(P.y - ty) < KEEP_PAD / 2 + 6;
+          if (ok) s.hits++;
+          pops.push({ x: tx, y: ty - 20, txt: ok ? 'Perfect!' : 'Miss!', col: ok ? '#ffe27a' : '#ff7a8a', life: 0, ttl: .8, big: true });
+          snd.fx(ok ? 'pick' : 'hurt'); burst(tx, ty, ok ? '#ffe27a' : '#ff7a8a', 8, 100);
+          // His song pushes the moths back from the pad.
+          const px = s.x, py = s.y + KEEP_PADY;
+          for (const e of foes) { if (e.dead || e.boss) continue; const dx = e.x - px, dy = e.y - py, dd = Math.hypot(dx, dy) || 1; if (dd < 230) { e.x = px + dx / dd * 230; e.y = py + dy / dd * 230; } }
+          rings.push({ x: px, y: py, r: 230, life: 0, ttl: .35, col: '255,200,120' });
+        }
+        if (++s.step < DANCE_STEPS) { s.t = KEEP_STEP; return; }
+        if (s.hits < DANCE_NEED) { s.state = 'idle'; banner(`"You missed the beat! ${s.hits} of ${DANCE_STEPS}. Come back and dance again!"`, '#ffc890', true); return; }
+        s.state = 'won'; run.quest.danced = true;
+        openQuest({ eyebrow: `Dance-off · ${s.hits} of ${DANCE_STEPS}`, title: '"What moves! Take something for the road"', text: 'The Crooning Keeper bows, still humming. Pick one gift.',
+          options: [
+            { name: 'Groove', sub: '+12% speed and +8% damage for the rest of the night.', btn: 'Take it', fn: () => { run.quest.groove = true; recalc(); } },
+            { name: 'Encore', sub: 'Two level-ups, right now.', btn: 'Take it', fn: () => { run.pending += 2; } },
+            { name: "The Keeper's Discount", sub: '+3 rerolls and a full heal.', btn: 'Take it', fn: () => { run.rerolls += 3; run.hp = S.maxHp; } },
+          ].map(o => ({ ...o, fn: () => { o.fn(); s.gone = true; burst(s.x, s.y - 20, '#ffc890', 26, 200); snd.fx('evolve'); } })) });
+      } },
+    // A forgotten moth shrine in the meadow: stand in its circle for SHRINE_HOLD s to light it (progress drains while
+    // you're outside). Stepping in first wakes a ring of moths and ghosts. It goes dark after SHRINE_LIFE s.
+    shrine: { r: 30, glow: '255,236,170', arrow: ['#3a3424', '#fff0c0'], draw: drawShrine,
+      update(s, d, dt) {
+        if ((s.life -= dt) <= 0) { s.gone = true; banner('A moth shrine went dark… its light is lost for tonight', '#b8ac90', true); return; }
+        if (d > SHRINE_R) { s.prog = Math.max(0, s.prog - dt * .5); return; }
+        if (!s.stirred) {
+          s.stirred = true; banner('Hold the light! The moths are gathering…', '#fff0c0', true); snd.fx('warn');
+          for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; spawnFoe(i % 3 ? 'moth' : 'ghost', s.x + Math.cos(a) * 320, s.y + Math.sin(a) * 320); }
+        }
+        if ((s.prog += dt) < SHRINE_HOLD) return;
+        const q = run.quest; q.shrines = (q.shrines || 0) + 1; s.gone = true;
+        heal(S.maxHp * .2); burst(s.x, s.y - 50, '#fff0c0', 30, 220); snd.fx('evolve'); renderLoadout();
+        banner(q.shrines < 3 ? `Moth shrine lit (${q.shrines} of 3)` : 'Three shrines burn. After the Eclipse Moth, a forgotten light may answer', '#fff0c0', true);
+      } },
   };
 
   function updateKnight(s, d, dt) {
@@ -22299,6 +23369,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   function questSpots() { return run.zone ? run.quest.spots : run.quest.home; }
   function updateQuest(dt) {
+    // Moth shrines rise in the meadow at set times of the night, one at a time (a shrine due while you're in a rift
+    // rises when you come home, since the dawn clock is frozen in there).
+    const q = run.quest, si = q.shrineN || 0;
+    if (!run.zone && !run.finale && si < SHRINE_T.length && run.t >= SHRINE_T[si] && run.t < DAWN - 30 && !q.home.some(h => h.kind === 'shrine')) {
+      q.shrineN = si + 1; const a = Math.random() * TAU, d = rnd(1300, 1800);
+      q.home.push({ kind: 'shrine', x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, life: SHRINE_LIFE, prog: 0 });
+      banner(`A forgotten moth shrine glimmers far off (${si + 1} of 3). Light it before it fades`, '#fff0c0', true);
+    }
     const list = questSpots();
     for (const s of list) {
       const D = SPOTS[s.kind], d = Math.hypot(P.x - s.x, P.y - s.y);
@@ -22328,6 +23406,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (let i = 0; i < 5; i++) { const a = a0 + i / 5 * TAU + rnd(-.3, .3), d = rnd(450, 1250); q.spots.push({ kind: 'grub', x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, ph: Math.random() * 6 }); }
       banner('Muffled cries echo from glass jars all around…', '#d0e4ff', true);
     }
+    if (id === 'necro' && !q.danced) { add('keeper', 600, 900, { state: 'idle' }); banner('Somewhere in the crypt, someone is singing…', '#ffc890', true); }
     if (q.angel) { q.angel = false; if (Math.random() < ANGEL_CHANCE) { add('angel', 330, 460); banner('A white door glows softly nearby…', '#f0f4ff', true); } }
     if (id !== 'cow' && (q.flies || 0) + (q.jar || 0) < JAR_FULL && Math.random() < FLY_CHANCE) { add('firefly', 900, 1400, { ph: Math.random() * 6, a: Math.random() * TAU }); banner('A lost firefly glimmers somewhere in this rift', '#ffe27a'); }
   }
@@ -22601,6 +23680,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const kd = Math.exp(-7 * dt); e.kx *= kd; e.ky *= kd;
     }
     separate();
+    keepOffPads();
 
     for (const id in run.weapons) withSrc(id, () => updateWeapon(id, run.weapons[id], dt));
     const rsrc = run.relic ? 'r:' + run.relic.id : 'other';
@@ -22853,15 +23933,17 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     motes = motes.filter(m => !m.got);
     foes = foes.filter(e => !e.dead && !e.gone);
 
-    if (run.t >= DAWN && !run.finale) {
-      // Three moon shards: choose which moon to face.
-      if ((run.quest.shards || 0) >= 3 && !run.quest.moon) { askMoon(); return; }
-      startFinale(run.quest.moon === 'blood');
-    }
+    // (The arena's secret-boss picks start that fight straight away, with no Eclipse Moth first.)
+    if (run.t >= DAWN && !run.finale) { startFinale(run.quest.arenaFirst || 'eclipse'); if (run.quest.arenaFirst) run.finale.eclipseT = 0; }
     if (run.finale) {
-      run.finale.t += dt;
-      if (run.finale.boss.dead) { gameOver(true, run.finale.blood ? 'blood' : 'perfect'); return; }
-      if (run.finale.t >= FINALE_TIME) { gameOver(true, run.finale.blood ? 'bloodfled' : 'fled'); return; }
+      const f = run.finale;
+      // Between the fights: a short breather, or the choice screen (wait = -1).
+      if (f.wait) { if (f.wait > 0 && (f.wait -= dt) <= 0) startFinale(f.next); }
+      else {
+        f.t += dt;
+        if (f.boss.dead) { if (f.kind === 'eclipse') eclipseDown(); else gameOver(true, f.kind); return; }
+        if (f.t >= FINALE_TIME) { gameOver(true, f.kind === 'eclipse' ? 'fled' : f.kind + 'fled'); return; }
+      }
     }
     if (run.pending > 0) openLevel();
   }
@@ -23091,6 +24173,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (let i = 0; i < 5; i++) { const a = i * 1.3 + e.seed; ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * s * .5, e.y - s * .1 + Math.sin(a) * s * .35, 2.2, 0, TAU); ctx.fill(); }
     }
     else if (e.kind === 'bloodmoon') drawBloodMoon(e, now);
+    else if (e.kind === 'light') { if (e.blink) ctx.globalAlpha = Math.max(.05, e.blink.t / .6 * .6); drawLight(e, now); ctx.globalAlpha = 1; }
     else if (e.kind === 'eclipse') { if (e.blink) ctx.globalAlpha = Math.max(.05, e.blink.t / .6 * .6); drawEclipse(e, now); ctx.globalAlpha = 1; }
     else if (e.kind === 'stag') drawBeetle(e.x, e.y, s, e.ang, white ? '#fff' : '#5a2f2a', '#c07a5a', true);
     else if (e.kind === 'luna') drawMoth(e.x, e.y, s, white ? '#fff' : '#8fd8a4', white ? '#fff' : '#d8f0d0', flap, e);
@@ -23280,6 +24363,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (let i = 0; i < n; i++) { const a = now * (1.4 + i * .2) + i * 2.1; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 8, y - 16 + Math.sin(a * 1.3) * 10, 2.2, 0, TAU); ctx.fill(); }
     ctx.fillStyle = '#fff4c8'; ctx.font = '800 12px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${n}/${JAR_FULL}`, x, y + 18);
   }
+  // Floor-level quest things (the Keeper's dance pad), drawn right after the ground, under everything else.
+  function drawQuestFloors(now) { for (const s of questSpots()) if (s.kind === 'keeper' && onScreen(s, 220)) drawKeeperPad(s, now); }
   // Quest things in the current rift (or the meadow): bodies, dolls, knights, doors, jars…
   function drawQuest(now) {
     for (const s of questSpots()) if (onScreen(s, 70)) SPOTS[s.kind].draw(s, now);
@@ -23313,6 +24398,120 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill();
     ctx.rotate(a); ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
     ctx.restore();
+  }
+  // The Forgotten Light: a radiant moth goddess with two pairs of pale gold-veined wings, a crown of light rays and blank
+  // glowing eyes (white while hit).
+  function drawLight(e, now) {
+    const s = e.r, white = e.flash > 0, fl = Math.sin(now * 5) * .12, WING = white ? '#fff' : '#f6eed8', EDGE = '#e8c870';
+    ctx.save(); ctx.translate(e.x, e.y);
+    ctx.strokeStyle = `rgba(255,244,210,${.35 + .15 * Math.sin(now * 3)})`; ctx.lineWidth = 3; ctx.beginPath();
+    for (let i = 0; i < 16; i++) { const a = i / 16 * TAU + now * .2, r0 = s * 1.15, r1 = s * (1.75 + .15 * Math.sin(now * 4 + i)); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0 - s * .25); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1 - s * .25); }
+    ctx.stroke();
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.scale(side, 1);
+      for (const [rot, cx, cy, rx, ry, tilt] of [[-.3 - fl, s * .78, -s * .3, s * .9, s * .5, -.25], [.35 + fl * .6, s * .55, s * .38, s * .58, s * .36, .35]]) {
+        ctx.save(); ctx.rotate(rot);
+        ctx.fillStyle = WING; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, tilt, 0, TAU); ctx.fill();
+        ctx.strokeStyle = EDGE; ctx.lineWidth = 2; ctx.stroke();
+        if (!white) {
+          ctx.strokeStyle = 'rgba(214,170,80,.55)'; ctx.lineWidth = 1.4; ctx.beginPath();
+          for (let v = -1; v <= 1; v++) { ctx.moveTo(s * .12, cy * .3); ctx.quadraticCurveTo(cx, cy + v * ry * .35, cx + rx * .85 * Math.cos(tilt + v * .5), cy + ry * .8 * Math.sin(tilt + v * .5) + v * ry * .3); }
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255,214,110,.5)'; ctx.beginPath(); ctx.arc(cx + rx * .35, cy, ry * .22, 0, TAU); ctx.fill();
+        }
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    // body and head
+    ctx.fillStyle = white ? '#fff' : '#fffaf0'; ctx.strokeStyle = '#d8b860'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(0, s * .12, s * .2, s * .58, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -s * .55, s * .27, 0, TAU); ctx.fill(); ctx.stroke();
+    // three-pointed crown
+    ctx.fillStyle = white ? '#fff' : '#ffe9a0'; ctx.beginPath();
+    for (const [x, h] of [[-.17, .32], [0, .45], [.17, .32]]) { ctx.moveTo(s * (x - .07), -s * .74); ctx.lineTo(s * x, -s * (.74 + h)); ctx.lineTo(s * (x + .07), -s * .74); }
+    ctx.fill();
+    // antennae
+    ctx.strokeStyle = '#e8c870'; ctx.lineWidth = 2; ctx.beginPath();
+    for (const k of [-1, 1]) { ctx.moveTo(k * s * .1, -s * .78); ctx.quadraticCurveTo(k * s * .5, -s * 1.25, k * s * .62, -s * 1.05); }
+    ctx.stroke();
+    // blank glowing eyes
+    ctx.fillStyle = white ? '#fff' : '#ffd860';
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(k * s * .1, -s * .55, s * .06, s * .11, k * .25, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+  // Nothing steps onto a dance pad or the Keeper: after movement and crowd separation each frame, every foe (the guardian
+  // too) is pushed out of the rectangle around them, padded by its drawn size (rift foes are drawn 1.3× their hitbox),
+  // through whichever side is nearest.
+  function keepOffPads() {
+    for (const s of questSpots()) {
+      if (s.kind !== 'keeper') continue;
+      const L = s.x - 1.5 * KEEP_PAD, R = s.x + 1.5 * KEEP_PAD, T = s.y - 62, B = s.y + KEEP_PADY + 1.5 * KEEP_PAD;
+      for (const e of foes) {
+        if (e.dead) continue;
+        const m = e.r * (e.def ? 1.35 : 1) + 4;
+        if (e.x <= L - m || e.x >= R + m || e.y <= T - m || e.y >= B + m) continue;
+        const dl = e.x - (L - m), dr = R + m - e.x, du = e.y - (T - m), dd = B + m - e.y, k = Math.min(dl, dr, du, dd);
+        if (k === dl) e.x = L - m; else if (k === dr) e.x = R + m; else if (k === du) e.y = T - m; else e.y = B + m;
+      }
+    }
+  }
+  const keeperTile = (s, k) => [s.x + (k % 3 - 1) * KEEP_PAD, s.y + KEEP_PADY + (((k / 3) | 0) - 1) * KEEP_PAD];
+  // The Crooning Keeper: a hulking bald crypt merchant in a striped vest, mouth wide open in song, music notes drifting
+  // up; below him his 3×3 dance pad (the tile to stand on glows gold and fills as its beat nears, the next is outlined).
+  // His 3×3 pad is drawn with the floor (drawQuestFloors), under bullets, foes and telegraphs, so nothing hides beneath it.
+  function drawKeeperPad(s, now) {
+    const dance = s.state === 'dance';
+    for (let k = 0; k < 9; k++) {
+      const [x, y] = keeperTile(s, k);
+      ctx.fillStyle = (k + (dance ? s.step : Math.floor(now * 2))) % 2 ? '#3a2a48' : '#2a2034'; ctx.fillRect(x - KEEP_PAD / 2 + 2, y - KEEP_PAD / 2 + 2, KEEP_PAD - 4, KEEP_PAD - 4);
+      ctx.strokeStyle = '#6a5288'; ctx.lineWidth = 2; ctx.strokeRect(x - KEEP_PAD / 2 + 2, y - KEEP_PAD / 2 + 2, KEEP_PAD - 4, KEEP_PAD - 4);
+    }
+    if (dance && s.step >= 0 && s.step < DANCE_STEPS) {
+      const [x, y] = keeperTile(s, s.seq[s.step]), k = 1 - Math.max(0, s.t) / KEEP_STEP, hw = KEEP_PAD / 2 - 2;
+      ctx.fillStyle = `rgba(255,214,90,${.25 + .5 * k})`; ctx.fillRect(x - hw * k, y - hw * k, hw * 2 * k, hw * 2 * k);
+      ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.strokeRect(x - hw, y - hw, hw * 2, hw * 2);
+      if (s.step + 1 < DANCE_STEPS) { const [nx, ny] = keeperTile(s, s.seq[s.step + 1]); ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,226,122,.55)'; ctx.lineWidth = 2; ctx.strokeRect(nx - hw + 4, ny - hw + 4, hw * 2 - 8, hw * 2 - 8); ctx.setLineDash([]); }
+    } else if (dance && s.step < 0) { const [x, y] = keeperTile(s, s.seq[0]); ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,226,122,.7)'; ctx.lineWidth = 2; ctx.strokeRect(x - 26, y - 26, 52, 52); ctx.setLineDash([]); }
+  }
+  function drawKeeper(s, now) {
+    const dance = s.state === 'dance';
+    const x = s.x, y = s.y, bob = Math.sin(now * (dance ? 9 : 4)) * 2, sing = .5 + .5 * Math.sin(now * (dance ? 9 : 5));
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 22, 30, 9, 0, 0, TAU); ctx.fill();
+    // body: striped vest over a round belly, arms out
+    ctx.fillStyle = '#e2b48c'; ctx.beginPath(); ctx.ellipse(x - 30, y - 6 + bob, 8, 13, -.6, 0, TAU); ctx.ellipse(x + 30, y - 6 + bob, 8, 13, .6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#7a3a2a'; ctx.beginPath(); ctx.ellipse(x, y + bob, 26, 24, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#c8a050'; ctx.lineWidth = 3; ctx.beginPath(); for (const o of [-12, 0, 12]) { ctx.moveTo(x + o, y - 20 + bob); ctx.lineTo(x + o, y + 20 + bob); } ctx.stroke();
+    // head: bald, big mustache, singing mouth
+    ctx.fillStyle = '#e8c09a'; ctx.beginPath(); ctx.arc(x, y - 32 + bob, 16, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#3a2418'; ctx.beginPath(); ctx.ellipse(x - 7, y - 28 + bob, 8, 3.5, .3, 0, TAU); ctx.ellipse(x + 7, y - 28 + bob, 8, 3.5, -.3, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5a1a1a'; ctx.beginPath(); ctx.ellipse(x, y - 21 + bob, 4, 2 + 4 * sing, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#1a1010'; ctx.beginPath(); ctx.arc(x - 6, y - 36 + bob, 2, 0, TAU); ctx.arc(x + 6, y - 36 + bob, 2, 0, TAU); ctx.fill();
+    // notes drifting up
+    ctx.fillStyle = '#ffc890'; ctx.font = '700 16px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center';
+    for (let i = 0; i < 3; i++) { const p = (now * .6 + i / 3) % 1; ctx.globalAlpha = 1 - p; ctx.fillText(i % 2 ? '♫' : '♪', x + 22 + Math.sin(p * 6 + i) * 10, y - 50 - p * 50); }
+    ctx.globalAlpha = 1;
+    if (dance) { ctx.fillStyle = '#fff4dc'; ctx.font = '800 13px Grandstander, system-ui, sans-serif'; ctx.fillText(`${s.hits} / ${Math.max(0, s.step)}`, x, y - 60); }
+  }
+  // A forgotten moth shrine: a stone pillar with a carved moth and a lamp bowl; the dashed circle is where you hold the
+  // light, the gold arc and the flame grow as it lights, and the seconds left show underneath.
+  function drawShrine(s, now) {
+    const k = Math.min(1, s.prog / SHRINE_HOLD), x = s.x, y = s.y;
+    ctx.strokeStyle = `rgba(255,236,170,${.3 + .15 * Math.sin(now * 3)})`; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
+    ctx.beginPath(); ctx.arc(x, y, SHRINE_R, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    if (k > 0) { ctx.strokeStyle = '#ffe9a0'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, SHRINE_R, -Math.PI / 2, -Math.PI / 2 + k * TAU); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 8, 34, 10, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5a5648'; ctx.fillRect(x - 26, y - 4, 52, 12); ctx.fillStyle = '#6e6a5a'; ctx.fillRect(x - 18, y - 12, 36, 10);
+    ctx.fillStyle = '#7c7866'; ctx.fillRect(x - 9, y - 50, 18, 40);
+    ctx.fillStyle = '#a29e88'; ctx.beginPath(); ctx.ellipse(x - 5, y - 32, 5, 9, .5, 0, TAU); ctx.ellipse(x + 5, y - 32, 5, 9, -.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5a5648'; ctx.beginPath(); ctx.ellipse(x, y - 52, 16, 5, 0, 0, TAU); ctx.fill();
+    if (k > 0) {
+      const h = 8 + 26 * k + Math.sin(now * 14) * 2;
+      ctx.fillStyle = `rgba(255,226,140,${.6 + .3 * k})`; ctx.beginPath(); ctx.moveTo(x - 8, y - 54); ctx.quadraticCurveTo(x, y - 54 - h * 1.4, x + 8, y - 54); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fffbe8'; ctx.beginPath(); ctx.moveTo(x - 4, y - 54); ctx.quadraticCurveTo(x, y - 54 - h * .8, x + 4, y - 54); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,240,200,.85)'; ctx.font = '700 11px Bricolage Grotesque, system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(`${Math.ceil(s.life)} s`, x, y + 28);
   }
   // The Blood Moon: a vast cracked red moon with a furious face, dripping blood, ringed by orbiting moon shards.
   function drawBloodMoon(e, now) {
@@ -23497,7 +24696,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       ctx.globalAlpha = 1;
     }
-    for (const e of foes) if (e.kind === 'eclipse' && e.blink) {
+    for (const e of foes) if ((e.kind === 'eclipse' || e.kind === 'light') && e.blink) {
       const k = 1 - e.blink.t / .6;
       ctx.strokeStyle = `rgba(255,226,140,${.4 + .5 * k})`; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(e.blink.x, e.blink.y, 30 + 60 * (1 - k), 0, TAU); ctx.stroke();
@@ -23617,6 +24816,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* Relic visuals. Glows/beams go in the additive pass (drawRelicGlow); solid actors go in the normal pass (drawRelicActors). */
   function drawRelicGlow(now) {
+    // Dance Floor: the lit half of the checkerboard, magenta and cyan on alternate beats, flaring on the beat.
+    if (run.relic && run.relic.id === 'necro' && run.relic.n) {
+      const r = run.relic, h = (r.n - 1) / 2, T = r.T, col = r.drop ? '255,120,240' : r.beat % 2 ? '60,240,220' : '255,60,200';
+      r.flash = Math.max(0, r.flash - .06);
+      ctx.fillStyle = `rgb(${col})`;
+      for (let i = -h; i <= h; i++) for (let j = -h; j <= h; j++) {
+        if (!r.drop && (r.cx + i + r.cy + j + r.beat) % 2) continue;
+        const edge = Math.max(Math.abs(i), Math.abs(j)) / (h + 1);
+        ctx.globalAlpha = (.11 + .22 * r.flash) * (1 - edge * .6);
+        ctx.fillRect((r.cx + i) * T - T / 2 + 2, (r.cy + j) * T - T / 2 + 2, T - 4, T - 4);
+      }
+      ctx.globalAlpha = 1;
+    }
     // Aurora Ribbon: shimmering green-to-violet light along the trail, brightest where it is newest; the Northern Veil
     // adds rising curtain folds above it.
     if (run.relic && run.relic.id === 'aurora' && run.relic.pts && run.relic.pts.length > 1) {
@@ -24165,6 +25377,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (zd.under) zoneCall(() => zd.under(Z));
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     } else drawGround(now);
+    if (live) drawQuestFloors(now);
     if (live && !run.zone) {
       drawTelegraphs(now);
       for (const e of foes) if (!e.dead && onScreen(e, e.r * 2)) {
@@ -24185,7 +25398,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     if (dawnK > 0 && !inZone) { ctx.fillStyle = `rgba(255,170,120,${dawnK * .16})`; ctx.fillRect(0, 0, W, H); }
     // The Blood Moon stains the sky red (deeper in its last phase).
-    if (live && run.finale && run.finale.blood) { const b = run.finale.boss; ctx.fillStyle = `rgba(150,10,30,${b.hp < b.max * .33 ? .2 : .1})`; ctx.fillRect(0, 0, W, H); }
+    if (live && run.finale && run.finale.kind === 'blood' && !run.finale.wait) { const b = run.finale.boss; ctx.fillStyle = `rgba(150,10,30,${b.hp < b.max * .33 ? .2 : .1})`; ctx.fillRect(0, 0, W, H); }
+    // The Forgotten Light bleaches the dawn (brighter in its last phase).
+    if (live && run.finale && run.finale.kind === 'light' && !run.finale.wait) { const b = run.finale.boss; ctx.fillStyle = `rgba(255,240,200,${b.hp < b.max * .33 ? .13 : .07})`; ctx.fillRect(0, 0, W, H); }
 
     world();
     if (live) { drawTraps(now); drawLamps(now); }
@@ -24198,7 +25413,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (live && run.portal) drawGlow(run.portal.def.portal, 80, run.portal.x, run.portal.y, .8);
     if (live && run.peddler && !run.zone) drawGlow('255,210,120', 70, run.peddler.x - 22, run.peddler.y - 30, .7 + .15 * Math.sin(now * 3));
     if (live) drawQuestGlow(now);
-    if (live && run.finale && run.finale.blood && onScreen(run.finale.boss, 160)) drawGlow('255,50,70', 128, run.finale.boss.x, run.finale.boss.y, .4 + .1 * Math.sin(now * 2));
+    if (live && run.finale && run.finale.kind === 'blood' && onScreen(run.finale.boss, 160)) drawGlow('255,50,70', 128, run.finale.boss.x, run.finale.boss.y, .4 + .1 * Math.sin(now * 2));
+    if (live && run.finale && run.finale.kind === 'light' && !run.finale.boss.dead && onScreen(run.finale.boss, 160)) drawGlow('255,240,190', 128, run.finale.boss.x, run.finale.boss.y - 10, (run.finale.boss.blink ? .2 : .5) + .12 * Math.sin(now * 3));
     if (inZone && run.zone.exit) drawGlow('220,230,255', 80, run.zone.exit.x, run.zone.exit.y, .8);
     if (!live) for (const a of amb) {
       a.a += rnd(-1, 1) * .05; a.x += Math.cos(a.a) * .4; a.y += Math.sin(a.a) * .4;
@@ -24401,7 +25617,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (const e of foes) {
         if (e.dead || !onScreen(e)) continue;
         if (e.def) continue;   // rift foes are drawn above the darkness, so they need no glints
-        if (e.kind === 'eclipse' || e.kind === 'snail' || e.kind === 'bloodmoon') continue;   // they draw their own eyes
+        if (e.kind === 'eclipse' || e.kind === 'snail' || e.kind === 'bloodmoon' || e.kind === 'light') continue;   // they draw their own eyes
         const s = e.r;
         let fx = e.x, fy = e.y - s * .55;
         if (e.kind === 'spider') { fx = e.x; fy = e.y - s * .55; }
@@ -24712,7 +25928,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // The night meadow first: main-map foes are drawn by drawFoe onto the game canvas, then copied into the page.
     if (!pick || pick.includes('meadow')) {
       const list = [['moth'], ['dust'], ['wasp'], ['beetle'], ['ghost'], ['mosq'], ['locust'], ['spider'], ['bomber'], ['centi'], ['brood'], ['rhino'], ['cricket'], ['snail'], ['ember'], ['beetle', 'golden beetle (elite)', true],
-        ['luna', null, false, true], ['stag', null, false, true], ['queen', null, false, true], ['eclipse', null, false, true], ['bloodmoon', null, false, true]];
+        ['luna', null, false, true], ['stag', null, false, true], ['queen', null, false, true], ['eclipse', null, false, true], ['bloodmoon', null, false, true], ['light', null, false, true]];
       const cells = list.map(([k, label, elite, boss]) => {
         const e = spawnFoe(k, P.x + 160, P.y);
         if (elite) { e.elite = true; e.r = 26; }
@@ -24790,7 +26006,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Boss arena (index.html#arena): pick a main-map boss and a build, then fight it right away. Rifts are off, and the
   // night clock starts 2 s before the boss arrives. "God mode" ignores all damage. Game over goes back to the picker.
   if (location.hash === '#arena') {
-    const BOSSES = { luna: 'Great Luna Moth (2:00)', stag: 'Stag Beetle (5:00)', queen: 'Moth Queen (8:00)', eclipse: 'Eclipse Moth (dawn)', bloodmoon: 'Blood Moon (dawn, secret)' };
+    const BOSSES = { luna: 'Great Luna Moth (2:00)', stag: 'Stag Beetle (5:00)', queen: 'Moth Queen (8:00)', eclipse: 'Eclipse Moth (dawn)', bloodmoon: 'Blood Moon (dawn, secret)', light: 'Forgotten Light (dawn, secret)' };
     // Builds: [level, weapons [id, lv, evolved], charms, relic [zone, guardians beaten] or null]
     const BUILDS = {
       luna: { typical: [15, [['bolt', 4], ['flame', 3], ['thorn', 3]], { net: 1, wings: 1 }, null],
@@ -24802,7 +26018,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       eclipse: { typical: [75, [['lance', 8, 1], ['flame', 8], ['star', 8], ['slam', 8], ['wisp', 8, 1], ['hammer', 8]], { keen: 3, ember: 3, net: 3, steady: 3, heart: 3, wax: 2 }, ['bay', 3]],
         strong: [90, [['bow', 8, 1], ['hammer', 8, 1], ['lance', 8, 1], ['nova', 8, 1], ['star', 8], ['slam', 8]], { ember: 5, keen: 5, net: 5, steady: 5, gold: 5, bell: 5 }, ['homm', 4]] },
     };
-    BUILDS.bloodmoon = BUILDS.eclipse;
+    BUILDS.bloodmoon = BUILDS.light = BUILDS.eclipse;
     let pick = { boss: 'luna', build: 'typical', god: false };
     const panel = document.createElement('div'); panel.className = 'arena';
     const btns = (key, opts) => `<div class="arow">${Object.entries(opts).map(([k, v]) => `<button class="btn ghost${pick[key] === k ? ' sel' : ''}" data-${key}="${k}">${v}</button>`).join('')}</div>`;
@@ -24822,7 +26038,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       run.passives = { ...pas }; recalc(); run.hp = S.maxHp; run.god = pick.god;
       if (relic) { run.relic = newRelic(relic[0]); run.minis = relic[1]; }
       run.portalT = 1e9;
-      if (pick.boss === 'eclipse' || pick.boss === 'bloodmoon') { run.t = DAWN - 2; run.ev = EVENTS.length; run.quest.moon = pick.boss === 'bloodmoon' ? 'blood' : 'eclipse'; }
+      if (pick.boss === 'eclipse' || pick.boss === 'bloodmoon' || pick.boss === 'light') { run.t = DAWN - 2; run.ev = EVENTS.length; run.quest.arenaFirst = { bloodmoon: 'blood', light: 'light' }[pick.boss]; }
       else { const i = EVENTS.findIndex(ev => ev.kind === 'boss' && ev.boss === pick.boss); run.t = EVENTS[i].t - 2; run.ev = i; }
       resume(); renderLoadout();
       banner(`Arena: ${BOSSES[pick.boss]} · ${pick.build} build${pick.god ? ' · god mode' : ''}`, '#ffe27a');
@@ -24913,6 +26129,21 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const now = performance.now();
       box.innerHTML = '<div style="color:#ffe27a;margin-bottom:2px">Sound log</div>' + log.map(l => `<div style="opacity:${Math.max(.35, 1 - (now - l.t) / 4000)}">${l.name} <span style="color:#9aa3c2">${((now - l.t) / 1000).toFixed(1)} s ago</span></div>`).join('');
     }, 150);
+  }
+  // Dance practice (index.html#dance): an unranked game where you can't die and the Crooning Keeper waits in the meadow
+  // near you. He comes back a few seconds after each win, so the dance-off can be tried again and again.
+  if (location.hash === '#dance') {
+    let back = 0;
+    setInterval(() => {
+      if (!run || state !== 'play' || run.zone) return;
+      run.god = true; run.portalT = 1e9;
+      const q = run.quest;
+      if (q.home.some(s => s.kind === 'keeper')) { back = 0; return; }
+      if ((back += .25) < (q.danced ? 3 : .5)) return;
+      q.danced = false; back = 0;
+      q.home.push({ kind: 'keeper', x: P.x + 40, y: P.y - 230, state: 'idle' });
+      banner('Practice: talk to the Crooning Keeper to start a dance-off', '#ffc890', true);
+    }, 250);
   }
   showBest();
   requestAnimationFrame(frame);
