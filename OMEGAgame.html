@@ -20520,6 +20520,28 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const spawnR = () => Math.hypot(W, H) / 2 + 50;
   const d2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
   const onScreen = (e, m = 20) => Math.abs(e.x - cam.x) < W / 2 + m && Math.abs(e.y - cam.y) < H / 2 + m;
+  // Edge arrows live in a box below the HUD (clock, rift name, boss bar, buttons) and above the build bar, so they
+  // can't slide under them (they used to sit 74 px from the top and 28 px from the side, right under the pause
+  // button and the boss bar). The box is measured from the page twice a second, in world units.
+  let arrowBox = null, arrowBoxT = -1e9;
+  function arrowRect() {
+    const now = performance.now();
+    if (!arrowBox || now - arrowBoxT > 500) {
+      arrowBoxT = now; let top = 0, bot = innerHeight;
+      for (const el of document.querySelectorAll('#hudrow > *, #bossBox')) { if (el.hidden || !el.offsetWidth) continue; top = Math.max(top, el.getBoundingClientRect().bottom); }
+      const lo = $('loadout'); if (lo && lo.offsetHeight && !lo.hidden) bot = Math.min(bot, lo.getBoundingClientRect().top);
+      arrowBox = { l: 26, r: W - 26, t: Math.min(H * .4, top / zoom + 24), b: Math.max(H * .6, bot / zoom - 24) };
+    }
+    return arrowBox;
+  }
+  // Is a world point inside that box? Otherwise it gets an edge arrow.
+  function inArrowBox(o) { const R = arrowRect(), x = o.x - cam.x + W / 2, y = o.y - cam.y + H / 2; return x > R.l && x < R.r && y > R.t && y < R.b; }
+  // Where the arrow toward angle a goes: along the ray from the hero to the edge of the box.
+  function edgeAt(a) {
+    const R = arrowRect(), ox = Math.max(R.l, Math.min(R.r, P.x - cam.x + W / 2)), oy = Math.max(R.t, Math.min(R.b, P.y - cam.y + H / 2)), c = Math.cos(a), sn = Math.sin(a);
+    const t = Math.min(c > 1e-6 ? (R.r - ox) / c : c < -1e-6 ? (R.l - ox) / c : Infinity, sn > 1e-6 ? (R.b - oy) / sn : sn < -1e-6 ? (R.t - oy) / sn : Infinity);
+    return [ox + c * t, oy + sn * t];
+  }
 
   function spawnFoe(kind, x, y) {
     const zd = run.zone ? (kind === 'boss' ? run.zone.def.boss : run.zone.def.foes[kind]) : null;
@@ -22063,7 +22085,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      - Moon shards (main-map bosses): beat each within SHARD_T[boss] s of its arrival; three shards call the Blood Moon.
        Timed on autopilot (fresh runs, god mode) with the boss arena's "strong" builds, which made them in
        17.7 / 34.9 / 31.2 s; the "typical" builds don't come close. */
-  const LEG_CHANCE = .5, DOLL_CHANCE = .5, KNIGHT_CHANCE = .5, ORACLE_CHANCE = .6, GRUB_CHANCE = .5, FLY_CHANCE = .8, ANGEL_CHANCE = .6;
+  const LEG_CHANCE = .5, DOLL_CHANCE = .5, KNIGHT_CHANCE = .5, ORACLE_CHANCE = .6, GRUB_CHANCE = .5, FLY_CHANCE = 1, ANGEL_CHANCE = .6;
   const JAR_FULL = 5, SHARD_T = { luna: 24, stag: 45, queen: 40 }, SHARD_BOSSES = Object.keys(SHARD_T);
   const peddlerAhead = () => !!run.peddler || EVENTS.slice(run.ev).some(e => e.kind === 'peddler');
   const bossAhead = () => EVENTS.slice(run.ev).some(e => e.kind === 'boss');
@@ -23276,7 +23298,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const best = {};
     for (const s of questSpots()) {
       const D = SPOTS[s.kind];
-      if (!D.arrow || onScreen(s, -10) || (D.arrowIf && !D.arrowIf(s))) continue;
+      if (!D.arrow || inArrowBox(s) || (D.arrowIf && !D.arrowIf(s))) continue;
       if (D.nearest) { if (best[s.kind] && best[s.kind].d <= s.d) continue; best[s.kind] = s; continue; }
       questArrow(s, D.arrow);
     }
@@ -23284,9 +23306,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   function questArrow(s, [bg, fg]) {
     const a = Math.atan2(s.y - P.y, s.x - P.x);
-    const cx = Math.max(28, Math.min(W - 28, W / 2 + Math.cos(a) * (W / 2 - 38))), cy = Math.max(74, Math.min(H - 54, H / 2 + Math.sin(a) * (H / 2 - 38)));
+    const [cx, cy] = edgeAt(a);
     ctx.save(); ctx.translate(cx, cy);
-    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); ctx.fill();
+    // a light rim so the dark disc still shows on dark rift floors
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); ctx.fill(); ctx.strokeStyle = fg; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill();
     ctx.rotate(a); ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(12, -7); ctx.lineTo(12, 7); ctx.fill();
     ctx.restore();
@@ -24438,9 +24461,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       // When you're below half health, point toward the nearest honey that is off screen (within ~2 screens).
       if (run.hp < S.maxHp * .5) {
         let hn = null, hd = (Math.max(W, H) * 1.6) ** 2;
-        for (const m of motes) if (m.kind === 'heal' && !onScreen(m, -10)) { const d = d2(m, P); if (d < hd) { hd = d; hn = m; } }
+        for (const m of motes) if (m.kind === 'heal' && !inArrowBox(m)) { const d = d2(m, P); if (d < hd) { hd = d; hn = m; } }
         if (hn) {
-          const a = Math.atan2(hn.y - P.y, hn.x - P.x), cx = Math.max(24, Math.min(W - 24, W / 2 + Math.cos(a) * (W / 2 - 34))), cy = Math.max(70, Math.min(H - 50, H / 2 + Math.sin(a) * (H / 2 - 34)));
+          const a = Math.atan2(hn.y - P.y, hn.x - P.x), [cx, cy] = edgeAt(a);
           ctx.save(); ctx.translate(cx, cy); ctx.globalAlpha = .75 + .25 * Math.sin(now * 8);
           ctx.fillStyle = '#ff5a78'; ctx.beginPath(); ctx.arc(-3.5, -2, 4.5, Math.PI, 0); ctx.arc(3.5, -2, 4.5, Math.PI, 0); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill();
           ctx.rotate(a); ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(11, -5); ctx.lineTo(11, 5); ctx.fill();
@@ -24449,18 +24472,17 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       // Point toward any chest that is off screen.
       for (const m of motes) {
-        if (m.kind !== 'chest' || onScreen(m, -10)) continue;
+        if (m.kind !== 'chest' || inArrowBox(m)) continue;
         const a = Math.atan2(m.y - P.y, m.x - P.x);
-        const ex = W / 2 + Math.cos(a) * (W / 2 - 34), ey = H / 2 + Math.sin(a) * (H / 2 - 34);
-        const cx = Math.max(24, Math.min(W - 24, ex)), cy = Math.max(70, Math.min(H - 50, ey));
+        const [cx, cy] = edgeAt(a);
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
         ctx.fillStyle = '#ffb33b'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -9); ctx.lineTo(-8, 9); ctx.fill();
         ctx.restore();
       }
       // Point toward the peddler (gold, with a coin).
-      if (run.peddler && !run.zone && !onScreen(run.peddler, -10)) {
+      if (run.peddler && !run.zone && !inArrowBox(run.peddler)) {
         const pd = run.peddler, a = Math.atan2(pd.y - P.y, pd.x - P.x);
-        const cx = Math.max(28, Math.min(W - 28, W / 2 + Math.cos(a) * (W / 2 - 38))), cy = Math.max(74, Math.min(H - 54, H / 2 + Math.sin(a) * (H / 2 - 38)));
+        const [cx, cy] = edgeAt(a);
         ctx.save(); ctx.translate(cx, cy);
         ctx.fillStyle = '#ffcf4a'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill(); ctx.strokeStyle = '#a87410'; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = '#a87410'; ctx.fillRect(-1, -4, 2, 8);
@@ -24471,9 +24493,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       drawQuestArrows();
       // Point toward an open rift or the way home.
       const goal = run.zone ? run.zone.exit && { x: run.zone.exit.x, y: run.zone.exit.y, col: '#e6ecff' } : run.portal && { x: run.portal.x, y: run.portal.y, col: `rgb(${run.portal.def.portal})` };
-      if (goal && !onScreen(goal, -10)) {
+      if (goal && !inArrowBox(goal)) {
         const a = Math.atan2(goal.y - P.y, goal.x - P.x);
-        const cx = Math.max(24, Math.min(W - 24, W / 2 + Math.cos(a) * (W / 2 - 34))), cy = Math.max(70, Math.min(H - 50, H / 2 + Math.sin(a) * (H / 2 - 34)));
+        const [cx, cy] = edgeAt(a);
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
         ctx.fillStyle = goal.col; ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-9, -11); ctx.lineTo(-4, 0); ctx.lineTo(-9, 11); ctx.fill();
         ctx.restore();
@@ -24880,7 +24902,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   // Sound log (index.html#soundlog): a normal (unranked) game with a corner list naming each sound effect as it plays,
-  // newest on top, for tracking down a sound by ear. hmmGE
+  // newest on top, for tracking down a sound by ear.
   if (location.hash === '#soundlog') {
     const box = document.createElement('div');
     box.style.cssText = 'position:fixed;left:8px;top:120px;z-index:9;pointer-events:none;font:600 13px/1.35 system-ui,sans-serif;color:#e8ecf6;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:8px;min-width:120px';
