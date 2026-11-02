@@ -168,6 +168,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .lblist li.blood { background: rgba(150, 10, 30, .28); box-shadow: 0 0 0 1px rgba(255, 90, 110, .8) inset, 0 0 14px rgba(255, 60, 90, .25); }
 .lblist li.blood .vl { color: #ff8a9a; }
 .lblist li.blood.me { box-shadow: 0 0 0 2px rgba(255, 226, 122, .6) inset, 0 0 14px rgba(255, 60, 90, .3); }
+.lblist li.click { cursor: pointer; }
+.lblist li.click:hover, .lblist li.click:focus-visible { background: rgba(255, 255, 255, .09); outline: none; }
+.lblist li.lbdetail { display: block; padding: 8px 10px 10px; background: rgba(255, 255, 255, .06); font-size: 13px; }
+.lbdetail h4 { margin: 6px 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.lbdetail h4:first-child { margin-top: 0; }
+.lbchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.lbdetail .dmgstats { max-width: none; gap: 4px; font-size: 12px; }
+.lbdetail .lbnone { color: var(--muted); }
 .lblist li.light { background: rgba(255, 236, 180, .14); box-shadow: 0 0 0 1px rgba(255, 244, 210, .85) inset, 0 0 14px rgba(255, 236, 170, .3); }
 .lblist li.light .vl { color: #fff3c4; }
 .lblist li.light.me { box-shadow: 0 0 0 2px rgba(255, 226, 122, .7) inset, 0 0 14px rgba(255, 236, 170, .35); }
@@ -861,12 +869,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      - hp(m): extra × on regular foe HP (meadow and rifts) after m minutes of night.
      - boss: × on a main-map or dawn boss's HP, by kind (the weapon nerf alone made them 2.5–3× slower to kill and
        left the Eclipse Moth unbeatable). guardian: × on rift guardian HP.
-     - xp: × on all glow gained. */
+     - xp: × on all glow gained.
+     - near: × on damage from the short-range weapons (every level and the evolution), which have to be used in the
+       middle of the swarm. Measured at Lv 8 with no charms, they dealt 100–630 damage/s in a 40-foe crowd and 6–60 to a
+       single target, against ~600 (crowd) and ~70 (single) for a typical long-range weapon. */
   const HARD = {
     wLv: [1, 1, .9, .8, .7, .62, .55, .48, .42], evo: .65,
     relic: [1, 1, 1.15, 1.3, 1.6],
     hp: m => 1 + .03 * m, boss: { stag: .75, queen: .7, eclipse: 62000 / 110000, bloodmoon: 80000 / 160000, light: 80000 / 160000 }, guardian: 1,
     xp: 1.25,
+    near: { swarm: 4, flame: 3, frost: 3, nova: 2.5, wail: 3, pulse: 1.8, slam: 1.5, dew2: 2 },
   };
   function wstat(id, lv, evo) {
     const st = baseStat(id, Math.min(lv, 6), evo), k = Math.max(0, lv - 6);
@@ -21079,12 +21091,15 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     state = 'chest'; joy = null; run.chests++; snd.muffle(true);
     const loot = [];
     const evos = Object.entries(run.weapons).filter(([id, w]) => !w.evo && w.lv >= EVO_LV && pv(WEAPONS[id].evo));
+    // Bonus prizes from Four-Leaf Clover (Lv 3+) and Lucky Horseshoe; an evolution chest gives these on top of the evolution.
+    const bonus = (pv('clover') >= 3 ? 1 : 0) + (Math.random() < S.find ? 1 : 0);
     if (evos.length) {
       const [id, w] = evos[0];
       w.evo = true; w.bats = [];
       loot.push({ evo: true, name: WEAPONS[id].evoName, desc: `${WEAPONS[id].name} evolved. ${WEAPONS[id].evoDesc}` });
-    } else {
-      const n = (boss ? (Math.random() < .3 ? 5 : 3) : (Math.random() < .25 ? 3 : 1)) + (pv('clover') >= 3 ? 1 : 0) + (Math.random() < S.find ? 1 : 0);
+    }
+    {
+      const n = evos.length ? bonus : (boss ? (Math.random() < .3 ? 5 : 3) : (Math.random() < .25 ? 3 : 1)) + bonus;
       for (let i = 0; i < n; i++) {
         const [o] = sample(choicePool(), 1);
         if (!o) break;
@@ -21240,7 +21255,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const lbStore = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
   let lastScore = null;
   function scoreOf(how) {
-    const build = { w: Object.fromEntries(Object.entries(run.weapons).map(([id, w]) => [id, [w.lv, w.evo ? 1 : 0]])), p: run.passives };
+    // The build kept with a run (shown when its leaderboard row is opened): weapons [lv, evolved], charms, relic
+    // [id, guardians beaten], damage per source (top 16) and quest results.
+    const q = run.quest, quests = Object.fromEntries(Object.entries({ voc: q.voc, groove: q.groove ? 1 : 0, shards: q.shards, shrines: q.shrines, jar: q.jar, mask: q.mask ? 1 : 0 }).filter(([, v]) => v));
+    const build = { w: Object.fromEntries(Object.entries(run.weapons).map(([id, w]) => [id, [w.lv, w.evo ? 1 : 0]])), p: run.passives,
+      r: run.relic ? [run.relic.id, run.minis] : null,
+      d: Object.fromEntries(Object.entries(run.dmgBy || {}).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([k, v]) => [k, Math.round(v)])),
+      q: quests };
     // Every run that banished the Eclipse Moth counts; a secret win ranks above them (secret_end: 1 = Blood Moon, 2 = the
     // Forgotten Light) and its time is the secret fight alone. A lost secret fight keeps the Eclipse time.
     const f = run.finale, ban = ['perfect', 'blood', 'light', 'bloodfled', 'lightfled'].includes(how), secret = how === 'blood' || how === 'light';
@@ -21325,6 +21346,55 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const vs = r.seasons.map(x => x.version).filter(v => v !== GAME_VERSION);
     lbSeasons = [GAME_VERSION, ...vs]; paintSeason();
   }
+  // A leaderboard row's details from its stored build. Anyone can submit a run, so only ids found in WEAPONS, PASSIVES,
+  // RELICS and VOCS are shown (by their names from those tables) and every other value goes through Number().
+  function boardDetail(b, row) {
+    const num = v => Math.max(0, Math.floor(Number(v) || 0)), out = [];
+    const rid = Array.isArray(b.r) && RELICS[b.r[0]] ? b.r[0] : RELICS[row.relic] ? row.relic : null, minis = Array.isArray(b.r) ? num(b.r[1]) : 0, mega = rid && minis >= RELIC_MEGA;
+    const ch = [];
+    if (rid) ch.push(`<span class="chip relic">${mega ? RELICS[rid].mega : RELICS[rid].name}${Array.isArray(b.r) ? ` <b>${mega ? 'MEGA' : 'Lv ' + Math.max(1, Math.min(3, minis))}</b>` : ''}</span>`);
+    for (const [id, v] of Object.entries(b.w || {})) if (WEAPONS[id] && Array.isArray(v)) ch.push(`<span class="chip ${v[1] ? 'evo' : 'w'}">${v[1] ? WEAPONS[id].evoName : WEAPONS[id].name} <b>${num(v[0])}</b></span>`);
+    for (const [id, k] of Object.entries(b.p || {})) if (PASSIVES[id]) ch.push(`<span class="chip">${PASSIVES[id].name}${PASSIVES[id].max > 1 ? ` <b>${num(k)}</b>` : ''}</span>`);
+    out.push('<h4>Build</h4>' + (ch.length ? `<div class="lbchips">${ch.join('')}</div>` : '<div class="lbnone">Not recorded for this run.</div>'));
+    const q = b.q && typeof b.q === 'object' ? b.q : {}, qc = [];
+    if (VOCS[q.voc]) qc.push(VOCS[q.voc].name);
+    if (q.groove) qc.push('Groove');
+    if (num(q.shards)) qc.push(`Moon Shards ${Math.min(3, num(q.shards))}/3`);
+    if (num(q.shrines)) qc.push(`Moth Shrines ${Math.min(3, num(q.shrines))}/3`);
+    if (num(q.jar)) qc.push(`Firefly Jar ${Math.min(JAR_FULL, num(q.jar))}/${JAR_FULL}`);
+    if (q.mask) qc.push('Mask Shard');
+    if (b.q) out.push('<h4>Quests</h4>' + (qc.length ? `<div class="lbchips">${qc.map(t => `<span class="chip quest">${t}</span>`).join('')}</div>` : '<div class="lbnone">None this run.</div>'));
+    const nameOf = k => k.startsWith('r:') ? (RELICS[k.slice(2)] ? (k.slice(2) === rid && mega ? RELICS[rid].mega : RELICS[k.slice(2)].name) : null)
+      : k.startsWith('p:') ? (PASSIVES[k.slice(2)] ? PASSIVES[k.slice(2)].name : null)
+      : WEAPONS[k] ? (b.w && Array.isArray(b.w[k]) && b.w[k][1] ? WEAPONS[k].evoName : WEAPONS[k].name)
+      : k === 'q:sun' ? 'Sun Knight' : k === 'zone' ? 'Explosions' : null;
+    const rows = Object.entries(b.d && typeof b.d === 'object' ? b.d : {}).map(([k, v]) => [k, nameOf(k), num(v)]).filter(([, n, v]) => n && v).sort((a, c) => c[2] - a[2]);
+    if (rows.length) {
+      const tot = rows.reduce((a, r) => a + r[2], 0), top = rows[0][2];
+      out.push('<h4>Damage</h4><div class="dmgstats">' + rows.map(([k, n, v]) => {
+        const cls = k.startsWith('r:') ? 'relic' : k.startsWith('p:') ? 'charm' : WEAPONS[k] ? (b.w && Array.isArray(b.w[k]) && b.w[k][1] ? 'evo' : 'w') : 'misc';
+        return `<div class="drow ${cls}"><span class="dname">${n}</span><span class="dbar"><i style="width:${(v / top * 100).toFixed(1)}%"></i></span><b>${v.toLocaleString()}</b><span class="dpct">${Math.round(v / tot * 100)}%</span></div>`;
+      }).join('') + '</div>');
+    } else out.push('<h4>Damage</h4><div class="lbnone">Damage breakdown not recorded for this run.</div>');
+    return out.join('');
+  }
+  // Clicking a row opens its details under it (and closes any other); online rows fetch their build once.
+  const runCache = new Map();
+  async function toggleDetail(li, r) {
+    const open = li.nextElementSibling && li.nextElementSibling.classList.contains('lbdetail');
+    for (const d of document.querySelectorAll('#lbList .lbdetail')) d.remove();
+    if (open) return;
+    const box = document.createElement('li'); box.className = 'lbdetail'; box.textContent = 'Loading…'; li.after(box);
+    try {
+      let full = r;
+      if (!r.build && LB_URL && r.id != null) {
+        if (!runCache.has(r.id)) runCache.set(r.id, lbFetch(`/run?id=${encodeURIComponent(r.id)}`).then(j => j.run));
+        full = await runCache.get(r.id);
+      }
+      let b = {}; try { b = JSON.parse(full && full.build || '{}') || {}; } catch {}
+      box.innerHTML = boardDetail(b, full || r);
+    } catch { runCache.delete(r.id); box.textContent = 'Could not load this run.'; }
+  }
   async function renderBoards() {
     paintSeason();
     $('lbTabs').innerHTML = '';
@@ -21345,6 +21415,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (tier) sm.textContent = [tier === 'light' ? 'Forgotten Light' : 'Blood Moon', sm.textContent].filter(Boolean).join(' · ');
         const vl = document.createElement('span'); vl.className = 'vl'; vl.textContent = (tier === 'light' ? '✦ ' : tier ? '☾ ' : '') + b.fmt(r[b.key]);
         li.append(rk, nm, vl); ol.appendChild(li);
+        li.classList.add('click'); li.tabIndex = 0; li.title = 'Show build';
+        li.onclick = () => toggleDetail(li, r);
+        li.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleDetail(li, r); } };
       });
     };
     $('lbMe').textContent = '';
@@ -21584,7 +21657,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function hit(e, dmg, kb, sx, sy) {
     if (e.dead || e.blink) return;
     let crit = false;
-    if (dmg > 0) { const w = run.weapons[dsrc]; if (w) dmg *= HARD.wLv[Math.min(w.lv, 8)] * (w.evo ? HARD.evo : 1); }
+    if (dmg > 0) { const w = run.weapons[dsrc]; if (w) dmg *= HARD.wLv[Math.min(w.lv, 8)] * (w.evo ? HARD.evo : 1) * (HARD.near[dsrc] || 1); }
     if (dmg > 0 && e.markT > run.clock) dmg *= 1.25;
     if (dmg > 0 && run.finale && e === run.finale.boss && jarFull()) dmg *= 1.25;   // a full firefly jar lights the finale
     if (dmg > 0 && S.brute && (e.heavy || e.boss || e.elite)) dmg *= 1 + S.brute;
@@ -21604,6 +21677,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   function kill(e) {
     e.dead = true; run.kills++;
+    // A cricket that dies before it lands takes its landing ring with it.
+    if (e.land && e.land.t > 0) { const i = hazards.indexOf(e.land); if (i >= 0) hazards.splice(i, 1); }
     if (pv('bell') && (run.bellKills = (run.bellKills || 0) + 1) >= 34 - 4 * pv('bell')) { run.bellKills = 0; withSrc('p:bell', ringBell); }
     if (e.def && e.def.death) zoneCall(() => e.def.death(e, Z));
     snd.fx(e.boss ? 'bossdown' : e.elite ? 'chestdrop' : 'kill');
@@ -22183,13 +22258,18 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const taken = new Set();
         for (const b of w.bats) {
           b.cd -= dt;
-          if (!b.tgt || b.tgt.dead || d2(b.tgt, P) > 520 * 520 || taken.has(b.tgt)) {
+          // Each bat prefers a moth no other bat is on; when there are fewer moths than bats (a lone boss) they share.
+          const lone = b.tgt && taken.has(b.tgt) && !foes.some(e => !e.dead && !taken.has(e) && d2(e, P) <= 450 * 450);
+          if (!b.tgt || b.tgt.dead || d2(b.tgt, P) > 520 * 520 || (taken.has(b.tgt) && !lone)) {
             b.tgt = null;
-            let bd = 1e12;
+            let bd = 1e12, shared = null, sd = 1e12;
             for (const e of foes) {
-              if (e.dead || taken.has(e) || d2(e, P) > 450 * 450) continue;
-              const d = d2(e, b); if (d < bd) { bd = d; b.tgt = e; }
+              if (e.dead || d2(e, P) > 450 * 450) continue;
+              const d = d2(e, b);
+              if (!taken.has(e)) { if (d < bd) { bd = d; b.tgt = e; } }
+              else if (d < sd) { sd = d; shared = e; }
             }
+            if (!b.tgt) b.tgt = shared;
           }
           if (b.tgt) taken.add(b.tgt);
           const now = run.clock + b.ph;
@@ -23639,7 +23719,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
             ux = e.jx - e.lx; uy = e.jy - e.ly;
             if (e.mt <= 0) { e.mode = 'walk'; e.mt = rnd(1.8, 2.8); e.air = false; e.lift = 0; }
           }
-          else if (e.mt <= 0 && d < 300) { e.mode = 'crouch'; e.mt = .45; e.jx = P.x; e.jy = P.y; strikeAt(P.x, P.y, 52, 22, 1, '170,230,90', e); }
+          else if (e.mt <= 0 && d < 300) { e.mode = 'crouch'; e.mt = .45; e.jx = P.x; e.jy = P.y; strikeAt(P.x, P.y, 52, 22, 1, '170,230,90', e); e.land = hazards[hazards.length - 1]; }
         } else if (e.kind === 'snail' || e.kind === 'ember') {
           // Slow and tanky; it leaves its ground behind it as it crawls.
           e.t1 -= dt;
