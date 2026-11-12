@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Aamunkoittoon: Repeämät</title>
+<title>Aamunkoi: Maailmat</title>
 <style>
 /* Fonts are embedded (Latin subset, variable weight) so the game makes no network requests.
    Grandstander (c) The Grandstander Project Authors; Bricolage Grotesque (c) The Bricolage Grotesque Project Authors.
@@ -240,9 +240,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 <div class="overlay" id="title">
   <div class="card">
-    <span class="eyebrow">Tulikärpäspurkki · Repeämät</span>
-    <h1>Aamunkoittoon</h1>
-    <p>Olet Hexel, pieni elävän valon kuusikulmio, ja jokainen yön yöperhonen havittelee sinua. Tulikärpäsesi taistelevat itsestään. Kerää yöperhosten jättämä hehku noustaksesi tasoja ja selviydy kymmenen minuuttia auringonnousuun asti. Matkalla kimppuusi käy kolme pomoa, ja aamunkoitteessa nousee viimeinen varjo. Yöhön repeää repeämiä: astu läpi outoihin maailmoihin, voita niiden vartija ja palaa vahvempana.</p>
+    <span class="eyebrow">Tulikärpäspurkki · Maailmat</span>
+    <h1>Aamunkoi</h1>
+    <p>Olet Hexel, pieni elävän valon kuusikulmio, ja jokainen yön yöperhonen havittelee sinua. Tulikärpäsesi taistelevat itsestään. Kerää yöperhosten jättämä hehku noustaksesi tasoja ja selviydy kymmenen minuuttia auringonnousuun asti. Matkalla kimppuusi käy kolme pomoa, ja aamunkoitteessa nousee viimeinen varjo. Yöhön aukeaa portteja outoihin maailmoihin: astu läpi, voita niiden vartija ja palaa vahvempana.</p>
     <div class="legend">
       <span><i class="dot y"></i>Hehku: kokemusta</span>
       <span><i class="dot g"></i>Arkku: ilmaisia parannuksia</span>
@@ -876,7 +876,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Vahinko +20 %, istuttaa nopeammin', 'Vahinko +21 %, isompi puhkeaminen, istuttaa nopeammin, +1 lakki kentällä', '+1 lakki per istutus, vahinko +17 %, istuttaa nopeammin, +1 lakki kentällä', 'Vahinko +18 %, isompi puhkeaminen ja pilvi, istuttaa nopeammin, +1 lakki kentällä', 'Vahinko +19 %, isompi pilvi, itiöt kestävät pidempään, istuttaa nopeammin, +1 lakki kentällä'] },
     wail: { name: 'Banshee-lyhty', desc: 'Lyhty, jossa asuu valittava henki. Muutaman sekunnin välein sen valitus vyöryy viuhkana ja kauhistuttaa tavoittamansa perhoset: ne pakenevat sinua ja hiipuvat mennessään.', evo: 'veil', evoName: 'Valittava huntu', evoDesc: 'Valitus kaikuu joka puolellasi. Kauhistuneet perhoset, jotka törmäävät toisiinsa, ottavat rajusti vahinkoa, ja pomot hidastuvat.',
       up: ['Vahinko +25 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +20 %, nopeampi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +17 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +21 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +18 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään'] },
-    frost: { name: 'Kuunhalla', desc: 'Halaviuhka takanasi viilentää ja hidastaa kaikkea, mikä jahtaa sinua.', evo: 'dusk', evoName: 'Absoluuttinen nolla', evoDesc: 'Täysi lumimyrskyrengas, joka jäädyttää perhoset kohmeeseen.',
+    frost: { name: 'Kuunhalla', desc: 'Hallaviuhka takanasi viilentää ja hidastaa kaikkea, mikä jahtaa sinua.', evo: 'dusk', evoName: 'Absoluuttinen nolla', evoDesc: 'Täysi lumimyrskyrengas, joka jäädyttää perhoset kohmeeseen.',
       up: ['Vahinko +20 %, ulottuu pidemmälle, viilentää pidempään', 'Vahinko +25 %, nopeampi', 'Vahinko +20 %, leveämpi, nopeampi', 'Vahinko +22 %, leveämpi, nopeampi', 'Vahinko +18 %, leveämpi, ulottuu pidemmälle'] },
   };
   // Weapons level to 8 (levels 7–8 are generic power steps); evolution needs level 6 plus the paired charm.
@@ -7478,7 +7478,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     };
 
     return {
-      id: 'lol', name: 'Repeämäkaista', nod: 'League of Legends', portal: '90,170,255', bg: '#3d6a58', dark: .3, dim: .12, target: 1,
+      id: 'lol', name: 'Maailmankaista', nod: 'League of Legends', portal: '90,170,255', bg: '#3d6a58', dark: .3, dim: .12, target: 1,
 
       // Static, cached floor (no animation here).
       ground(Z, x0, y0, x1, y1) {
@@ -7856,7 +7856,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
       // Miniboss: a colossal pit-serpent that coils up from beneath the river.
       boss: { name: "Vharoth'Zul, syvyyksien kiemura", hp: 3800, sp: 52, dmg: 24, xp: 0, r: 48, heavy: true, eye: '#d8ff4a',
-        init(e, Z) { e.tr = []; e.q = []; e.pi = 0; e.cd = 2; e.wind = 0; e.act = ''; e.open = 0; e.enr = false; Z.banner("Vharoth'Zul nousee repeämästä!", '#c07aff', true); Z.shake(8); },
+        init(e, Z) { e.tr = []; e.q = []; e.pi = 0; e.cd = 2; e.wind = 0; e.act = ''; e.open = 0; e.enr = false; Z.banner("Vharoth'Zul nousee maailmojen välistä!", '#c07aff', true); Z.shake(8); },
         update(e, Z) {
           if (!e.enr && e.hp < e.max * .4) { e.enr = true; Z.banner("Vharoth'Zul RAIVOSTUU!", '#ff4fa0', true); Z.sfx('boss'); Z.shake(14); e.cd = Math.min(e.cd, .8); }
           runQueue(e, Z);
@@ -22723,7 +22723,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       zoneDefOv = d; try { ev.run(Z2); } finally { zoneDefOv = null; }
     };
     return {
-      id: 'chaos', chaos: true, name: 'Kaaosrepeämä', nod: 'kaikki repeämät kerralla', portal: '220,110,255', bg: '#140c1e', dark: .66, target: 1,
+      id: 'chaos', chaos: true, name: 'Kaaosmaailma', nod: 'kaikki maailmat kerralla', portal: '220,110,255', bg: '#140c1e', dark: .66, target: 1,
       foes, mix, music,
       events: [12, 28, 40, 62, 84, 104, 122, 138].map(t => ({ t, run: surge })),
       ground(Zz, x0, y0, x1, y1) {
@@ -22970,7 +22970,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
     if (run.relic) {
       const left = RELIC_MEGA - run.minis;
-      loot.push({ relic: true, name: `Reliikin voima: ${relicLabel()}`, desc: left > 0 ? `Voita vielä ${left} repeämän vartija${left === 1 ? '' : 'a'}, niin ${RELICS[run.relic.id].mega} herää.` : RELICS[run.relic.id].megaDesc });
+      loot.push({ relic: true, name: `Reliikin voima: ${relicLabel()}`, desc: left > 0 ? `Voita vielä ${left} maailman vartija${left === 1 ? '' : 'a'}, niin ${RELICS[run.relic.id].mega} herää.` : RELICS[run.relic.id].megaDesc });
     }
     pendingRelic = relicChoice;
     $('relicRow').hidden = !relicChoice; $('chestOk').hidden = !!relicChoice;
@@ -23025,7 +23025,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const setText = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
   function updateHud() {
     setText('clock', fmt(run.finale ? FINALE_TIME - run.finale.t : run.zone ? ZONE_DUR - run.zone.t : DAWN - run.t));
-    setText('clockLbl', run.finale ? finaleGoal() : run.zone ? `${run.zone.def.name}: repeämä sulkeutuu` : 'aamunkoittoon');
+    setText('clockLbl', run.finale ? finaleGoal() : run.zone ? `${run.zone.def.name}: maailma sulkeutuu` : 'aamunkoittoon');
     setText('kills', String(run.kills));
     setText('lvl', `Taso ${run.lv}`);
     setText('hpTxt', `${Math.ceil(run.hp)} / ${S.maxHp}`);
@@ -23329,7 +23329,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       snd.fx('evolve');
     }
     $('finalTime').textContent = fmt(t);
-    $('tally').innerHTML = `<span>Taso <b>${run.lv}</b></span><span>Perhoset <b>${run.kills}</b></span><span>Pomot <b>${run.bosses}</b></span><span>Repeämät <b>${run.rifts}</b></span><span>Vartijat <b>${run.minis}</b></span><span>Vahinko <b>${Math.round(run.dmg).toLocaleString('fi-FI')}</b></span>`;
+    $('tally').innerHTML = `<span>Taso <b>${run.lv}</b></span><span>Perhoset <b>${run.kills}</b></span><span>Pomot <b>${run.bosses}</b></span><span>Maailmat <b>${run.rifts}</b></span><span>Vartijat <b>${run.minis}</b></span><span>Vahinko <b>${Math.round(run.dmg).toLocaleString('fi-FI')}</b></span>`;
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
     lbOnOver(how);
@@ -23483,7 +23483,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (typeof src === 'string') return src;
     const e = src || (run.boss && !run.boss.dead ? run.boss : null);
     if (!e) return run.zone ? 'vaarat – ' + run.zone.def.name : 'parvi';
-    if (e.def) return e.boss ? e.def.name : 'olennot – ' + (run.zone ? run.zone.def.name : 'repeämä');
+    if (e.def) return e.boss ? e.def.name : 'olennot – ' + (run.zone ? run.zone.def.name : 'maailma');
     if (e.elite) return 'kultakuoriainen';
     return e.boss ? FOES[e.kind].name : FOE_LABEL[e.kind] || 'parvi';
   }
@@ -24500,7 +24500,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     aurora: { name: 'Revontulinauha', mega: 'Pohjoinen huntu', desc: 'Pitkä hohtavan valon nauha seuraa liikkeitäsi ja polttaa jokaista yöperhosta, johon se koskee. Kun seisot paikallasi, se kiertyy ympärillesi.', megaDesc: 'Leveämpi ja pidempi revontuliverho, joka pysäyttää myös sen läpi lentävät vihollisammukset.' },
     monkey: { name: 'Grogitynnyri', mega: 'Liekehtivä grogituli', desc: 'Vierittää grogitynnyrin lähintä yöperhosta kohti. Se hajoaa grogiryöpyksi ja jättää tahmean lätäkön, joka hidastaa ja liuottaa jokaista siitä kahlaavaa yöperhosta.', megaDesc: 'Kolme tynnyriä kerralla, kovempia iskuja, ja jokainen grogilätäkkö syttyy tuleen.' },
     necro: { name: 'Tanssilattia', mega: 'Kuolleiden reivit', desc: 'Shakkiruudullinen tanssilattia seuraa sinua ja vaihtaa valaistut ruutunsa joka iskulla. Valaistulle ruudulle jäänyt yöperhonen ottaa osuman aina, kun ruutu syttyy.', megaDesc: 'Isompi ja kovempi lattia, ja joka neljännellä iskulla basso pudotetaan: koko lattia jysähtää kerralla ja paiskaa yöperhoset kauas.' },
-    chaos: { name: 'Kaleidoskooppisiru', mega: 'Kaleidoskooppimyrsky', desc: 'Siru Kaaosrepeämästä. Se kanavoi kahta satunnaista reliikkiä kerralla, kumpaakin hieman heikompana, ja sekoittaa ne muutaman sekunnin välein.', megaDesc: 'Kolme satunnaista reliikkiä kerralla MEGA-muodoissaan, ja sekoitus käy vielä nopeammin.' },
+    chaos: { name: 'Kaleidoskooppisiru', mega: 'Kaleidoskooppimyrsky', desc: 'Siru Kaaosmaailmasta. Se kanavoi kahta satunnaista reliikkiä kerralla, kumpaakin hieman heikompana, ja sekoittaa ne muutaman sekunnin välein.', megaDesc: 'Kolme satunnaista reliikkiä kerralla MEGA-muodoissaan, ja sekoitus käy vielä nopeammin.' },
     lol:   { name: 'Liittolaiskätyrien aalto', mega: 'Voimistettu piiritysaalto', desc: 'Aina välillä aalto omia sinisiä kätyreitäsi marssii taistelemaan puolestasi.', megaDesc: 'Isompia aaltoja, tiuhempaan, ja mukana tykkikätyreitä.' },
   };
   let pendingRelic = null;
@@ -25130,19 +25130,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // [name, description, hint] for each quest chip (pause screen).
   const QUEST_INFO = {
     leg: [() => "Wirtin jalka", () => 'Puinen jalka pojalta, jolle kävi huonosti. Se haisee hennosti lehmältä.',
-      () => run.quest.tome ? 'Tehtäväesine: seuraava avautuva repeämä vie johonkin erikoiseen paikkaan' : 'Tehtäväesine: kulkukauppias saattaa tietää, mihin sitä tarvitaan'],
+      () => run.quest.tome ? 'Tehtäväesine: seuraava avautuva maailma vie johonkin erikoiseen paikkaan' : 'Tehtäväesine: kulkukauppias saattaa tietää, mihin sitä tarvitaan'],
     tome: [() => 'Kaupunkiportaalin kirja', () => 'Kirja, joka avaa portaalin. Jalan kanssa se voi avautua johonkin hyvin outoon paikkaan.', () => 'Tehtäväesine'],
-    doll: [() => 'Dinonukke', () => 'Pieni vihreä dinonukke, vielä kostea merestä. Joku lapsi varmasti kaipaa sitä.', () => 'Tehtäväesine: joku toisessa repeämässä etsii sitä'],
+    doll: [() => 'Dinonukke', () => 'Pieni vihreä dinonukke, vielä kostea merestä. Joku lapsi varmasti kaipaa sitä.', () => 'Tehtäväesine: joku toisessa maailmassa etsii sitä'],
     ribbon: [() => 'Vaaleanpunainen rusetti', () => 'Lapsi antoi tämän nukesta. Pimeässä se hohtaa vihreänä ja violettina kuin pohjoinen taivas.', () => 'Tehtäväesine: kulkukauppias kerää kummallisuuksia'],
     sign: [() => 'Kutsumerkki', () => 'Auringon ritari jätti sinulle kultaisen merkkinsä. Hän vastaa siihen seuraavassa suuressa taistelussa niityllä.', () => 'Tehtäväesine: käytetään, kun seuraava pääkartan pomo saapuu'],
     flies: [() => 'Eksyneet tulikärpäset', () => `Mukanasi on ${run.quest.flies} ${run.quest.flies === 1 ? 'eksynyt tulikärpänen' : 'eksynyttä tulikärpästä'}.`, () => 'Vie ne kotiin niityn lasipurkkiin'],
-    jar: [() => `Tulikärpäspurkki · ${run.quest.jar}/${JAR_FULL}`, () => 'Repeämistä kotiin tuomasi tulikärpäset. Täysi purkki valaisee finaalin: Hexel tekee 25 % enemmän vahinkoa aamunkoiton pomoon.', () => jarFull() ? 'Täynnä!' : 'Eksyneet tulikärpäset piileskelevät repeämissä'],
+    jar: [() => `Tulikärpäspurkki · ${run.quest.jar}/${JAR_FULL}`, () => 'Maailmoista kotiin tuomasi tulikärpäset. Täysi purkki valaisee finaalin: Hexel tekee 25 % enemmän vahinkoa aamunkoiton pomoon.', () => jarFull() ? 'Täynnä!' : 'Eksyneet tulikärpäset piileskelevät maailmoissa'],
     shards: [() => `Kuunsirut · ${run.quest.shards}/3`, () => `Voita pääkartan pomo nopeasti ansaitaksesi sirun: Suuri kuukehrääjä ${SHARD_T.luna} s:ssa, Tammihärkä ${SHARD_T.stag} s:ssa, Yöperhoskuningatar ${SHARD_T.queen} s:ssa (seuraa ☾-merkkiä sen terveyspalkissa).`, () => run.quest.shards >= 3 ? 'Aamunkoitteessa voit kutsua oudomman kuun' : 'Kolme sirua voi kutsua oudomman kuun aamunkoitteessa'],
     voc: [() => VOCS[run.quest.voc].name, () => VOCS[run.quest.voc].desc, () => 'Ammatti valittu Oraakkelilta'],
     mask: [() => 'Naamionsiru', () => '+20 maksimiterveyttä, lahja Toukkaisältä.', () => 'Tehtäväpalkinto'],
     groove: [() => 'Groove', () => '+12 % nopeutta ja +8 % vahinkoa loppuyöksi. Tanssit Hyräilevän vartijan kanssa etkä hukannut ainuttakaan iskua (no, melkein).', () => 'Tehtäväpalkinto'],
     dbl: [() => `Dublonit · ${run.quest.dbl}/${DBL_NEED}`, () => 'Kirottua kultaa luurankomiehistöltä. Laiturin aavekapteeni haluaa niitä kymmenen.', () => 'Tehtäväesine: vie ne laiturin arkkuun (menetät ne, jos poistut lahdelta)'],
-    obel: [() => `Palapelikartta · ${run.quest.obel}/4`, () => 'Palasia vanhasta kartasta, yksi kustakin obeliskista. Yhdessä ne näyttävät, minne aarre on haudattu.', () => 'Tehtäväesine: käy kaikilla neljällä obeliskilla (menetät ne, jos poistut repeämästä)'],
+    obel: [() => `Palapelikartta · ${run.quest.obel}/4`, () => 'Palasia vanhasta kartasta, yksi kustakin obeliskista. Yhdessä ne näyttävät, minne aarre on haudattu.', () => 'Tehtäväesine: käy kaikilla neljällä obeliskilla (menetät ne, jos poistut maailmasta)'],
     shrines: [() => `Yöperhospyhäköt · ${run.quest.shrines}/3`, () => 'Pyhäkköjä valolle, jota yöperhoset kerran palvoivat. Niitylle nousee joka yö kolme (0:40, 3:20 ja 6:10); seiso yhdessä 5 sekuntia sytyttääksesi sen ennen kuin se hiipuu.',
       () => run.quest.shrines >= 3 ? 'Pimennysperhosen jälkeen unohdettu valo voi vastata' : 'Sytytä kaikki kolme kutsuaksesi jotakin aamunkoitteessa'],
   };
@@ -25439,7 +25439,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     moo2: { name: 'Antaranin navigointiydin', from: 'Antaranin syvyys', k: 'speed', v: .05, text: 'Pelastetun pelastuskapselin navigointiydin. Se hurisee yhä vanhoja tähtiajokarttoja.' },
     z: { name: 'Vallattu viiri', from: 'Robottisodat', k: 'armor', v: 1, text: 'Puolueeton lippu, nyt sinun väreissäsi. Robotit vihaavat sitä.' },
     gw2: { name: 'Reittipisteen siru', from: 'Poltearpien erämaa', k: 'cd', v: .05, text: 'Siru puolustamastasi reittipistekristallista. Kaikki tuntuu palaavan vähän aiemmin.' },
-    lol: { name: 'Viimeisen iskun kolikko', from: 'Repeämäkaista', k: 'crit', v: .05, text: 'Kultaa kolmesta täydellisestä viimeisestä iskusta. Jokainen kolikko on kuolinisku.' },
+    lol: { name: 'Viimeisen iskun kolikko', from: 'Maailmankaista', k: 'crit', v: .05, text: 'Kultaa kolmesta täydellisestä viimeisestä iskusta. Jokainen kolikko on kuolinisku.' },
     zerg: { name: 'Sikiökuori', from: 'Kutualtaat', k: 'hp', v: 15, text: 'Levy vartioimastasi munasta, yhä lämmin. Se kovettuu iskusta.' },
     bay: { name: "Kapteenin dublooni", from: 'Merirosvolahti', k: 'might', v: .05, text: 'Aavekapteeni heitti yhden takaisin laidallisen jälkeen. Se puree.' },
     homm: { name: 'Vaeltajan sormus', from: 'Mahdin ja magian maa', k: 'magnet', v: .1, text: 'Kaivettu esiin sieltä, minne obeliskikartta osoitti. Aarteet tuntuvat vierivän sitä kohti.' },
@@ -25531,7 +25531,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const b = QUEST_BOONS.spire, opts = [];
     if (S.maxHp - QROOM_COST >= 40) opts.push({ name: `Kaupanteko (−${QROOM_COST} maksimiterveyttä)`, sub: `Ota ${b.name} (${boonText(b)}) ja tasonnousu.`, btn: 'Tee kaupat', fn: () => { s.gone = true; addMaxHp(-QROOM_COST); run.pending++; addBoon('spire'); } });
     const pool = ZONES.filter(z => z.boss && !z.chaos && !STRANGER_SKIP.includes(z.id)), def = pool[Math.floor(Math.random() * pool.length)];
-    if (def) opts.push({ name: 'Taistele muukalaista vastaan', sub: `Jokin toisesta repeämästä repii tiensä kartan läpi. Voita se, niin saat palkaksi: ${b.name} ja arkku.`, btn: 'Taistele', fn: () => { s.gone = true; spawnStranger(def, s); } });
+    if (def) opts.push({ name: 'Taistele muukalaista vastaan', sub: `Jokin toisesta maailmasta repii tiensä kartan läpi. Voita se, niin saat palkaksi: ${b.name} ja arkku.`, btn: 'Taistele', fn: () => { s.gone = true; spawnStranger(def, s); } });
     openQuest({ eyebrow: '?-huone', title: 'Hyrisevä alttari', text: 'Haljenneella alttarilla lepää taipunut messinkilusikka, joka hyrisee hiljaa. Kartta sen ympärillä on revennyt, ja jokin toisesta maailmasta painaa repeämää vasten…',
       options: opts, leave: 'Lähde', onLeave: () => { s.gone = true; questFail(run.quest, 'rq:spire'); banner('Jätät alttarin rauhaan', '#c8b8a0'); } });
     return false;
@@ -26155,7 +26155,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (id === 'necro' && !q.danced && questOpen(q, 'keeper')) { questBegin(q, 'keeper'); add('keeper', 600, 900, { state: 'idle' }); banner('Jossain kryptassa joku laulaa…', '#ffc890', true); }
     riftQuestEnter(def, add);
     if (q.angel) { q.angel = false; if (Math.random() < ANGEL_CHANCE) { add('angel', 330, 460); banner('Valkoinen ovi hehkuu hiljaa lähellä…', '#f0f4ff', true); } }
-    if (id !== 'cow' && (q.flies || 0) + (q.jar || 0) < JAR_FULL && Math.random() < FLY_CHANCE) { add('firefly', 900, 1400, { ph: Math.random() * 6, a: Math.random() * TAU }); banner('Eksynyt tulikärpänen kimmeltää jossain tässä repeämässä', '#ffe27a'); }
+    if (id !== 'cow' && (q.flies || 0) + (q.jar || 0) < JAR_FULL && Math.random() < FLY_CHANCE) { add('firefly', 900, 1400, { ph: Math.random() * 6, a: Math.random() * TAU }); banner('Eksynyt tulikärpänen kimmeltää jossain tässä maailmassa', '#ffe27a'); }
   }
   function questExit() {
     const q = run.quest; q.spots = [];
@@ -26224,7 +26224,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const p = run.portal;
     if (p) {
       p.life -= dt;
-      if (p.life <= 0 || run.boss) { run.portal = null; banner('Repeämä romahtaa', '#9aa3c2'); return false; }
+      if (p.life <= 0 || run.boss) { run.portal = null; banner('Portti toiseen maailmaan sulkeutuu', '#9aa3c2'); return false; }
       if (Math.hypot(P.x - p.x, P.y - p.y) < 30 + P.r) { enterZone(p.def, p); return true; }
       return false;
     }
@@ -26243,7 +26243,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (questReady()) def = ZONES.find(z => z.id === 'cow') || def;
     const a = Math.random() * TAU, R = Math.min(W, H) * .32 + 60;
     run.portal = { x: P.x + Math.cos(a) * R, y: P.y + Math.sin(a) * R, def, life: 28 };
-    banner(`Repeämä aukeaa: ${def.name}`, `rgb(${def.portal})`, true); snd.fx('rift');
+    banner(`Maailma aukeaa: ${def.name}`, `rgb(${def.portal})`, true); snd.fx('rift');
     return false;
   }
   function enterZone(def, p) {
@@ -26289,7 +26289,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       banner(z.def.boss.name + ' saapuu', '#ff7a8a', true); shake = Math.max(shake, 8);
       questGuardianSpawn(e);
     }
-    if (!z.warned && z.t >= ZONE_DUR - 10) { z.warned = true; banner('Repeämä sulkeutuu!', '#ff9a5a'); }
+    if (!z.warned && z.t >= ZONE_DUR - 10) { z.warned = true; banner('Maailma sulkeutuu!', '#ff9a5a'); }
     if ((z.exit && Math.hypot(P.x - z.exit.x, P.y - z.exit.y) < 30 + P.r) || z.t >= ZONE_DUR) { exitZone(); return true; }
     return false;
   }
@@ -28989,7 +28989,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       box.style.display = playing ? 'block' : 'none';
       if (!run || state !== 'play') return;
       run.god = true; run.portalT = 1e9; run.portal = null;
-      if (told !== run) { told = run; banner('Tehtävätesti: valitse repeämä vasemmalta; jokainen tehtävä näkyy joka käynnillä', '#ffe27a', true); }
+      if (told !== run) { told = run; banner('Tehtävätesti: valitse maailma vasemmalta; jokainen tehtävä näkyy joka käynnillä', '#ffe27a', true); }
     }, 250);
   }
   showBest();
