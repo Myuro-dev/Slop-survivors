@@ -94,6 +94,7 @@ body { background: var(--night); color: var(--ink); font-family: var(--body); ov
 kbd { font: 600 12px var(--body); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--ink); }
 .big { font-family: var(--display); font-weight: 800; font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
 .sub { color: var(--muted); font-size: 14px; }
+.build { display: block; margin-top: 10px; color: var(--muted); opacity: .6; font-size: 11px; letter-spacing: .04em; }
 .btn {
   font-family: var(--display); font-weight: 800; font-size: 20px; color: var(--night);
   background: var(--glow); border: 0; border-radius: 999px; padding: 12px 32px; cursor: pointer;
@@ -253,6 +254,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <button class="btn ghost" id="openBoards">Leaderboards</button>
     <div class="vol"><button class="btn ghost aud-music">Music: on</button><input type="range" min="0" max="100" class="vol-music" aria-label="Music volume"><button class="btn ghost aud-sfx">Sound: on</button><input type="range" min="0" max="100" class="vol-sfx" aria-label="Sound volume"></div>
     <span class="sub" id="bestTitle"></span>
+    <span class="build" id="buildStamp"></span>
   </div>
 </div>
 
@@ -22983,7 +22985,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      Four boards: fastest Eclipse banish, most damage, most moths, highest level. Every finished normal run is kept in a
      local Hall of Fame (top 10 per board on this device); with LB_URL set, it can also be submitted to the online
      board (a Cloudflare Worker, see server/). Debug, arena, tour, bestiary and god-mode runs are never ranked. */
-  const GAME_VERSION = '2026.10';
+  // The season stored with every leaderboard run, shown as "Season N". Seasons are numbered: the next one is '2', then
+  // '3'… (see SEASONS.md). Season 1 was stored as '2026.10' until it was renamed; the Worker maps that old key to '1'.
+  const GAME_VERSION = '1';
+  const seasonName = v => String(v);
+  // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
+  // a stale cached index.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
+  const BUILD = '2026-11-12a';
+  $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
     // A shattered Blood Moon (blood) ranks above every banished Eclipse Moth; each group is sorted by its own time.
@@ -23077,7 +23086,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   let lbTab = 'banish', lbVer = GAME_VERSION, lbSeasons = null;
   function paintSeason() {
     const list = lbSeasons || [GAME_VERSION], i = list.indexOf(lbVer);
-    $('lbSeason').textContent = 'Season ' + lbVer + (lbVer === GAME_VERSION ? '' : ' (past)');
+    $('lbSeason').textContent = 'Season ' + seasonName(lbVer) + (lbVer === GAME_VERSION ? '' : ' (past)');
     $('lbOlder').hidden = !(i >= 0 && i < list.length - 1);
     $('lbNewer').hidden = !(i > 0);
   }
@@ -23170,7 +23179,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     try {
       const tab = lbTab, ver = lbVer, top = await lbFetch(`/top?board=${tab}&version=${encodeURIComponent(ver)}`);
       if (tab !== lbTab || ver !== lbVer) return;
-      fill((top.rows || []).slice(0, 10), ver === GAME_VERSION ? 'Top 10 players this season.' : `Final standings of season ${ver}.`);
+      fill((top.rows || []).slice(0, 10), ver === GAME_VERSION ? 'Top 10 players this season.' : `Final standings of season ${seasonName(ver)}.`);
       if (me) {
         const m = await lbFetch(`/me?board=${tab}&version=${encodeURIComponent(ver)}&name=${encodeURIComponent(me)}`).catch(() => null);
         if (m && m.best && tab === lbTab && ver === lbVer) $('lbMe').textContent = `Your best: ${b.fmt(m.best[b.key])} (rank #${m.rank})`;
@@ -25069,7 +25078,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   const SPOTS = {
     // Wirt's body in the Bloodmoor Crypts; a gutling pack and its shaman keep watch over it.
-    wirt: { r: 26, glow: '232,200,144', arrow: ['#3a2410', '#e8c890'], draw: (s, now) => drawWirt(s, now),
+    wirt: { r: 26, glow: '232,200,144', arrow: ['#3a0808', '#ff6a5a'],   // blood red: the pale gold one looked like the lost firefly's arrow
+      draw: (s, now) => drawWirt(s, now),
       update(s, d) {
         if (s.guarded || d > 520) return;
         s.guarded = true;
@@ -25114,7 +25124,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         return true;
       } },
     // Fireflies for the jar: a lost firefly flitting about a rift, and the jar in the meadow.
-    firefly: { r: 24, glow: '255,226,122', arrow: ['#3a3010', '#ffe27a'], draw: drawLostFly,
+    // Firefly and jar arrows are firefly-green: the old pale gold matched half the quest arrows (Wirt was missed for one).
+    firefly: { r: 24, glow: '255,226,122', arrow: ['#1e2c06', '#c6ff3a'], draw: drawLostFly,
       update(s, d, dt) {
         // It wanders in slow loops around where it was lost.
         s.ph += dt; s.a += Math.sin(s.ph * 1.3) * dt * 1.6;
@@ -25126,7 +25137,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         snd.fx('moonpick'); burst(s.x, s.y, '#ffe27a', 16, 140);
         return true;
       } },
-    jar: { r: 26, glow: '255,226,122', arrow: ['#3a3010', '#ffe27a'], arrowIf: () => run.quest.flies > 0, draw: drawJar,
+    jar: { r: 26, glow: '255,226,122', arrow: ['#1e2c06', '#c6ff3a'], arrowIf: () => run.quest.flies > 0, draw: drawJar,
       touch(s) {
         const q = run.quest;
         if (!q.flies) return false;
@@ -25963,7 +25974,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     q.extraRoom = q.began.length >= QUEST_SLOTS && q.began.length < QUEST_MAX && Math.random() < QUEST_EXTRA;
     const add = (kind, lo, hi, o) => { const a = Math.random() * TAU, d = rnd(lo, hi), s = Object.assign({ kind, x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d }, o); q.spots.push(s); return s; };
     // Wirt's body is always there while the peddler is still to come (the leg adds no power, so it takes no quest slot).
-    if (id === 'd2' && !q.leg && !q.used && (QUEST_TEST || peddlerAhead())) add('wirt', 1100, 1500);
+    if (id === 'd2' && !q.leg && !q.used && (QUEST_TEST || peddlerAhead())) { add('wirt', 1100, 1500); banner('Somewhere in the crypts lies a fallen boy… (follow the red arrow)', '#ff8a7a', true); }
     // The leg and tome are spent opening the pasture.
     if (id === 'cow' && q.leg && q.tome) { q.leg = q.tome = false; q.used = true; renderLoadout(); }
     if (id === 'zelda' && !q.doll && (QUEST_TEST || (!q.ribbon && !q.traded && !q.dollSeen && peddlerAhead())) && questOpen(q, 'doll') && qRoll(DOLL_CHANCE)) { q.dollSeen = true; questBegin(q, 'doll'); add('doll', 800, 1200); banner('Something small glints on the shore…', '#a8e898'); }
