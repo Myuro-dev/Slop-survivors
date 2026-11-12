@@ -120,7 +120,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .pick:hover { transform: translateY(-3px); border-color: var(--glow); }
 .pick .key { font-size: 11px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 8px; }
 .pick .key .new { color: var(--glow); }
-.pick .name { font-family: var(--display); font-weight: 800; font-size: 19px; line-height: 1.1; }
+.pick .name { font-family: var(--display); font-weight: 800; font-size: 19px; line-height: 1.1; overflow-wrap: anywhere; min-width: 0; }
 .pick .desc { font-size: 14px; color: var(--muted); line-height: 1.4; }
 .pick .hint { font-size: 12px; color: var(--evo); line-height: 1.4; }
 .pick.w { border-color: rgba(159,216,255,.45); }
@@ -230,7 +230,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       <div class="boss" id="bossBox" hidden><span id="bossName"></span><div class="meter"><i id="bossBar"></i></div></div>
     </div>
     <div class="stat right">
-      <span class="label">Moths</span>
+      <span class="label">Enemies</span>
       <span class="value" id="kills">0</span>
       <div class="hudbtns"><button class="pausebtn aud-music" id="musicBtn" aria-label="Music">♪</button><button class="pausebtn" id="pauseBtn" aria-label="Pause">II</button></div>
     </div>
@@ -242,7 +242,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   <div class="card">
     <span class="eyebrow">Firefly Jar · Rifts</span>
     <h1>Till Dawn</h1>
-    <p>You are Hexel, a little hexagon of living light, and every moth in the night wants you. Your fireflies fight on their own. Collect the glow the moths leave behind to level up, and survive ten minutes until sunrise. Three bosses come for you along the way, and a final shadow rises at dawn. Rifts tear open in the night: step through into strange worlds, beat their guardian and come back stronger.</p>
+    <p>You are Hexel, a little hexagon of living light, and every enemy in the night wants you. Your fireflies fight on their own. Collect the glow your enemies leave behind to level up, and survive ten minutes until sunrise. Three bosses come for you along the way, and a final shadow rises at dawn. Rifts tear open in the night: step through into strange worlds, beat their guardian and come back stronger.</p>
     <div class="legend">
       <span><i class="dot y"></i>Glow: experience</span>
       <span><i class="dot g"></i>Chest: free upgrades</span>
@@ -836,47 +836,47 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   /* ---------- Weapons ---------- */
   // up[i] describes the step from level i+1 to i+2. evo is the paired charm id.
   const WEAPONS = {
-    swarm: { name: 'Firefly Swarm', desc: 'Fireflies circle you in bursts and scorch the moths they touch.', evo: 'linger', evoName: 'Constellation', evoDesc: 'Seven blazing stars orbit you without pause.',
+    swarm: { name: 'Firefly Swarm', desc: 'Fireflies circle you in bursts and scorch the enemies they touch.', evo: 'linger', evoName: 'Constellation', evoDesc: 'Seven blazing stars orbit you without pause.',
       up: ['+1 firefly', 'Damage +33%, wider orbit', '+1 firefly, longer bursts', 'Damage +25%, wider orbit', '+1 firefly, more damage, longer bursts'] },
-    bolt: { name: 'Spark Bolt', desc: 'Shoots sparks at the nearest moths.', evo: 'steady', evoName: 'Sunbeam', evoDesc: 'A torrent of piercing sunlight.',
-      up: ['Damage +33%', '+1 spark, fires faster', 'Fires faster, pierces 1 more moth', '+1 spark, damage +20%', 'Fires faster, damage +20%, pierces 1 more'] },
-    pulse: { name: 'Warm Glow', desc: 'A warm aura burns moths that come close.', evo: 'heart', evoName: 'Hearthfire', evoDesc: 'A huge glow that mends you while it burns.',
+    bolt: { name: 'Spark Bolt', desc: 'Shoots sparks at the nearest enemies.', evo: 'steady', evoName: 'Sunbeam', evoDesc: 'A torrent of piercing sunlight.',
+      up: ['Damage +33%', '+1 spark, fires faster', 'Fires faster, pierces 1 more enemy', '+1 spark, damage +20%', 'Fires faster, damage +20%, pierces 1 more'] },
+    pulse: { name: 'Warm Glow', desc: 'A warm aura burns enemies that come close.', evo: 'heart', evoName: 'Hearthfire', evoDesc: 'A huge glow that mends you while it burns.',
       up: ['Wider glow, damage +12%', 'Damage +22%', 'Wider glow, damage +10%', 'Wider glow, damage +15%', 'Wider glow, damage +15%'] },
-    chain: { name: 'Chain Lightning', desc: 'Lightning leaps from moth to moth.', evo: 'net', evoName: 'Thunder Jar', evoDesc: 'Storms leap through 14 moths, twice as often.',
+    chain: { name: 'Chain Lightning', desc: 'Lightning leaps from enemy to enemy.', evo: 'net', evoName: 'Thunder Jar', evoDesc: 'Storms leap through 14 enemies, twice as often.',
       up: ['+1 jump, strikes faster', '+1 jump, damage +35%', 'Strikes faster, damage +20%', '+1 jump, strikes faster', '+2 jumps, strikes faster, damage +20%'] },
-    star: { name: 'Starfall', desc: 'Shooting stars crash down on moths around you.', evo: 'magnet', evoName: 'Meteor Shower', evoDesc: 'Seven huge meteors fall every second and a half.',
+    star: { name: 'Starfall', desc: 'Shooting stars crash down on enemies around you.', evo: 'magnet', evoName: 'Meteor Shower', evoDesc: 'Seven huge meteors fall every second and a half.',
       up: ['+1 star', 'Falls faster, damage +33%', '+1 star, bigger impact', 'Falls faster, damage +25%', '+1 star, falls faster, damage +20%'] },
-    bat: { name: 'Bat Familiar', desc: 'A bat hunts down moths for you.', evo: 'dew', evoName: 'Vampire Court', evoDesc: 'Five vampire bats, and their bites heal you.',
+    bat: { name: 'Bat Familiar', desc: 'A bat hunts down enemies for you.', evo: 'dew', evoName: 'Vampire Court', evoDesc: 'Five vampire bats, and their bites heal you.',
       up: ['Bites +40%', '+1 bat', 'Bites +30%', '+1 bat, bites +20%', 'Bites harder and faster'] },
     moon: { name: 'Moon Blade', desc: 'Throws a crescent that flies out, comes back and cuts through everything.', evo: 'wings', evoName: 'Eclipse', evoDesc: 'Four giant crescents fly out in every direction.',
       up: ['Damage +33%', '+1 blade, throws faster', 'Bigger, throws faster, damage +15%', 'Throws faster, damage +20%', '+1 blade, bigger, throws faster'] },
-    nova: { name: 'Supernova', desc: 'Every few seconds you burst with light, blasting moths and their dust away.', evo: 'ember', evoName: 'Big Bang', evoDesc: 'A colossal blast every 4 seconds.',
+    nova: { name: 'Supernova', desc: 'Every few seconds you burst with light, blasting enemies and their dust away.', evo: 'ember', evoName: 'Big Bang', evoDesc: 'A colossal blast every 4 seconds.',
       up: ['Damage +30%, bigger, more often', 'Damage +15%, bigger, more often', 'Damage +20%, bigger, more often', 'Damage +20%, bigger, more often', 'Damage +15%, bigger, more often'] },
-    thorn: { name: 'Bramble Ring', desc: 'Thorny thickets burst from the ground under nearby moths and keep stabbing.', evo: 'ward', evoName: 'Briar Fortress', evoDesc: 'Eight thickets erupt in a ring around you every second.',
+    thorn: { name: 'Bramble Ring', desc: 'Thorny thickets burst from the ground under nearby enemies and keep stabbing.', evo: 'ward', evoName: 'Briar Fortress', evoDesc: 'Eight thickets erupt in a ring around you every second.',
       up: ['Damage +25%', '+1 thicket, wider', 'Damage +30%, faster', '+1 thicket, wider, faster', '+1 thicket, damage +20%, faster'] },
-    lance: { name: 'Prism Lance', desc: 'Fires a piercing beam of light at the nearest moth. Where it strikes, the beam refracts into a fan of coloured rays.', evo: 'keen', evoName: 'Dawnbreaker', evoDesc: 'Three beams of sunrise, each refracting into a five-colour fan whose rays refract again.',
+    lance: { name: 'Prism Lance', desc: 'Fires a piercing beam of light at the nearest enemy. Where it strikes, the beam refracts into a fan of coloured rays.', evo: 'keen', evoName: 'Dawnbreaker', evoDesc: 'Three beams of sunrise, each refracting into a five-colour fan whose rays refract again.',
       up: ['Damage +30%, longer', 'Damage +23%, wider, faster, +1 refracted ray', '+1 beam, faster', 'Damage +22%, wider, faster, +1 refracted ray', '+1 beam, damage +18%, faster'] },
-    wisp: { name: "Will-o'-Wisps", desc: 'Releases wisps that hunt down moths on their own. Some are born lucky: golden, ember, storm, twin or hunting wisps.', evo: 'clover', evoName: 'Choir of Fortune', evoDesc: 'A choir of eight wisps that pierce through three moths each, and every one is born lucky. Now and then a jackpot wisp calls down falling stars.',
+    wisp: { name: "Will-o'-Wisps", desc: 'Releases wisps that hunt down enemies on their own. Some are born lucky: golden, ember, storm, twin or hunting wisps.', evo: 'clover', evoName: 'Choir of Fortune', evoDesc: 'A choir of eight wisps that pierce through three enemies each, and every one is born lucky. Now and then a jackpot wisp calls down falling stars.',
       up: ['+1 wisp, damage +14%, faster', 'Damage +19%, faster', '+1 wisp, damage +16%, faster', 'Damage +18%, faster', '+1 wisp, damage +15%, faster'] },
-    hammer: { name: 'Blessed Hammers', desc: 'Throws glowing hammers that spiral outward from where you stand, crushing every moth they pass.', evo: 'bell', evoName: 'Hammerfall of the Heavens', evoDesc: 'Six hammers on a wider spiral, and each one ends in a holy burst.',
+    hammer: { name: 'Blessed Hammers', desc: 'Throws glowing hammers that spiral outward from where you stand, crushing every enemy they pass.', evo: 'bell', evoName: 'Hammerfall of the Heavens', evoDesc: 'Six hammers on a wider spiral, and each one ends in a holy burst.',
       up: ['+1 hammer', 'Damage +25%, thrown more often', '+1 hammer, damage +10%', 'Damage +18%, thrown more often', '+1 hammer, damage +15%, thrown more often'] },
-    lamp: { name: 'Glow Lantern', desc: 'Plants a lantern where you stand. Its pool of warm light heals you while you stay inside, slows moths and makes enemy bullets crawl.', evo: 'wind', evoName: 'Lighthouse', evoDesc: 'Two great lighthouses: wider, longer-lasting light that heals more, burns away enemy bullets, and sweeps a scorching beam around.',
+    lamp: { name: 'Glow Lantern', desc: 'Plants a lantern where you stand. Its pool of warm light heals you while you stay inside, slows enemies and makes enemy bullets crawl.', evo: 'wind', evoName: 'Lighthouse', evoDesc: 'Two great lighthouses: wider, longer-lasting light that heals more, burns away enemy bullets, and sweeps a scorching beam around.',
       up: ['Heals more, bigger pool of light', 'Lanterns last longer, planted more often', 'A second lantern can burn at once', 'Heals more, bigger, planted more often', 'Heals more, lasts longer, planted more often'] },
-    dew2: { name: 'Dewdrop Shields', desc: 'Glassy dewdrops orbit close around you. Each one swallows an enemy bullet, then regrows; they also bump moths away.', evo: 'wax', evoName: 'Amber Bulwark', evoDesc: 'Six amber drops that regrow fast and fling every bullet they catch back at the moths, bursting in an amber blast.',
+    dew2: { name: 'Dewdrop Shields', desc: 'Glassy dewdrops orbit close around you. Each one swallows an enemy bullet, then regrows; they also bump enemies away.', evo: 'wax', evoName: 'Amber Bulwark', evoDesc: 'Six amber drops that regrow fast and fling every bullet they catch back at the enemies, bursting in an amber blast.',
       up: ['+1 dewdrop', 'Regrow faster, damage +25%', '+1 dewdrop, damage +20%', 'Regrow faster, damage +20%', '+1 dewdrop, regrow faster, damage +15%'] },
-    bow: { name: 'Moonbow', desc: 'Looses a heavy silver arrow at the toughest moth in sight, from far away, piercing everything in its line.', evo: 'gold', evoName: 'Huntress Moon', evoDesc: 'A volley of three arrows at the three toughest moths. Every hit marks the moth to take 25% more damage from everything.',
-      up: ['Damage +25%, shoots more often', 'Damage +20%', 'Damage +18%, shoots more often', 'A second arrow at the next toughest moth', 'Damage +20%, shoots more often'] },
-    slam: { name: 'Groundbreaker', desc: 'Hexel heaves a great axe and slams the ground just ahead, a circular blast that hurls moths back and briefly stuns them.', evo: 'brace', evoName: 'Earthsplitter', evoDesc: 'A colossal slam that splits the earth: a line of rock eruptions bursts forward from the impact.',
+    bow: { name: 'Moonbow', desc: 'Looses a heavy silver arrow at the toughest enemy in sight, from far away, piercing everything in its line.', evo: 'gold', evoName: 'Huntress Moon', evoDesc: 'A volley of three arrows at the three toughest enemies. Every hit marks the enemy to take 25% more damage from everything.',
+      up: ['Damage +25%, shoots more often', 'Damage +20%', 'Damage +18%, shoots more often', 'A second arrow at the next toughest enemy', 'Damage +20%, shoots more often'] },
+    slam: { name: 'Groundbreaker', desc: 'Hexel heaves a great axe and slams the ground just ahead, a circular blast that hurls enemies back and briefly stuns them.', evo: 'brace', evoName: 'Earthsplitter', evoDesc: 'A colossal slam that splits the earth: a line of rock eruptions bursts forward from the impact.',
       up: ['Damage +25%, bigger slam', 'Damage +15%, slams more often', 'Damage +18%, bigger slam, slams more often', 'A second slam lands farther ahead', 'Damage +17%, bigger slam, slams more often'] },
-    flame: { name: 'Witchfire', desc: "A hedge witch's blessing: breathe a short cone of green-gold witchfire at the nearest moths, leaving them burning.", evo: 'kindle', evoName: 'Cauldron Inferno', evoDesc: 'A wide, roaring cone of witchfire that leaves the ground bubbling with flame.',
+    flame: { name: 'Witchfire', desc: "A hedge witch's blessing: breathe a short cone of green-gold witchfire at the nearest enemies, leaving them burning.", evo: 'kindle', evoName: 'Cauldron Inferno', evoDesc: 'A wide, roaring cone of witchfire that leaves the ground bubbling with flame.',
       up: ['Damage +33%, reaches further', 'Burns hotter, reaches further', 'Damage +25%, wider, reaches further', 'Damage +20%, burns hotter, wider', 'Damage +17%, burns hotter, wider, reaches further'] },
     dice: { name: 'Fortune Dice', desc: 'Every few seconds Hexel rolls a die and the face decides what happens: 1 fizzles, 2 throws sparks, 3 a fireball, 4 chain lightning, 5 a shower of coins, 6 a meteor and another roll.', evo: 'shoe', evoName: 'Loaded Dice', evoDesc: 'Rolls two dice at once and both effects happen. Doubles hit 50% harder.',
       up: ['Rolls faster, effects +20%', 'Rolls faster, effects +21%', 'Rolls faster, effects +17%', 'Rolls faster, effects +18%', 'Rolls faster, effects +18%'] },
-    mine: { name: 'Puffcap Mines', desc: 'Every few seconds a glowing puffcap mushroom is planted where you stand. Caps wait up to 30 s; when a moth steps on one it bursts, leaving a cloud of poisonous spores. Lead the swarm over your minefield.', evo: 'bloom', evoName: 'Mycelium Minefield', evoDesc: 'More caps and bigger bursts, and every burst sprouts three little caps that pop a moment later. The spore clouds also slow moths.',
+    mine: { name: 'Puffcap Mines', desc: 'Every few seconds a glowing puffcap mushroom is planted where you stand. Caps wait up to 30 s; when an enemy steps on one it bursts, leaving a cloud of poisonous spores. Lead the swarm over your minefield.', evo: 'bloom', evoName: 'Mycelium Minefield', evoDesc: 'More caps and bigger bursts, and every burst sprouts three little caps that pop a moment later. The spore clouds also slow enemies.',
       up: ['Damage +20%, plants faster', 'Damage +21%, bigger burst, plants faster, +1 cap in the field', '+1 cap per planting, damage +17%, plants faster, +1 cap in the field', 'Damage +18%, bigger burst and cloud, plants faster, +1 cap in the field', 'Damage +19%, bigger cloud, spores last longer, plants faster, +1 cap in the field'] },
-    wail: { name: 'Banshee Lantern', desc: 'A lantern holding a wailing spirit. Every few seconds its wail rolls out in a cone and frightens the moths it reaches: they flee from you, fading as they go.', evo: 'veil', evoName: 'Wailing Veil', evoDesc: 'The wail rings out all around you. Frightened moths that crash into each other take heavy damage, and bosses are slowed.',
+    wail: { name: 'Banshee Lantern', desc: 'A lantern holding a wailing spirit. Every few seconds its wail rolls out in a cone and frightens the enemies it reaches: they flee from you, fading as they go.', evo: 'veil', evoName: 'Wailing Veil', evoDesc: 'The wail rings out all around you. Frightened enemies that crash into each other take heavy damage, and bosses are slowed.',
       up: ['Damage +25%, faster, wider, frightens longer', 'Damage +20%, faster, reaches further, frightens longer', 'Damage +17%, faster, wider, reaches further, frightens longer', 'Damage +21%, faster, wider, frightens longer', 'Damage +18%, faster, wider, reaches further, frightens longer'] },
-    frost: { name: 'Moonfrost', desc: 'A cone of frost behind you that chills and slows whatever is chasing you.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes moths solid.',
+    frost: { name: 'Moonfrost', desc: 'A cone of frost behind you that chills and slows whatever is chasing you.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes enemies solid.',
       up: ['Damage +20%, reaches further, chills longer', 'Damage +25%, faster', 'Damage +20%, wider, faster', 'Damage +22%, wider, faster', 'Damage +18%, wider, reaches further'] },
   };
   // Weapons level to 8 (levels 7–8 are generic power steps); evolution needs level 6 plus the paired charm.
@@ -975,12 +975,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ward:   { name: 'Moth-Silk Ward',  max: 5, desc: 'Blocks one hit completely. Recharges in 14s, 2s faster per level.' },
     keen:   { name: 'Keen Edge',       max: 5, desc: '+7% chance for any hit to deal double damage.' },
     clover: { name: 'Four-Leaf Clover', max: 5, desc: '+10% chance of a fourth choice when leveling up. From level 3, chests hold an extra prize.' },
-    bell:   { name: 'Sanctuary Bell',  max: 5, desc: 'Every 30 kills (4 fewer per level) a holy bell rings: a shockwave hurls back and briefly stuns nearby moths.' },
-    brace:  { name: "Giant's Bracer",  max: 5, desc: 'Hit bosses, elites and heavy moths 5% harder per level.' },
-    kindle: { name: 'Kindling',        max: 5, desc: '+4% chance per level for any hit to set the moth on fire.' },
-    dusk:   { name: 'Duskbound',       max: 5, desc: 'More moths come for you, a little faster, but you gain 12% more experience.' },
-    bloom:  { name: 'Fungal Bloom',    max: 5, desc: 'Every kill has a 5% chance per level to leave a small spore cloud where the moth fell, poisoning moths that wander into it.' },
-    shoe:   { name: 'Lucky Horseshoe', max: 5, desc: 'Lucky finds: moths drop honey, full moons and bonus glow 5% more often per level, and chests have a 10% chance per level of an extra prize.' },
+    bell:   { name: 'Sanctuary Bell',  max: 5, desc: 'Every 30 kills (4 fewer per level) a holy bell rings: a shockwave hurls back and briefly stuns nearby enemies.' },
+    brace:  { name: "Giant's Bracer",  max: 5, desc: 'Hit bosses, elites and heavy enemies 5% harder per level.' },
+    kindle: { name: 'Kindling',        max: 5, desc: '+4% chance per level for any hit to set the enemy on fire.' },
+    dusk:   { name: 'Duskbound',       max: 5, desc: 'More enemies come for you, a little faster, but you gain 12% more experience.' },
+    bloom:  { name: 'Fungal Bloom',    max: 5, desc: 'Every kill has a 5% chance per level to leave a small spore cloud where the enemy fell, poisoning enemies that wander into it.' },
+    shoe:   { name: 'Lucky Horseshoe', max: 5, desc: 'Lucky finds: enemies drop honey, full moons and bonus glow 5% more often per level, and chests have a 10% chance per level of an extra prize.' },
     veil:   { name: 'Ghostlight Veil', max: 5, desc: 'After you are hit, you stay untouchable 0.1 s longer per level.' },
   };
 
@@ -22895,9 +22895,20 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       b.addEventListener('click', () => choose(o));
       el.appendChild(b);
     });
+    fitNames(); requestAnimationFrame(fitNames);
     $('reroll').textContent = `Reroll (${run.rerolls})`;
     $('reroll').disabled = run.rerolls < 1;
     $('pick0')?.focus();
+  }
+  // Long names (Finnish compounds like Onnenhevosenkenkä) shrink to fit their card instead of spilling over its edge.
+  function fitNames() {
+    for (const n of document.querySelectorAll('#picks .name')) {
+      n.style.fontSize = ''; n.style.overflowWrap = 'normal';
+      let f = 19;
+      const rg = document.createRange(); rg.selectNodeContents(n);
+      while (f > 12 && rg.getBoundingClientRect().width > n.getBoundingClientRect().width) n.style.fontSize = (--f) + 'px';
+      n.style.overflowWrap = '';
+    }
   }
   function describe(o) {
     if (o.type === 'heal') return { cls: '', kind: 'Snack', name: 'Honey Cake', desc: 'Recover 40 health. You already hold everything.' };
@@ -22986,7 +22997,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* ---------- Overlays & HUD ---------- */
   const fitLevel = () => { if (!$('level').hidden) $('level').style.bottom = $('loadout').offsetHeight + 'px'; };
-  addEventListener('resize', fitLevel);
+  addEventListener('resize', fitLevel); addEventListener('resize', () => { if (state === 'level') fitNames(); });
   function show(id) {
     for (const o of ['title', 'level', 'chest', 'pause', 'over', 'peddler', 'quest']) $(o).hidden = o !== id;
     $('loadout').classList.toggle('above', id === 'level');
@@ -23096,14 +23107,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-12d';
+  const BUILD = '2026-11-12f';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
     // A shattered Blood Moon (blood) ranks above every banished Eclipse Moth; each group is sorted by its own time.
     banish: { label: 'Fastest banish', fmt: v => v.toFixed(1) + ' s', key: 'banish_t', low: true, only: r => r.banished, cmp: (a, b) => (secretOf(b) ? 1 : 0) - (secretOf(a) ? 1 : 0) || a.banish_t - b.banish_t },
     damage: { label: 'Most damage', fmt: v => Math.round(v).toLocaleString(), key: 'dmg' },
-    kills: { label: 'Most moths', fmt: v => Math.round(v).toLocaleString(), key: 'kills' },
+    kills: { label: 'Most enemies', fmt: v => Math.round(v).toLocaleString(), key: 'kills' },
     level: { label: 'Highest level', fmt: v => 'Lv ' + v, key: 'lv' },
   };
   // Which secret dawn boss a run beat (0 none, 1 Blood Moon, 2 Forgotten Light); older rows and local bests say `blood`.
@@ -23301,7 +23312,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const f = run.finale, ecl = f && f.eclipseT ? `You banished the Eclipse Moth in ${f.eclipseT.toFixed(1)} seconds` : 'You held the dawn';
     const EYE = { perfect: 'The shadow is banished', blood: 'The Blood Moon is shattered', light: 'The Forgotten Light is laid to rest', bloodfled: 'The shadow is banished', lightfled: 'The shadow is banished' };
     const TITLE = { perfect: 'A new dawn', blood: 'A crimson dawn', light: 'A radiant dawn', bloodfled: 'A new dawn', lightfled: 'A new dawn' };
-    $('overEyebrow').textContent = EYE[how] || (win ? 'The sun rises over the meadow' : 'The moths swarmed Hexel');
+    $('overEyebrow').textContent = EYE[how] || (win ? 'The sun rises over the meadow' : 'The enemies swarmed Hexel');
     $('overTitle').textContent = TITLE[how] || (win ? 'You saw the dawn' : "Hexel's light went out");
     const burned = f && f.boss ? Math.min(99, Math.floor((1 - Math.max(0, f.boss.hp) / f.boss.max) * 100)) : 0;
     const note = how === 'perfect' ? `${ecl}. The fireflies will sing of Hexel for a hundred summers.`
@@ -23329,7 +23340,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       snd.fx('evolve');
     }
     $('finalTime').textContent = fmt(t);
-    $('tally').innerHTML = `<span>Level <b>${run.lv}</b></span><span>Moths <b>${run.kills}</b></span><span>Bosses <b>${run.bosses}</b></span><span>Rifts <b>${run.rifts}</b></span><span>Rift guardians <b>${run.minis}</b></span><span>Damage <b>${Math.round(run.dmg).toLocaleString()}</b></span>`;
+    $('tally').innerHTML = `<span>Level <b>${run.lv}</b></span><span>Enemies <b>${run.kills}</b></span><span>Bosses <b>${run.bosses}</b></span><span>Rifts <b>${run.rifts}</b></span><span>Rift guardians <b>${run.minis}</b></span><span>Damage <b>${Math.round(run.dmg).toLocaleString()}</b></span>`;
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
     lbOnOver(how);
@@ -24477,29 +24488,29 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      grows with every guardian beaten this run (Lv 1–3) and awakens into a MEGA form at RELIC_MEGA guardians. */
   const RELIC_MEGA = 4;
   const RELICS = {
-    d2:    { name: 'Hydra Altar', mega: 'Inferno Hydras', desc: 'Raises a three-headed fire hydra beside you that spits fireballs at nearby moths.', megaDesc: 'Three hydras at once, and every fireball explodes.' },
-    wc2:   { name: "Warchief's Axe", mega: 'Bloodlust Cleaver', desc: 'A huge battle axe swings in a wide arc where you are heading, hurling moths back.', megaDesc: 'Full-circle double swings with a shockwave.' },
+    d2:    { name: 'Hydra Altar', mega: 'Inferno Hydras', desc: 'Raises a three-headed fire hydra beside you that spits fireballs at nearby enemies.', megaDesc: 'Three hydras at once, and every fireball explodes.' },
+    wc2:   { name: "Warchief's Axe", mega: 'Bloodlust Cleaver', desc: 'A huge battle axe swings in a wide arc where you are heading, hurling enemies back.', megaDesc: 'Full-circle double swings with a shockwave.' },
     moo2:  { name: 'Orbital Death Ray', mega: 'Twin Death Rays', desc: 'Every few seconds a beam from orbit sweeps around you like a clock hand.', megaDesc: 'Two beams sweep together, longer, faster and more often.' },
     z:     { name: 'Sector Flag', mega: 'Fortified Sector', desc: 'Plants a blue sector flag that becomes an auto-turret for a while.', megaDesc: 'Up to four flags at once, firing explosive rockets.' },
     isaac: { name: 'Brimstone', mega: 'Brimstone Halo', desc: 'Charges up, then fires a thick blood laser across the whole screen.', megaDesc: 'Four blood lasers in a spinning cross.' },
-    zelda: { name: 'Boomerang', mega: 'Magic Boomerang', desc: 'Stuns moths on the way out and drags glow back to you on the way home.', megaDesc: 'Three homing boomerangs that hit much harder.' },
-    gw2:   { name: 'Brandwyrm', mega: 'Twin Brandwyrms', desc: 'A crystal dragon sweeps across the battlefield, scorching moths and leaving the ground ablaze.', megaDesc: 'Two dragons cross the field every 6 seconds, with wider, longer-burning fire.' },
-    ds:    { name: "Sunlord's Lightning", mega: 'Wrath of the Sunlord', desc: 'Hurls a great spear of golden lightning that pierces through moths and bursts where it lands.', megaDesc: 'Three spears at once, and lightning crashes down around every burst.' },
-    potato: { name: 'Fist', mega: 'Six Fists', desc: 'Floating fists hover around you and jab at the nearest moths with a hard knockback punch.', megaDesc: 'Six fists at once, punching faster, each jab ending in a little shockwave.' },
-    zerg:  { name: 'Baneling Barrage', mega: 'Baneling Flood', desc: 'Hatches friendly banelings that roll into the moths and burst in acid, leaving burning acid puddles behind.', megaDesc: 'A whole flood of banelings rolls out in every direction, more often, with bigger bursts.' },
-    spire: { name: 'Wild Cards', mega: 'Stacked Deck', desc: 'Flicks a fan of three cards at the nearest moth. Each card flies far and slices through everything in its path.', megaDesc: 'Five cards per throw, faster. The middle card is a picked card: gold stuns, red explodes, blue cuts twice as deep.' },
-    cow:   { name: 'The Peg Leg', mega: 'Leg of Legend', desc: 'A giant phantom peg leg stomps down on the thickest crowd of moths, bonking them flat and stunning them for a moment.', megaDesc: 'Three stomps in quick succession on different crowds, each sending out a shockwave.' },
-    temple: { name: 'Corrupted Blood', mega: 'Blood Plague Epidemic', desc: 'Infects the toughest moth with a contagious blood plague. Infected moths bleed, and the plague leaps to every moth that gets too close, again and again. An outbreak so convincing that real scientists studied it.', megaDesc: 'Three patient zeros at once. The plague leaps farther and faster, bleeds harder, and infected moths burst in blood when they die, infecting everything around them.' },
+    zelda: { name: 'Boomerang', mega: 'Magic Boomerang', desc: 'Stuns enemies on the way out and drags glow back to you on the way home.', megaDesc: 'Three homing boomerangs that hit much harder.' },
+    gw2:   { name: 'Brandwyrm', mega: 'Twin Brandwyrms', desc: 'A crystal dragon sweeps across the battlefield, scorching enemies and leaving the ground ablaze.', megaDesc: 'Two dragons cross the field every 6 seconds, with wider, longer-burning fire.' },
+    ds:    { name: "Sunlord's Lightning", mega: 'Wrath of the Sunlord', desc: 'Hurls a great spear of golden lightning that pierces through enemies and bursts where it lands.', megaDesc: 'Three spears at once, and lightning crashes down around every burst.' },
+    potato: { name: 'Fist', mega: 'Six Fists', desc: 'Floating fists hover around you and jab at the nearest enemies with a hard knockback punch.', megaDesc: 'Six fists at once, punching faster, each jab ending in a little shockwave.' },
+    zerg:  { name: 'Baneling Barrage', mega: 'Baneling Flood', desc: 'Hatches friendly banelings that roll into the enemies and burst in acid, leaving burning acid puddles behind.', megaDesc: 'A whole flood of banelings rolls out in every direction, more often, with bigger bursts.' },
+    spire: { name: 'Wild Cards', mega: 'Stacked Deck', desc: 'Flicks a fan of three cards at the nearest enemy. Each card flies far and slices through everything in its path.', megaDesc: 'Five cards per throw, faster. The middle card is a picked card: gold stuns, red explodes, blue cuts twice as deep.' },
+    cow:   { name: 'The Peg Leg', mega: 'Leg of Legend', desc: 'A giant phantom peg leg stomps down on the thickest crowd of enemies, bonking them flat and stunning them for a moment.', megaDesc: 'Three stomps in quick succession on different crowds, each sending out a shockwave.' },
+    temple: { name: 'Corrupted Blood', mega: 'Blood Plague Epidemic', desc: 'Infects the toughest enemy with a contagious blood plague. Infected enemies bleed, and the plague leaps to every enemy that gets too close, again and again. An outbreak so convincing that real scientists studied it.', megaDesc: 'Three patient zeros at once. The plague leaps farther and faster, bleeds harder, and infected enemies burst in blood when they die, infecting everything around them.' },
     bay:   { name: 'Cannon Barrage', mega: 'Full Broadside', desc: 'A ghost ship off-screen lobs volleys of cannonballs into the crowds around you. Watch for the red marks!', megaDesc: 'Bigger volleys, more often, with heavier shot and a blast of grapeshot.' },
-    homm:  { name: 'Implosion', mega: 'Cataclysmic Implosion', desc: 'Space collapses on the toughest foe in reach for enormous damage, dragging nearby moths into the vortex.', megaDesc: 'Three implosions at once, more often, each tearing at everything around it.' },
-    tibia: { name: 'Adori Mas Flam', mega: 'Exevo Gran Mas Flam', desc: 'Casts a great fireball rune into the thickest crowd of moths. It bursts in a blaze and leaves fire fields behind.', megaDesc: 'Three great fireballs at once, more often, with fiercer fire fields.' },
+    homm:  { name: 'Implosion', mega: 'Cataclysmic Implosion', desc: 'Space collapses on the toughest foe in reach for enormous damage, dragging nearby enemies into the vortex.', megaDesc: 'Three implosions at once, more often, each tearing at everything around it.' },
+    tibia: { name: 'Adori Mas Flam', mega: 'Exevo Gran Mas Flam', desc: 'Casts a great fireball rune into the thickest crowd of enemies. It bursts in a blaze and leaves fire fields behind.', megaDesc: 'Three great fireballs at once, more often, with fiercer fire fields.' },
     // Not dropped by any rift yet (no zone has this id); try it with fj.relic('aurora', minis) in #debug.
     // Not dropped by any rift yet; try it with fj.relic('orb', minis) in #debug. A violet take on a frozen orb.
-    hk: { name: 'Wailing Mask', mega: 'Void Mask', desc: 'Every moth you slay feeds the mask. When it is full it howls: a ring of pale spirits bursts out, piercing through moths, and you mend a little.', megaDesc: 'Fills faster and howls a wider ring of dark void spirits that hit harder and mend more.' },
-    orb: { name: 'Chaos Orb', mega: 'Twin Chaos Orbs', desc: 'Launches a slow, spinning violet orb that sprays chaotic shards in a spiral as it drifts, then bursts into a ring of shards. Struck moths are dazed and slowed.', megaDesc: 'Two orbs at once, denser spirals and a bigger burst.' },
-    aurora: { name: 'Aurora Ribbon', mega: 'Northern Veil', desc: 'A long ribbon of shimmering light trails behind you as you move, burning every moth it touches. Standing still, it curls around you.', megaDesc: 'A wider, longer curtain of aurora that also stops enemy bullets crossing it.' },
-    monkey: { name: 'Grog Keg', mega: 'Flaming Grog Barrage', desc: 'Rolls a keg of grog at the nearest moth. It bursts in a splash of grog that leaves a sticky puddle, slowing and dissolving every moth that wades through it.', megaDesc: 'Three kegs at once, harder-hitting, and every grog puddle catches fire.' },
-    necro: { name: 'Dance Floor', mega: 'Rave of the Dead', desc: 'A checkerboard dance floor follows you, flipping its lit tiles on every beat. Moths caught on a lit tile take a hit each time it lights.', megaDesc: 'A bigger, harder-hitting floor, and every fourth beat the bass drops: the whole floor slams at once and hurls moths back.' },
+    hk: { name: 'Wailing Mask', mega: 'Void Mask', desc: 'Every enemy you slay feeds the mask. When it is full it howls: a ring of pale spirits bursts out, piercing through enemies, and you mend a little.', megaDesc: 'Fills faster and howls a wider ring of dark void spirits that hit harder and mend more.' },
+    orb: { name: 'Chaos Orb', mega: 'Twin Chaos Orbs', desc: 'Launches a slow, spinning violet orb that sprays chaotic shards in a spiral as it drifts, then bursts into a ring of shards. Struck enemies are dazed and slowed.', megaDesc: 'Two orbs at once, denser spirals and a bigger burst.' },
+    aurora: { name: 'Aurora Ribbon', mega: 'Northern Veil', desc: 'A long ribbon of shimmering light trails behind you as you move, burning every enemy it touches. Standing still, it curls around you.', megaDesc: 'A wider, longer curtain of aurora that also stops enemy bullets crossing it.' },
+    monkey: { name: 'Grog Keg', mega: 'Flaming Grog Barrage', desc: 'Rolls a keg of grog at the nearest enemy. It bursts in a splash of grog that leaves a sticky puddle, slowing and dissolving every enemy that wades through it.', megaDesc: 'Three kegs at once, harder-hitting, and every grog puddle catches fire.' },
+    necro: { name: 'Dance Floor', mega: 'Rave of the Dead', desc: 'A checkerboard dance floor follows you, flipping its lit tiles on every beat. Enemies caught on a lit tile take a hit each time it lights.', megaDesc: 'A bigger, harder-hitting floor, and every fourth beat the bass drops: the whole floor slams at once and hurls enemies back.' },
     chaos: { name: 'Kaleidoscope Shard', mega: 'Kaleidoscope Storm', desc: 'A shard of the Chaos Rift. It channels two random relics at once, a little weaker each, and reshuffles them every few seconds.', megaDesc: 'Three random relics at once, in their MEGA forms, reshuffled even faster.' },
     lol:   { name: 'Allied Minion Wave', mega: 'Empowered Siege Wave', desc: 'Every so often a wave of your own blue minions marches out to fight for you.', megaDesc: 'Bigger waves, faster, with cannon minions.' },
   };
@@ -25336,7 +25347,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if ((s.life -= dt) <= 0) { s.gone = true; banner('A moth shrine went dark… its light is lost for tonight', '#b8ac90', true); return; }
         if (d > SHRINE_R) { s.prog = Math.max(0, s.prog - dt * .5); return; }
         if (!s.stirred) {
-          s.stirred = true; banner('Hold the light! The moths are gathering…', '#fff0c0', true); snd.fx('warn');
+          s.stirred = true; banner('Hold the light! The enemies are gathering…', '#fff0c0', true); snd.fx('warn');
           for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; spawnFoe(i % 3 ? 'moth' : 'ghost', s.x + Math.cos(a) * 320, s.y + Math.sin(a) * 320); }
         }
         if ((s.prog += dt) < SHRINE_HOLD) return;

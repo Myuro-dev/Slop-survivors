@@ -120,7 +120,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .pick:hover { transform: translateY(-3px); border-color: var(--glow); }
 .pick .key { font-size: 11px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 8px; }
 .pick .key .new { color: var(--glow); }
-.pick .name { font-family: var(--display); font-weight: 800; font-size: 19px; line-height: 1.1; }
+.pick .name { font-family: var(--display); font-weight: 800; font-size: 19px; line-height: 1.1; overflow-wrap: anywhere; min-width: 0; }
 .pick .desc { font-size: 14px; color: var(--muted); line-height: 1.4; }
 .pick .hint { font-size: 12px; color: var(--evo); line-height: 1.4; }
 .pick.w { border-color: rgba(159,216,255,.45); }
@@ -230,7 +230,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       <div class="boss" id="bossBox" hidden><span id="bossName"></span><div class="meter"><i id="bossBar"></i></div></div>
     </div>
     <div class="stat right">
-      <span class="label">Perhoset</span>
+      <span class="label">Viholliset</span>
       <span class="value" id="kills">0</span>
       <div class="hudbtns"><button class="pausebtn aud-music" id="musicBtn" aria-label="Musiikki">♪</button><button class="pausebtn" id="pauseBtn" aria-label="Tauko">II</button></div>
     </div>
@@ -242,7 +242,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   <div class="card">
     <span class="eyebrow">Tulikärpäspurkki · Maailmat</span>
     <h1>Aamunkoi</h1>
-    <p>Olet Hexel, pieni elävän valon kuusikulmio, ja jokainen yön yöperhonen havittelee sinua. Tulikärpäsesi taistelevat itsestään. Kerää yöperhosten jättämä hehku noustaksesi tasoja ja selviydy kymmenen minuuttia auringonnousuun asti. Matkalla kimppuusi käy kolme pomoa, ja aamunkoitteessa nousee viimeinen varjo. Yöhön aukeaa portteja outoihin maailmoihin: astu läpi, voita niiden vartija ja palaa vahvempana.</p>
+    <p>Olet Hexel, pieni elävän valon kuusikulmio, ja jokainen yön vihollinen havittelee sinua. Tulikärpäsesi taistelevat itsestään. Kerää vihollisten jättämä hehku noustaksesi tasoja ja selviydy kymmenen minuuttia auringonnousuun asti. Matkalla kimppuusi käy kolme pomoa, ja aamunkoitteessa nousee viimeinen varjo. Yöhön aukeaa portteja outoihin maailmoihin: astu läpi, voita niiden vartija ja palaa vahvempana.</p>
     <div class="legend">
       <span><i class="dot y"></i>Hehku: kokemusta</span>
       <span><i class="dot g"></i>Arkku: ilmaisia parannuksia</span>
@@ -836,47 +836,47 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   /* ---------- Weapons ---------- */
   // up[i] describes the step from level i+1 to i+2. evo is the paired charm id.
   const WEAPONS = {
-    swarm: { name: 'Tulikärpäsparvi', desc: 'Tulikärpäset kiertävät sinua ryöppyinä ja kärventävät koskettamansa yöperhoset.', evo: 'linger', evoName: 'Tähtikuvio', evoDesc: 'Seitsemän leiskuvaa tähteä kiertää sinua tauotta.',
+    swarm: { name: 'Tulikärpäsparvi', desc: 'Tulikärpäset kiertävät sinua ryöppyinä ja kärventävät koskettamansa viholliset.', evo: 'linger', evoName: 'Tähtikuvio', evoDesc: 'Seitsemän leiskuvaa tähteä kiertää sinua tauotta.',
       up: ['+1 tulikärpänen', 'Vahinko +33 %, leveämpi kiertorata', '+1 tulikärpänen, pidemmät ryöpyt', 'Vahinko +25 %, leveämpi kiertorata', '+1 tulikärpänen, enemmän vahinkoa, pidemmät ryöpyt'] },
-    bolt: { name: 'Kipinäsalama', desc: 'Ampuu kipinöitä lähimpiin yöperhosiin.', evo: 'steady', evoName: 'Auringonsäde', evoDesc: 'Läpäisevän auringonvalon ryöppy.',
-      up: ['Vahinko +33 %', '+1 kipinä, ampuu nopeammin', 'Ampuu nopeammin, lävistää 1 perhosen lisää', '+1 kipinä, vahinko +20 %', 'Ampuu nopeammin, vahinko +20 %, lävistää 1 lisää'] },
-    pulse: { name: 'Lämmin hehku', desc: 'Lämmin aura polttaa liian lähelle tulevat yöperhoset.', evo: 'heart', evoName: 'Liesituli', evoDesc: 'Valtava hehku, joka parantaa sinua polttaessaan.',
+    bolt: { name: 'Kipinäsalama', desc: 'Ampuu kipinöitä lähimpiin vihollisiin.', evo: 'steady', evoName: 'Auringonsäde', evoDesc: 'Läpäisevän auringonvalon ryöppy.',
+      up: ['Vahinko +33 %', '+1 kipinä, ampuu nopeammin', 'Ampuu nopeammin, lävistää 1 vihollisen lisää', '+1 kipinä, vahinko +20 %', 'Ampuu nopeammin, vahinko +20 %, lävistää 1 lisää'] },
+    pulse: { name: 'Lämmin hehku', desc: 'Lämmin aura polttaa liian lähelle tulevat viholliset.', evo: 'heart', evoName: 'Liesituli', evoDesc: 'Valtava hehku, joka parantaa sinua polttaessaan.',
       up: ['Leveämpi hehku, vahinko +12 %', 'Vahinko +22 %', 'Leveämpi hehku, vahinko +10 %', 'Leveämpi hehku, vahinko +15 %', 'Leveämpi hehku, vahinko +15 %'] },
-    chain: { name: 'Ketjusalama', desc: 'Salama loikkii perhosesta toiseen.', evo: 'net', evoName: 'Ukkospurkki', evoDesc: 'Myrskyt loikkivat 14 perhosen läpi, kaksi kertaa niin usein.',
+    chain: { name: 'Ketjusalama', desc: 'Salama loikkii vihollisesta toiseen.', evo: 'net', evoName: 'Ukkospurkki', evoDesc: 'Myrskyt loikkivat 14 vihollisen läpi, kaksi kertaa niin usein.',
       up: ['+1 loikka, iskee nopeammin', '+1 loikka, vahinko +35 %', 'Iskee nopeammin, vahinko +20 %', '+1 loikka, iskee nopeammin', '+2 loikkaa, iskee nopeammin, vahinko +20 %'] },
-    star: { name: 'Tähtisade', desc: 'Tähdenlennot rysähtävät ympärilläsi oleviin yöperhosiin.', evo: 'magnet', evoName: 'Meteorisade', evoDesc: 'Seitsemän valtavaa meteoria putoaa puolentoista sekunnin välein.',
+    star: { name: 'Tähtisade', desc: 'Tähdenlennot rysähtävät ympärilläsi oleviin vihollisiin.', evo: 'magnet', evoName: 'Meteorisade', evoDesc: 'Seitsemän valtavaa meteoria putoaa puolentoista sekunnin välein.',
       up: ['+1 tähti', 'Putoaa nopeammin, vahinko +33 %', '+1 tähti, isompi isku', 'Putoaa nopeammin, vahinko +25 %', '+1 tähti, putoaa nopeammin, vahinko +20 %'] },
-    bat: { name: 'Lepakkokumppani', desc: 'Lepakko jahtaa yöperhosia puolestasi.', evo: 'dew', evoName: 'Vampyyrihovi', evoDesc: 'Viisi vampyyrilepakkoa, ja niiden puraisut parantavat sinua.',
+    bat: { name: 'Lepakkokumppani', desc: 'Lepakko jahtaa vihollisia puolestasi.', evo: 'dew', evoName: 'Vampyyrihovi', evoDesc: 'Viisi vampyyrilepakkoa, ja niiden puraisut parantavat sinua.',
       up: ['Puraisut +40 %', '+1 lepakko', 'Puraisut +30 %', '+1 lepakko, puraisut +20 %', 'Puree kovempaa ja nopeammin'] },
     moon: { name: 'Kuunterä', desc: 'Heittää sirpin, joka lentää, palaa takaisin ja viiltää kaiken läpi.', evo: 'wings', evoName: 'Pimennys', evoDesc: 'Neljä jättisirppiä lentää joka suuntaan.',
       up: ['Vahinko +33 %', '+1 terä, heittää nopeammin', 'Isompi, heittää nopeammin, vahinko +15 %', 'Heittää nopeammin, vahinko +20 %', '+1 terä, isompi, heittää nopeammin'] },
-    nova: { name: 'Supernova', desc: 'Muutaman sekunnin välein leimahdat valoon ja puhallat yöperhoset pölyineen kauas.', evo: 'ember', evoName: 'Alkuräjähdys', evoDesc: 'Jättimäinen räjähdys 4 sekunnin välein.',
+    nova: { name: 'Supernova', desc: 'Muutaman sekunnin välein leimahdat valoon ja puhallat viholliset pölyineen kauas.', evo: 'ember', evoName: 'Alkuräjähdys', evoDesc: 'Jättimäinen räjähdys 4 sekunnin välein.',
       up: ['Vahinko +30 %, isompi, useammin', 'Vahinko +15 %, isompi, useammin', 'Vahinko +20 %, isompi, useammin', 'Vahinko +20 %, isompi, useammin', 'Vahinko +15 %, isompi, useammin'] },
-    thorn: { name: 'Orjantappurarengas', desc: 'Piikkipensaikot puhkeavat maasta lähellä olevien perhosten alta ja pistelevät lakkaamatta.', evo: 'ward', evoName: 'Piikkilinnake', evoDesc: 'Kahdeksan pensaikkoa purkautuu renkaana ympärillesi joka sekunti.',
+    thorn: { name: 'Orjantappurarengas', desc: 'Piikkipensaikot puhkeavat maasta lähellä olevien vihollisten alta ja pistelevät lakkaamatta.', evo: 'ward', evoName: 'Piikkilinnake', evoDesc: 'Kahdeksan pensaikkoa purkautuu renkaana ympärillesi joka sekunti.',
       up: ['Vahinko +25 %', '+1 pensaikko, laajempi', 'Vahinko +30 %, nopeampi', '+1 pensaikko, laajempi, nopeampi', '+1 pensaikko, vahinko +20 %, nopeampi'] },
-    lance: { name: 'Prismakeihäs', desc: 'Ampuu läpäisevän valonsäteen lähimpään perhoseen. Osumakohdassa säde taittuu viuhkaksi värikkäitä säteitä.', evo: 'keen', evoName: 'Aamunsärkijä', evoDesc: 'Kolme auringonnousun sädettä, jotka taittuvat viisivärisiksi viuhkoiksi, joiden säteet taittuvat vielä uudelleen.',
+    lance: { name: 'Prismakeihäs', desc: 'Ampuu läpäisevän valonsäteen lähimpään viholliseen. Osumakohdassa säde taittuu viuhkaksi värikkäitä säteitä.', evo: 'keen', evoName: 'Aamunsärkijä', evoDesc: 'Kolme auringonnousun sädettä, jotka taittuvat viisivärisiksi viuhkoiksi, joiden säteet taittuvat vielä uudelleen.',
       up: ['Vahinko +30 %, pidempi', 'Vahinko +23 %, leveämpi, nopeampi, +1 taittuva säde', '+1 säde, nopeampi', 'Vahinko +22 %, leveämpi, nopeampi, +1 taittuva säde', '+1 säde, vahinko +18 %, nopeampi'] },
-    wisp: { name: "Virvatulet", desc: 'Päästää virvatulia, jotka jahtaavat yöperhosia omin päin. Osa syntyy onnekkaina: kulta-, hiillos-, myrsky-, kaksois- tai metsästäjävirvatulina.', evo: 'clover', evoName: 'Onnen kuoro', evoDesc: 'Kahdeksan virvatulen kuoro; jokainen lävistää kolme perhosta ja syntyy onnekkaana. Silloin tällöin jättipottivirvatuli kutsuu tähtiä taivaalta.',
+    wisp: { name: "Virvatulet", desc: 'Päästää virvatulia, jotka jahtaavat vihollisia omin päin. Osa syntyy onnekkaina: kulta-, hiillos-, myrsky-, kaksois- tai metsästäjävirvatulina.', evo: 'clover', evoName: 'Onnen kuoro', evoDesc: 'Kahdeksan virvatulen kuoro; jokainen lävistää kolme vihollista ja syntyy onnekkaana. Silloin tällöin jättipottivirvatuli kutsuu tähtiä taivaalta.',
       up: ['+1 virvatuli, vahinko +14 %, nopeampi', 'Vahinko +19 %, nopeampi', '+1 virvatuli, vahinko +16 %, nopeampi', 'Vahinko +18 %, nopeampi', '+1 virvatuli, vahinko +15 %, nopeampi'] },
-    hammer: { name: 'Siunatut vasarat', desc: 'Heittää hehkuvia vasaroita, jotka kiertyvät spiraalina ulos heittopaikasta ja murskaavat jokaisen ohittamansa perhosen.', evo: 'bell', evoName: 'Taivaiden vasaraisku', evoDesc: 'Kuusi vasaraa laajemmalla spiraalilla, ja jokainen päättyy pyhään räjähdykseen.',
+    hammer: { name: 'Siunatut vasarat', desc: 'Heittää hehkuvia vasaroita, jotka kiertyvät spiraalina ulos heittopaikasta ja murskaavat jokaisen ohittamansa vihollisen.', evo: 'bell', evoName: 'Taivaiden vasaraisku', evoDesc: 'Kuusi vasaraa laajemmalla spiraalilla, ja jokainen päättyy pyhään räjähdykseen.',
       up: ['+1 vasara', 'Vahinko +25 %, heittää useammin', '+1 vasara, vahinko +10 %', 'Vahinko +18 %, heittää useammin', '+1 vasara, vahinko +15 %, heittää useammin'] },
-    lamp: { name: 'Hehkulyhty', desc: 'Pystyttää lyhdyn kohtaan, jossa seisot. Sen lämmin valokehä parantaa sinua, kun pysyt sen sisällä, hidastaa perhosia ja saa vihollisten ammukset matelemaan.', evo: 'wind', evoName: 'Majakka', evoDesc: 'Kaksi suurta majakkaa: laajempi ja pitkäikäisempi valo, joka parantaa enemmän, polttaa vihollisten ammukset ja pyyhkii ympäriinsä kärventävää sädettä.',
+    lamp: { name: 'Hehkulyhty', desc: 'Pystyttää lyhdyn kohtaan, jossa seisot. Sen lämmin valokehä parantaa sinua, kun pysyt sen sisällä, hidastaa vihollisia ja saa vihollisten ammukset matelemaan.', evo: 'wind', evoName: 'Majakka', evoDesc: 'Kaksi suurta majakkaa: laajempi ja pitkäikäisempi valo, joka parantaa enemmän, polttaa vihollisten ammukset ja pyyhkii ympäriinsä kärventävää sädettä.',
       up: ['Parantaa enemmän, isompi valokehä', 'Lyhdyt kestävät pidempään, pystytetään useammin', 'Kaksi lyhtyä voi palaa yhtä aikaa', 'Parantaa enemmän, isompi, pystytetään useammin', 'Parantaa enemmän, kestää pidempään, pystytetään useammin'] },
-    dew2: { name: 'Kastepisarakilvet', desc: 'Lasimaiset kastepisarat kiertävät tiiviisti ympärilläsi. Jokainen nielaisee yhden vihollisen ammuksen ja kasvaa sitten uudelleen; ne myös tönivät perhosia kauemmas.', evo: 'wax', evoName: 'Meripihkavalli', evoDesc: 'Kuusi meripihkapisaraa, jotka kasvavat nopeasti uudelleen ja singauttavat jokaisen nappaamansa ammuksen takaisin perhosiin meripihkaräjähdyksenä.',
+    dew2: { name: 'Kastepisarakilvet', desc: 'Lasimaiset kastepisarat kiertävät tiiviisti ympärilläsi. Jokainen nielaisee yhden vihollisen ammuksen ja kasvaa sitten uudelleen; ne myös tönivät vihollisia kauemmas.', evo: 'wax', evoName: 'Meripihkavalli', evoDesc: 'Kuusi meripihkapisaraa, jotka kasvavat nopeasti uudelleen ja singauttavat jokaisen nappaamansa ammuksen takaisin vihollisiin meripihkaräjähdyksenä.',
       up: ['+1 kastepisara', 'Kasvaa nopeammin, vahinko +25 %', '+1 kastepisara, vahinko +20 %', 'Kasvaa nopeammin, vahinko +20 %', '+1 kastepisara, kasvaa nopeammin, vahinko +15 %'] },
-    bow: { name: 'Kuujousi', desc: 'Ampuu kaukaa raskaan hopeanuolen sitkeimpään näkyvään perhoseen, ja nuoli lävistää kaiken linjallaan.', evo: 'gold', evoName: 'Metsästäjättären kuu', evoDesc: 'Kolmen nuolen yhteislaukaus kolmeen sitkeimpään perhoseen. Jokainen osuma merkitsee perhosen, joka ottaa 25 % enemmän vahinkoa kaikesta.',
-      up: ['Vahinko +25 %, ampuu useammin', 'Vahinko +20 %', 'Vahinko +18 %, ampuu useammin', 'Toinen nuoli seuraavaksi sitkeimpään perhoseen', 'Vahinko +20 %, ampuu useammin'] },
-    slam: { name: 'Maanmurskaaja', desc: 'Hexel heilauttaa isoa kirvestä ja iskee maahan aivan edessään: pyöreä räjähdys lennättää perhoset kauas ja tainnuttaa ne hetkeksi.', evo: 'brace', evoName: 'Maanhalkaisija', evoDesc: 'Jättimäinen isku, joka halkaisee maan: iskukohdasta purkautuu eteenpäin rivi kivipurkauksia.',
+    bow: { name: 'Kuujousi', desc: 'Ampuu kaukaa raskaan hopeanuolen sitkeimpään näkyvään viholliseen, ja nuoli lävistää kaiken linjallaan.', evo: 'gold', evoName: 'Metsästäjättären kuu', evoDesc: 'Kolmen nuolen yhteislaukaus kolmeen sitkeimpään viholliseen. Jokainen osuma merkitsee vihollisen, joka ottaa 25 % enemmän vahinkoa kaikesta.',
+      up: ['Vahinko +25 %, ampuu useammin', 'Vahinko +20 %', 'Vahinko +18 %, ampuu useammin', 'Toinen nuoli seuraavaksi sitkeimpään viholliseen', 'Vahinko +20 %, ampuu useammin'] },
+    slam: { name: 'Maanmurskaaja', desc: 'Hexel heilauttaa isoa kirvestä ja iskee maahan aivan edessään: pyöreä räjähdys lennättää viholliset kauas ja tainnuttaa ne hetkeksi.', evo: 'brace', evoName: 'Maanhalkaisija', evoDesc: 'Jättimäinen isku, joka halkaisee maan: iskukohdasta purkautuu eteenpäin rivi kivipurkauksia.',
       up: ['Vahinko +25 %, isompi isku', 'Vahinko +15 %, iskee useammin', 'Vahinko +18 %, isompi isku, iskee useammin', 'Toinen isku osuu kauemmas eteen', 'Vahinko +17 %, isompi isku, iskee useammin'] },
-    flame: { name: 'Noitatuli', desc: "Yrttinoidan siunaus: puhalla lyhyt viuhka vihertävänkultaista noitatulta lähimpiin perhosiin ja jätä ne palamaan.", evo: 'kindle', evoName: 'Patahelvetti', evoDesc: 'Leveä, kohiseva noitatulen viuhka, joka jättää maan kuplimaan liekeissä.',
+    flame: { name: 'Noitatuli', desc: "Yrttinoidan siunaus: puhalla lyhyt viuhka vihertävänkultaista noitatulta lähimpiin vihollisiin ja jätä ne palamaan.", evo: 'kindle', evoName: 'Patahelvetti', evoDesc: 'Leveä, kohiseva noitatulen viuhka, joka jättää maan kuplimaan liekeissä.',
       up: ['Vahinko +33 %, ulottuu pidemmälle', 'Polttaa kuumemmin, ulottuu pidemmälle', 'Vahinko +25 %, leveämpi, ulottuu pidemmälle', 'Vahinko +20 %, polttaa kuumemmin, leveämpi', 'Vahinko +17 %, polttaa kuumemmin, leveämpi, ulottuu pidemmälle'] },
     dice: { name: 'Onnennopat', desc: 'Muutaman sekunnin välein Hexel heittää noppaa, ja silmäluku ratkaisee: 1 suhahtaa tyhjiin, 2 heittää kipinöitä, 3 tulipallo, 4 ketjusalama, 5 kolikkosade, 6 meteori ja uusi heitto.', evo: 'shoe', evoName: 'Painotetut nopat', evoDesc: 'Heittää kahta noppaa kerralla, ja molemmat vaikutukset laukeavat. Tuplat iskevät 50 % kovempaa.',
       up: ['Heittää nopeammin, vaikutukset +20 %', 'Heittää nopeammin, vaikutukset +21 %', 'Heittää nopeammin, vaikutukset +17 %', 'Heittää nopeammin, vaikutukset +18 %', 'Heittää nopeammin, vaikutukset +18 %'] },
-    mine: { name: 'Tuhkelomiinat', desc: 'Muutaman sekunnin välein seisomapaikkaasi istutetaan hehkuva tuhkelosieni. Lakit odottavat jopa 30 s; kun perhonen astuu sellaisen päälle, se puhkeaa ja jättää myrkyllisen itiöpilven. Johdata parvi miinakenttäsi yli.', evo: 'bloom', evoName: 'Rihmastomiinakenttä', evoDesc: 'Enemmän lakkeja ja isompia puhkeamisia, ja jokaisesta puhkeamisesta versoo kolme pikkulakkia, jotka poksahtavat hetken päästä. Itiöpilvet myös hidastavat perhosia.',
+    mine: { name: 'Tuhkelomiinat', desc: 'Muutaman sekunnin välein seisomapaikkaasi istutetaan hehkuva tuhkelosieni. Lakit odottavat jopa 30 s; kun vihollinen astuu sellaisen päälle, se puhkeaa ja jättää myrkyllisen itiöpilven. Johdata parvi miinakenttäsi yli.', evo: 'bloom', evoName: 'Rihmastomiinakenttä', evoDesc: 'Enemmän lakkeja ja isompia puhkeamisia, ja jokaisesta puhkeamisesta versoo kolme pikkulakkia, jotka poksahtavat hetken päästä. Itiöpilvet myös hidastavat vihollisia.',
       up: ['Vahinko +20 %, istuttaa nopeammin', 'Vahinko +21 %, isompi puhkeaminen, istuttaa nopeammin, +1 lakki kentällä', '+1 lakki per istutus, vahinko +17 %, istuttaa nopeammin, +1 lakki kentällä', 'Vahinko +18 %, isompi puhkeaminen ja pilvi, istuttaa nopeammin, +1 lakki kentällä', 'Vahinko +19 %, isompi pilvi, itiöt kestävät pidempään, istuttaa nopeammin, +1 lakki kentällä'] },
-    wail: { name: 'Banshee-lyhty', desc: 'Lyhty, jossa asuu valittava henki. Muutaman sekunnin välein sen valitus vyöryy viuhkana ja kauhistuttaa tavoittamansa perhoset: ne pakenevat sinua ja hiipuvat mennessään.', evo: 'veil', evoName: 'Valittava huntu', evoDesc: 'Valitus kaikuu joka puolellasi. Kauhistuneet perhoset, jotka törmäävät toisiinsa, ottavat rajusti vahinkoa, ja pomot hidastuvat.',
+    wail: { name: 'Banshee-lyhty', desc: 'Lyhty, jossa asuu valittava henki. Muutaman sekunnin välein sen valitus vyöryy viuhkana ja kauhistuttaa tavoittamansa viholliset: ne pakenevat sinua ja hiipuvat mennessään.', evo: 'veil', evoName: 'Valittava huntu', evoDesc: 'Valitus kaikuu joka puolellasi. Kauhistuneet viholliset, jotka törmäävät toisiinsa, ottavat rajusti vahinkoa, ja pomot hidastuvat.',
       up: ['Vahinko +25 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +20 %, nopeampi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +17 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +21 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +18 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään'] },
-    frost: { name: 'Kuunhalla', desc: 'Hallaviuhka takanasi viilentää ja hidastaa kaikkea, mikä jahtaa sinua.', evo: 'dusk', evoName: 'Absoluuttinen nolla', evoDesc: 'Täysi lumimyrskyrengas, joka jäädyttää perhoset kohmeeseen.',
+    frost: { name: 'Kuunhalla', desc: 'Hallaviuhka takanasi viilentää ja hidastaa kaikkea, mikä jahtaa sinua.', evo: 'dusk', evoName: 'Absoluuttinen nolla', evoDesc: 'Täysi lumimyrskyrengas, joka jäädyttää viholliset kohmeeseen.',
       up: ['Vahinko +20 %, ulottuu pidemmälle, viilentää pidempään', 'Vahinko +25 %, nopeampi', 'Vahinko +20 %, leveämpi, nopeampi', 'Vahinko +22 %, leveämpi, nopeampi', 'Vahinko +18 %, leveämpi, ulottuu pidemmälle'] },
   };
   // Weapons level to 8 (levels 7–8 are generic power steps); evolution needs level 6 plus the paired charm.
@@ -975,12 +975,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ward:   { name: 'Koisilkkisuoja',  max: 5, desc: 'Torjuu yhden osuman kokonaan. Latautuu 14 sekunnissa, 2 s nopeammin per taso.' },
     keen:   { name: 'Terävä terä',       max: 5, desc: '+7 % mahdollisuus, että osuma tekee tuplavahingon.' },
     clover: { name: 'Neliapila', max: 5, desc: '+10 % mahdollisuus neljänteen vaihtoehtoon tason noustessa. Tasosta 3 alkaen arkuissa on ylimääräinen palkinto.' },
-    bell:   { name: 'Pyhäkön kello',  max: 5, desc: 'Joka 30. tapon jälkeen (4 vähemmän per taso) pyhä kello soi: shokkiaalto paiskaa lähiperhoset kauas ja tainnuttaa ne hetkeksi.' },
-    brace:  { name: "Jättiläisen rannesuoja",  max: 5, desc: 'Iske pomoja, eliittejä ja raskaita perhosia 5 % kovempaa per taso.' },
-    kindle: { name: 'Sytyke',        max: 5, desc: '+4 % mahdollisuus per taso, että osuma sytyttää perhosen tuleen.' },
-    dusk:   { name: 'Hämärän sidottu',       max: 5, desc: 'Perhosia tulee perääsi enemmän ja hieman nopeammin, mutta saat 12 % enemmän kokemusta.' },
-    bloom:  { name: 'Sienikukinta',    max: 5, desc: 'Jokaisella tapolla on 5 % mahdollisuus per taso jättää kaatumispaikkaan pieni itiöpilvi, joka myrkyttää siihen eksyvät perhoset.' },
-    shoe:   { name: 'Onnenhevosenkenkä', max: 5, desc: 'Onnekkaita löytöjä: perhoset pudottavat hunajaa, täysikuita ja lisähehkua 5 % useammin per taso, ja arkuissa on 10 % mahdollisuus per taso ylimääräiseen palkintoon.' },
+    bell:   { name: 'Pyhäkön kello',  max: 5, desc: 'Joka 30. tapon jälkeen (4 vähemmän per taso) pyhä kello soi: shokkiaalto paiskaa lähellä olevat viholliset kauas ja tainnuttaa ne hetkeksi.' },
+    brace:  { name: "Jättiläisen rannesuoja",  max: 5, desc: 'Iske pomoja, eliittejä ja raskaita vihollisia 5 % kovempaa per taso.' },
+    kindle: { name: 'Sytyke',        max: 5, desc: '+4 % mahdollisuus per taso, että osuma sytyttää vihollisen tuleen.' },
+    dusk:   { name: 'Hämärän sidottu',       max: 5, desc: 'Vihollisia tulee perääsi enemmän ja hieman nopeammin, mutta saat 12 % enemmän kokemusta.' },
+    bloom:  { name: 'Sienikukinta',    max: 5, desc: 'Jokaisella tapolla on 5 % mahdollisuus per taso jättää kaatumispaikkaan pieni itiöpilvi, joka myrkyttää siihen eksyvät viholliset.' },
+    shoe:   { name: 'Onnenhevosenkenkä', max: 5, desc: 'Onnekkaita löytöjä: viholliset pudottavat hunajaa, täysikuita ja lisähehkua 5 % useammin per taso, ja arkuissa on 10 % mahdollisuus per taso ylimääräiseen palkintoon.' },
     veil:   { name: 'Aavevalohuntu', max: 5, desc: 'Osuman jälkeen olet koskematon 0,1 s pidempään per taso.' },
   };
 
@@ -22895,9 +22895,20 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       b.addEventListener('click', () => choose(o));
       el.appendChild(b);
     });
+    fitNames(); requestAnimationFrame(fitNames);
     $('reroll').textContent = `Arvo uudelleen (${run.rerolls})`;
     $('reroll').disabled = run.rerolls < 1;
     $('pick0')?.focus();
+  }
+  // Long names (Finnish compounds like Onnenhevosenkenkä) shrink to fit their card instead of spilling over its edge.
+  function fitNames() {
+    for (const n of document.querySelectorAll('#picks .name')) {
+      n.style.fontSize = ''; n.style.overflowWrap = 'normal';
+      let f = 19;
+      const rg = document.createRange(); rg.selectNodeContents(n);
+      while (f > 12 && rg.getBoundingClientRect().width > n.getBoundingClientRect().width) n.style.fontSize = (--f) + 'px';
+      n.style.overflowWrap = '';
+    }
   }
   function describe(o) {
     if (o.type === 'heal') return { cls: '', kind: 'Välipala', name: 'Hunajakakku', desc: 'Palauta 40 terveyttä. Sinulla on jo kaikki.' };
@@ -22986,7 +22997,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   /* ---------- Overlays & HUD ---------- */
   const fitLevel = () => { if (!$('level').hidden) $('level').style.bottom = $('loadout').offsetHeight + 'px'; };
-  addEventListener('resize', fitLevel);
+  addEventListener('resize', fitLevel); addEventListener('resize', () => { if (state === 'level') fitNames(); });
   function show(id) {
     for (const o of ['title', 'level', 'chest', 'pause', 'over', 'peddler', 'quest']) $(o).hidden = o !== id;
     $('loadout').classList.toggle('above', id === 'level');
@@ -23096,14 +23107,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-12d';
+  const BUILD = '2026-11-12f';
   $('buildStamp').textContent = `Kausi ${seasonName(GAME_VERSION)} · versio ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
     // A shattered Blood Moon (blood) ranks above every banished Eclipse Moth; each group is sorted by its own time.
     banish: { label: 'Nopein karkotus', fmt: v => v.toFixed(1) + ' s', key: 'banish_t', low: true, only: r => r.banished, cmp: (a, b) => (secretOf(b) ? 1 : 0) - (secretOf(a) ? 1 : 0) || a.banish_t - b.banish_t },
     damage: { label: 'Eniten vahinkoa', fmt: v => Math.round(v).toLocaleString('fi-FI'), key: 'dmg' },
-    kills: { label: 'Eniten perhosia', fmt: v => Math.round(v).toLocaleString('fi-FI'), key: 'kills' },
+    kills: { label: 'Eniten vihollisia', fmt: v => Math.round(v).toLocaleString('fi-FI'), key: 'kills' },
     level: { label: 'Korkein taso', fmt: v => 'T ' + v, key: 'lv' },
   };
   // Which secret dawn boss a run beat (0 none, 1 Blood Moon, 2 Forgotten Light); older rows and local bests say `blood`.
@@ -23301,7 +23312,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const f = run.finale, ecl = f && f.eclipseT ? `Karkotit Pimennysperhosen ${f.eclipseT.toFixed(1)} sekunnissa` : 'Kestit aamunkoittoon';
     const EYE = { perfect: 'Varjo on karkotettu', blood: 'Verikuu on murskattu', light: 'Unohdettu Valo on saatettu lepoon', bloodfled: 'Varjo on karkotettu', lightfled: 'Varjo on karkotettu' };
     const TITLE = { perfect: 'Uusi aamu', blood: 'Purppurainen aamu', light: 'Säteilevä aamu', bloodfled: 'Uusi aamu', lightfled: 'Uusi aamu' };
-    $('overEyebrow').textContent = EYE[how] || (win ? 'Aurinko nousee niityn ylle' : 'Yöperhoset nujersivat Hexelin');
+    $('overEyebrow').textContent = EYE[how] || (win ? 'Aurinko nousee niityn ylle' : 'Viholliset nujersivat Hexelin');
     $('overTitle').textContent = TITLE[how] || (win ? 'Näit aamunkoiton' : "Hexelin valo sammui");
     const burned = f && f.boss ? Math.min(99, Math.floor((1 - Math.max(0, f.boss.hp) / f.boss.max) * 100)) : 0;
     const note = how === 'perfect' ? `${ecl}. Tulikärpäset laulavat Hexelistä vielä sata kesää.`
@@ -23329,7 +23340,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       snd.fx('evolve');
     }
     $('finalTime').textContent = fmt(t);
-    $('tally').innerHTML = `<span>Taso <b>${run.lv}</b></span><span>Perhoset <b>${run.kills}</b></span><span>Pomot <b>${run.bosses}</b></span><span>Maailmat <b>${run.rifts}</b></span><span>Vartijat <b>${run.minis}</b></span><span>Vahinko <b>${Math.round(run.dmg).toLocaleString('fi-FI')}</b></span>`;
+    $('tally').innerHTML = `<span>Taso <b>${run.lv}</b></span><span>Viholliset <b>${run.kills}</b></span><span>Pomot <b>${run.bosses}</b></span><span>Maailmat <b>${run.rifts}</b></span><span>Vartijat <b>${run.minis}</b></span><span>Vahinko <b>${Math.round(run.dmg).toLocaleString('fi-FI')}</b></span>`;
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
     lbOnOver(how);
@@ -24477,29 +24488,29 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
      grows with every guardian beaten this run (Lv 1–3) and awakens into a MEGA form at RELIC_MEGA guardians. */
   const RELIC_MEGA = 4;
   const RELICS = {
-    d2:    { name: 'Hydra-alttari', mega: 'Helvetinhydrat', desc: 'Nostaa viereesi kolmipäisen tulihydran, joka sylkee tulipalloja lähellä oleviin yöperhosiin.', megaDesc: 'Kolme hydraa kerralla, ja jokainen tulipallo räjähtää.' },
-    wc2:   { name: "Sotapäällikön kirves", mega: 'Verenhimon lihakirves', desc: 'Valtava taistelukirves heilahtaa laajassa kaaressa kulkusuuntaasi ja paiskaa yöperhoset kauas.', megaDesc: 'Kaksoisiskut täydessä ympyrässä ja paineaalto perään.' },
+    d2:    { name: 'Hydra-alttari', mega: 'Helvetinhydrat', desc: 'Nostaa viereesi kolmipäisen tulihydran, joka sylkee tulipalloja lähellä oleviin vihollisiin.', megaDesc: 'Kolme hydraa kerralla, ja jokainen tulipallo räjähtää.' },
+    wc2:   { name: "Sotapäällikön kirves", mega: 'Verenhimon lihakirves', desc: 'Valtava taistelukirves heilahtaa laajassa kaaressa kulkusuuntaasi ja paiskaa viholliset kauas.', megaDesc: 'Kaksoisiskut täydessä ympyrässä ja paineaalto perään.' },
     moo2:  { name: 'Kiertoradan kuolonsäde', mega: 'Kaksoiskuolonsäteet', desc: 'Muutaman sekunnin välein kiertoradalta iskevä säde pyyhkäisee ympärilläsi kuin kellon viisari.', megaDesc: 'Kaksi sädettä pyyhkii yhdessä: pidempinä, nopeammin ja useammin.' },
     z:     { name: 'Sektorilippu', mega: 'Linnoitettu sektori', desc: 'Pystyttää sinisen sektorilipun, joka toimii hetken automaattitykkinä.', megaDesc: 'Jopa neljä lippua kerralla, ja ne ampuvat räjähtäviä raketteja.' },
     isaac: { name: 'Tulikivi', mega: 'Tulikivisädekehä', desc: 'Latautuu hetken ja ampuu sitten paksun verilaserin koko ruudun poikki.', megaDesc: 'Neljä verilaseria pyörivänä ristinä.' },
-    zelda: { name: 'Bumerangi', mega: 'Taikabumerangi', desc: 'Tainnuttaa yöperhoset mennessään ja raahaa hehkua mukanaan paluumatkalla.', megaDesc: 'Kolme hakeutuvaa bumerangia, jotka iskevät paljon kovempaa.' },
-    gw2:   { name: 'Poltelohikäärme', mega: 'Kaksoispoltelohikäärmeet', desc: 'Kristallilohikäärme syöksyy taistelukentän poikki, kärventää yöperhoset ja jättää maan liekkeihin.', megaDesc: 'Kaksi lohikäärmettä ylittää kentän 6 sekunnin välein, ja tuli on leveämpää ja palaa pidempään.' },
-    ds:    { name: "Aurinkoherran salama", mega: 'Aurinkoherran viha', desc: 'Sinkoaa kultaisen salamakeihään, joka lävistää yöperhoset ja räjähtää osumakohdassaan.', megaDesc: 'Kolme keihästä kerralla, ja jokaisen räjähdyksen ympärille iskee salamoita.' },
-    potato: { name: 'Nyrkki', mega: 'Kuusi nyrkkiä', desc: 'Leijuvat nyrkit kelluvat ympärilläsi ja jakelevat lähimmille yöperhosille kovia, kauas lennättäviä iskuja.', megaDesc: 'Kuusi nyrkkiä kerralla, nopeammin, ja jokainen isku päättyy pieneen paineaaltoon.' },
-    zerg:  { name: 'Banelingryöppy', mega: 'Banelingtulva', desc: 'Kuoriuttaa ystävällisiä banelingeja, jotka vierivät yöperhosten sekaan, poksahtavat happona ja jättävät jälkeensä polttavia happolätäköitä.', megaDesc: 'Kokonainen banelingtulva vierii joka suuntaan, useammin ja isommin räjähdyksin.' },
-    spire: { name: 'Villit kortit', mega: 'Merkitty pakka', desc: 'Viskaa kolmen kortin viuhkan lähintä yöperhosta kohti. Jokainen kortti lentää kauas ja viiltää kaiken tieltään.', megaDesc: 'Viisi korttia heitolla, nopeammin. Keskimmäinen on valittu kortti: kultainen tainnuttaa, punainen räjähtää, sininen viiltää tuplasti syvemmältä.' },
-    cow:   { name: 'Puujalka', mega: 'Legendan jalka', desc: 'Jättimäinen aavepuujalka tömähtää tiheimpään yöperhosparveen, litistää ne lättänöiksi ja tainnuttaa ne hetkeksi.', megaDesc: 'Kolme tömähdystä nopeasti peräkkäin eri parviin, ja jokaisesta lähtee paineaalto.' },
-    temple: { name: 'Turmeltunut veri', mega: 'Veriruttoepidemia', desc: 'Tartuttaa sitkeimpään yöperhoseen herkästi tarttuvan veriruton. Tartunnan saaneet vuotavat verta, ja rutto hyppää jokaiseen liian lähelle tulevaan, yhä uudelleen. Epidemia oli niin uskottava, että oikeat tutkijat tutkivat sitä.', megaDesc: 'Kolme nollapotilasta kerralla. Rutto hyppää kauemmas ja nopeammin, vuodattaa rajummin, ja tartunnan saaneet räjähtävät kuollessaan verisuihkuna tartuttaen kaiken ympäriltään.' },
+    zelda: { name: 'Bumerangi', mega: 'Taikabumerangi', desc: 'Tainnuttaa viholliset mennessään ja raahaa hehkua mukanaan paluumatkalla.', megaDesc: 'Kolme hakeutuvaa bumerangia, jotka iskevät paljon kovempaa.' },
+    gw2:   { name: 'Poltelohikäärme', mega: 'Kaksoispoltelohikäärmeet', desc: 'Kristallilohikäärme syöksyy taistelukentän poikki, kärventää viholliset ja jättää maan liekkeihin.', megaDesc: 'Kaksi lohikäärmettä ylittää kentän 6 sekunnin välein, ja tuli on leveämpää ja palaa pidempään.' },
+    ds:    { name: "Aurinkoherran salama", mega: 'Aurinkoherran viha', desc: 'Sinkoaa kultaisen salamakeihään, joka lävistää viholliset ja räjähtää osumakohdassaan.', megaDesc: 'Kolme keihästä kerralla, ja jokaisen räjähdyksen ympärille iskee salamoita.' },
+    potato: { name: 'Nyrkki', mega: 'Kuusi nyrkkiä', desc: 'Leijuvat nyrkit kelluvat ympärilläsi ja jakelevat lähimmille vihollisille kovia, kauas lennättäviä iskuja.', megaDesc: 'Kuusi nyrkkiä kerralla, nopeammin, ja jokainen isku päättyy pieneen paineaaltoon.' },
+    zerg:  { name: 'Banelingryöppy', mega: 'Banelingtulva', desc: 'Kuoriuttaa ystävällisiä banelingeja, jotka vierivät vihollisten sekaan, poksahtavat happona ja jättävät jälkeensä polttavia happolätäköitä.', megaDesc: 'Kokonainen banelingtulva vierii joka suuntaan, useammin ja isommin räjähdyksin.' },
+    spire: { name: 'Villit kortit', mega: 'Merkitty pakka', desc: 'Viskaa kolmen kortin viuhkan lähintä vihollista kohti. Jokainen kortti lentää kauas ja viiltää kaiken tieltään.', megaDesc: 'Viisi korttia heitolla, nopeammin. Keskimmäinen on valittu kortti: kultainen tainnuttaa, punainen räjähtää, sininen viiltää tuplasti syvemmältä.' },
+    cow:   { name: 'Puujalka', mega: 'Legendan jalka', desc: 'Jättimäinen aavepuujalka tömähtää tiheimpään vihollisparveen, litistää ne lättänöiksi ja tainnuttaa ne hetkeksi.', megaDesc: 'Kolme tömähdystä nopeasti peräkkäin eri parviin, ja jokaisesta lähtee paineaalto.' },
+    temple: { name: 'Turmeltunut veri', mega: 'Veriruttoepidemia', desc: 'Tartuttaa sitkeimpään viholliseen herkästi tarttuvan veriruton. Tartunnan saaneet vuotavat verta, ja rutto hyppää jokaiseen liian lähelle tulevaan, yhä uudelleen. Epidemia oli niin uskottava, että oikeat tutkijat tutkivat sitä.', megaDesc: 'Kolme nollapotilasta kerralla. Rutto hyppää kauemmas ja nopeammin, vuodattaa rajummin, ja tartunnan saaneet räjähtävät kuollessaan verisuihkuna tartuttaen kaiken ympäriltään.' },
     bay:   { name: 'Tykkituli', mega: 'Täysi laidallinen', desc: 'Ruudun ulkopuolella seilaava aavelaiva ampuu tykinkuulasarjoja ympärilläsi pyöriviin parviin. Varo punaisia merkkejä!', megaDesc: 'Isompia sarjoja, useammin, raskaampia kuulia ja räiskähdys kartessia.' },
-    homm:  { name: 'Implosio', mega: 'Tuhoisa implosio', desc: 'Avaruus romahtaa ulottuvillasi olevan sitkeimmän vihollisen päälle valtavalla vahingolla ja imee lähellä olevat yöperhoset pyörteeseen.', megaDesc: 'Kolme implosiota kerralla, useammin, ja jokainen repii kaikkea ympäriltään.' },
-    tibia: { name: 'Adori Mas Flam', mega: 'Exevo Gran Mas Flam', desc: 'Heittää suuren tulipalloriimun tiheimpään yöperhosparveen. Se leimahtaa roihuksi ja jättää jälkeensä tulikenttiä.', megaDesc: 'Kolme suurta tulipalloa kerralla, useammin, ja tulikentät roihuavat rajummin.' },
+    homm:  { name: 'Implosio', mega: 'Tuhoisa implosio', desc: 'Avaruus romahtaa ulottuvillasi olevan sitkeimmän vihollisen päälle valtavalla vahingolla ja imee lähellä olevat viholliset pyörteeseen.', megaDesc: 'Kolme implosiota kerralla, useammin, ja jokainen repii kaikkea ympäriltään.' },
+    tibia: { name: 'Adori Mas Flam', mega: 'Exevo Gran Mas Flam', desc: 'Heittää suuren tulipalloriimun tiheimpään vihollisparveen. Se leimahtaa roihuksi ja jättää jälkeensä tulikenttiä.', megaDesc: 'Kolme suurta tulipalloa kerralla, useammin, ja tulikentät roihuavat rajummin.' },
     // Not dropped by any rift yet (no zone has this id); try it with fj.relic('aurora', minis) in #debug.
     // Not dropped by any rift yet; try it with fj.relic('orb', minis) in #debug. A violet take on a frozen orb.
-    hk: { name: 'Valittava naamio', mega: 'Tyhjyyden naamio', desc: 'Jokainen kaatamasi yöperhonen ruokkii naamiota. Kun se on täynnä, se ulvoo: kalpeiden henkien rengas purkautuu ulos lävistäen yöperhoset, ja haavasi parantuvat hieman.', megaDesc: 'Täyttyy nopeammin ja ulvoo leveämmän renkaan tummia tyhjyyden henkiä, jotka iskevät kovempaa ja parantavat enemmän.' },
-    orb: { name: 'Kaaoskehrä', mega: 'Kaksoiskaaoskehrät', desc: 'Laukaisee hitaan, pyörivän violetin kehrän, joka suihkii kaoottisia sirpaleita spiraalina ajelehtiessaan ja hajoaa lopuksi sirpalerenkaaksi. Osuman saaneet yöperhoset pökertyvät ja hidastuvat.', megaDesc: 'Kaksi kehrää kerralla, tiheämmät spiraalit ja isompi räjähdys.' },
-    aurora: { name: 'Revontulinauha', mega: 'Pohjoinen huntu', desc: 'Pitkä hohtavan valon nauha seuraa liikkeitäsi ja polttaa jokaista yöperhosta, johon se koskee. Kun seisot paikallasi, se kiertyy ympärillesi.', megaDesc: 'Leveämpi ja pidempi revontuliverho, joka pysäyttää myös sen läpi lentävät vihollisammukset.' },
-    monkey: { name: 'Grogitynnyri', mega: 'Liekehtivä grogituli', desc: 'Vierittää grogitynnyrin lähintä yöperhosta kohti. Se hajoaa grogiryöpyksi ja jättää tahmean lätäkön, joka hidastaa ja liuottaa jokaista siitä kahlaavaa yöperhosta.', megaDesc: 'Kolme tynnyriä kerralla, kovempia iskuja, ja jokainen grogilätäkkö syttyy tuleen.' },
-    necro: { name: 'Tanssilattia', mega: 'Kuolleiden reivit', desc: 'Shakkiruudullinen tanssilattia seuraa sinua ja vaihtaa valaistut ruutunsa joka iskulla. Valaistulle ruudulle jäänyt yöperhonen ottaa osuman aina, kun ruutu syttyy.', megaDesc: 'Isompi ja kovempi lattia, ja joka neljännellä iskulla basso pudotetaan: koko lattia jysähtää kerralla ja paiskaa yöperhoset kauas.' },
+    hk: { name: 'Valittava naamio', mega: 'Tyhjyyden naamio', desc: 'Jokainen kaatamasi vihollinen ruokkii naamiota. Kun se on täynnä, se ulvoo: kalpeiden henkien rengas purkautuu ulos lävistäen viholliset, ja haavasi parantuvat hieman.', megaDesc: 'Täyttyy nopeammin ja ulvoo leveämmän renkaan tummia tyhjyyden henkiä, jotka iskevät kovempaa ja parantavat enemmän.' },
+    orb: { name: 'Kaaoskehrä', mega: 'Kaksoiskaaoskehrät', desc: 'Laukaisee hitaan, pyörivän violetin kehrän, joka suihkii kaoottisia sirpaleita spiraalina ajelehtiessaan ja hajoaa lopuksi sirpalerenkaaksi. Osuman saaneet viholliset pökertyvät ja hidastuvat.', megaDesc: 'Kaksi kehrää kerralla, tiheämmät spiraalit ja isompi räjähdys.' },
+    aurora: { name: 'Revontulinauha', mega: 'Pohjoinen huntu', desc: 'Pitkä hohtavan valon nauha seuraa liikkeitäsi ja polttaa jokaista vihollista, johon se koskee. Kun seisot paikallasi, se kiertyy ympärillesi.', megaDesc: 'Leveämpi ja pidempi revontuliverho, joka pysäyttää myös sen läpi lentävät vihollisammukset.' },
+    monkey: { name: 'Grogitynnyri', mega: 'Liekehtivä grogituli', desc: 'Vierittää grogitynnyrin lähintä vihollista kohti. Se hajoaa grogiryöpyksi ja jättää tahmean lätäkön, joka hidastaa ja liuottaa jokaista siitä kahlaavaa vihollista.', megaDesc: 'Kolme tynnyriä kerralla, kovempia iskuja, ja jokainen grogilätäkkö syttyy tuleen.' },
+    necro: { name: 'Tanssilattia', mega: 'Kuolleiden reivit', desc: 'Shakkiruudullinen tanssilattia seuraa sinua ja vaihtaa valaistut ruutunsa joka iskulla. Valaistulle ruudulle jäänyt vihollinen ottaa osuman aina, kun ruutu syttyy.', megaDesc: 'Isompi ja kovempi lattia, ja joka neljännellä iskulla basso pudotetaan: koko lattia jysähtää kerralla ja paiskaa viholliset kauas.' },
     chaos: { name: 'Kaleidoskooppisiru', mega: 'Kaleidoskooppimyrsky', desc: 'Siru Kaaosmaailmasta. Se kanavoi kahta satunnaista reliikkiä kerralla, kumpaakin hieman heikompana, ja sekoittaa ne muutaman sekunnin välein.', megaDesc: 'Kolme satunnaista reliikkiä kerralla MEGA-muodoissaan, ja sekoitus käy vielä nopeammin.' },
     lol:   { name: 'Liittolaiskätyrien aalto', mega: 'Voimistettu piiritysaalto', desc: 'Aina välillä aalto omia sinisiä kätyreitäsi marssii taistelemaan puolestasi.', megaDesc: 'Isompia aaltoja, tiuhempaan, ja mukana tykkikätyreitä.' },
   };
@@ -25336,7 +25347,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if ((s.life -= dt) <= 0) { s.gone = true; banner('Yöperhospyhäkkö sammui… sen valo on menetetty tältä yöltä', '#b8ac90', true); return; }
         if (d > SHRINE_R) { s.prog = Math.max(0, s.prog - dt * .5); return; }
         if (!s.stirred) {
-          s.stirred = true; banner('Pidä valo! Yöperhoset kerääntyvät…', '#fff0c0', true); snd.fx('warn');
+          s.stirred = true; banner('Pidä valo! Viholliset kerääntyvät…', '#fff0c0', true); snd.fx('warn');
           for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; spawnFoe(i % 3 ? 'moth' : 'ghost', s.x + Math.cos(a) * 320, s.y + Math.sin(a) * 320); }
         }
         if ((s.prog += dt) < SHRINE_HOLD) return;
