@@ -862,7 +862,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['+1 hammer', 'Damage +25%, thrown more often', '+1 hammer, damage +10%', 'Damage +18%, thrown more often', '+1 hammer, damage +15%, thrown more often'] },
     lamp: { name: 'Glow Lantern', desc: 'Plants a lantern where you stand. Its pool of warm light heals you while you stay inside, slows moths and makes enemy bullets crawl.', evo: 'wind', evoName: 'Lighthouse', evoDesc: 'Two great lighthouses: wider, longer-lasting light that heals more, burns away enemy bullets, and sweeps a scorching beam around.',
       up: ['Heals more, bigger pool of light', 'Lanterns last longer, planted more often', 'A second lantern can burn at once', 'Heals more, bigger, planted more often', 'Heals more, lasts longer, planted more often'] },
-    dew2: { name: 'Dewdrop Shields', desc: 'Glassy dewdrops orbit close around you. Each one swallows an enemy bullet, then regrows; they also bump moths away.', evo: 'wax', evoName: 'Amber Bulwark', evoDesc: 'Six amber drops that regrow fast and fling every bullet they catch back at the moths.',
+    dew2: { name: 'Dewdrop Shields', desc: 'Glassy dewdrops orbit close around you. Each one swallows an enemy bullet, then regrows; they also bump moths away.', evo: 'wax', evoName: 'Amber Bulwark', evoDesc: 'Six amber drops that regrow fast and fling every bullet they catch back at the moths, bursting in an amber blast.',
       up: ['+1 dewdrop', 'Regrow faster, damage +25%', '+1 dewdrop, damage +20%', 'Regrow faster, damage +20%', '+1 dewdrop, regrow faster, damage +15%'] },
     bow: { name: 'Moonbow', desc: 'Looses a heavy silver arrow at the toughest moth in sight, from far away, piercing everything in its line.', evo: 'gold', evoName: 'Huntress Moon', evoDesc: 'A volley of three arrows at the three toughest moths. Every hit marks the moth to take 25% more damage from everything.',
       up: ['Damage +25%, shoots more often', 'Damage +20%', 'Damage +18%, shoots more often', 'A second arrow at the next toughest moth', 'Damage +20%, shoots more often'] },
@@ -22664,6 +22664,111 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   })());
   /* @@ZONES-END@@ */
 
+  /* ---------- The Chaos Rift ----------
+     A core zone (not in zones/, because it borrows from every other rift): the floor is a patchwork of CHAOS_CELL px
+     squares, each painted by another rift's ground (and its animated `under` layer) and stitched with violet seams; any
+     rift's foes spawn (kinds named '<rift id>:<kind>', spawned as guests of their home rift through zoneDefOv); its
+     events borrow a random rift's event; the music hops between other rifts' scores; and the guardian is two random
+     guardians of other rifts at CHAOS_BOSS_HP of their HP (chaosGuardians). It drops the Kaleidoscope Shard relic. */
+  const CHAOS_CELL = 1000, CHAOS_BOSS_HP = .5, CHAOS_SONG = 16, CHAOS_SKIP = ['cow'];
+  ZONES.push((() => {
+    const others = ZONES.filter(z => !CHAOS_SKIP.includes(z.id));
+    const cellZone = (ix, iy) => others[Math.floor(hash(ix * 31 + 7, iy * 17 + 3) * others.length) % others.length];
+    const foes = {}, mix = {};
+    for (const z of others) {
+      const tot = Object.values(z.mix || {}).reduce((a, b) => a + b, 0) || 1;
+      for (const k in z.foes) foes[z.id + ':' + k] = z.foes[k];
+      for (const k in z.mix || {}) mix[z.id + ':' + k] = z.mix[k] / tot;
+    }
+    // Rift cells overlapping a world rectangle, with their clipped rectangles.
+    function cells(x0, y0, x1, y1) {
+      const out = [];
+      for (let iy = Math.floor(y0 / CHAOS_CELL); iy <= Math.floor(y1 / CHAOS_CELL); iy++)
+        for (let ix = Math.floor(x0 / CHAOS_CELL); ix <= Math.floor(x1 / CHAOS_CELL); ix++)
+          out.push({ ix, iy, z: cellZone(ix, iy), x: ix * CHAOS_CELL, y: iy * CHAOS_CELL });
+      return out;
+    }
+    function seam(c, x0, y0, x1, y1, Zz) {
+      // A jagged violet tear along every cell border in view.
+      for (const pass of [[9, '#7a2cff', .35], [2.5, '#f2c8ff', .8]]) {
+        c.lineWidth = pass[0]; c.strokeStyle = pass[1]; c.globalAlpha = pass[2]; c.beginPath();
+        for (let k = Math.ceil(x0 / CHAOS_CELL); k * CHAOS_CELL <= x1; k++) {
+          const x = k * CHAOS_CELL; c.moveTo(x, y0);
+          for (let y = Math.floor(y0 / 40) * 40; y <= y1; y += 40) c.lineTo(x + (Zz.hash(k, y / 40) - .5) * 16, y);
+        }
+        for (let k = Math.ceil(y0 / CHAOS_CELL); k * CHAOS_CELL <= y1; k++) {
+          const y = k * CHAOS_CELL; c.moveTo(x0, y);
+          for (let x = Math.floor(x0 / 40) * 40; x <= x1; x += 40) c.lineTo(x, y + (Zz.hash(x / 40, k + 999) - .5) * 16);
+        }
+        c.stroke();
+      }
+      c.globalAlpha = 1;
+    }
+    const music = {
+      cur: null, base: 0, until: 0, wasBoss: false,
+      get bpm() { return this.cur ? this.cur.bpm || 100 : 100; },
+      get div() { return this.cur ? this.cur.div || 2 : 2; },
+      step(s, t, A) {
+        if (!this.cur || t >= this.until || A.boss !== this.wasBoss) {
+          const pool = others.filter(z => z.music && z.music !== this.cur);
+          this.cur = pool[Math.floor(Math.random() * pool.length)].music; this.base = s; this.until = t + CHAOS_SONG * (A.boss ? .75 : 1); this.wasBoss = A.boss;
+        }
+        this.cur.step(s - this.base, t, A);
+      },
+    };
+    const surge = Z2 => {
+      const src = others.filter(z => z.events && z.events.length), d = src[Math.floor(Math.random() * src.length)];
+      const ev = d.events[Math.floor(Math.random() * d.events.length)];
+      Z2.banner(`Chaos surge: ${d.name}!`, `rgb(${d.portal})`, true);
+      zoneDefOv = d; try { ev.run(Z2); } finally { zoneDefOv = null; }
+    };
+    return {
+      id: 'chaos', chaos: true, name: 'The Chaos Rift', nod: 'every rift at once', portal: '220,110,255', bg: '#140c1e', dark: .66, target: 1,
+      foes, mix, music,
+      events: [12, 28, 40, 62, 84, 104, 122, 138].map(t => ({ t, run: surge })),
+      ground(Zz, x0, y0, x1, y1) {
+        // renderChunk pads the rect by 160 px; only the chunk itself is ever shown, so work on that.
+        const c = Zz.ctx; x0 += 160; y0 += 160; x1 -= 160; y1 -= 160;
+        for (const q of cells(x0, y0, x1, y1)) {
+          const cx0 = Math.max(x0, q.x), cy0 = Math.max(y0, q.y), cx1 = Math.min(x1, q.x + CHAOS_CELL), cy1 = Math.min(y1, q.y + CHAOS_CELL);
+          if (cx1 <= cx0 || cy1 <= cy0) continue;
+          c.save(); c.beginPath(); c.rect(cx0, cy0, cx1 - cx0, cy1 - cy0); c.clip();
+          c.fillStyle = q.z.bg; c.fillRect(cx0, cy0, cx1 - cx0, cy1 - cy0);
+          // The full 160 px margin toward chunk edges (big objects cross chunks), only 60 px past the cell's own edges.
+          const C = CHAOS_CELL;
+          zoneCall(() => q.z.ground(Zz, Math.max(cx0 - 160, q.x - 60), Math.max(cy0 - 160, q.y - 60), Math.min(cx1 + 160, q.x + C + 60), Math.min(cy1 + 160, q.y + C + 60)));
+          c.restore(); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+        }
+        seam(c, x0, y0, x1, y1, Zz);
+      },
+      under(Zz) {
+        // Each visible cell's own animated floor layer, clipped to the cell.
+        const c = Zz.ctx, byZone = new Map();
+        for (const q of cells(cam.x - W / 2, cam.y - H / 2, cam.x + W / 2, cam.y + H / 2)) if (q.z.under) (byZone.get(q.z) || byZone.set(q.z, []).get(q.z)).push(q);
+        for (const [z, qs] of byZone) {
+          c.save(); c.beginPath(); for (const q of qs) c.rect(q.x, q.y, CHAOS_CELL, CHAOS_CELL); c.clip();
+          zoneCall(() => z.under(Zz));
+          c.restore(); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+        }
+      },
+      ambient(Zz) { const z = cellZone(Math.floor(P.x / CHAOS_CELL), Math.floor(P.y / CHAOS_CELL)); if (z.ambient) zoneCall(() => z.ambient(Zz)); },
+    };
+  })());
+  // Two random guardians of other rifts at half health; the first to fall drops a plain chest (see kill()).
+  function chaosGuardians(z) {
+    const pool = shuf(ZONES.filter(d => d.boss && !d.chaos && !CHAOS_SKIP.includes(d.id))).slice(0, 2);
+    z.bosses = [];
+    for (const d of pool) {
+      let e = null;
+      zoneDefOv = d; try { e = spawnEdge('boss'); } finally { zoneDefOv = null; }
+      if (e) { e.hp = e.max = e.max * CHAOS_BOSS_HP; e.chaosG = true; z.bosses.push(e); }
+    }
+    if (!z.bosses.length) return;
+    z.boss = run.boss = z.bosses[0];
+    snd.fx('boss'); snd.setBoss(true); shake = Math.max(shake, 10);
+    banner(z.bosses.map(e => e.def.name).join(' and ') + ' tear through the chaos!', '#e8a0ff', true);
+  }
+
   /* ---------- State ---------- */
   let run = null, S = null, state = 'title', shake = 0, hurtT = 0, warp = null;
   let burns = [], plague = [], allies = [], rfx = [], traps = [], lances = [], frosts = [], wails = [], hazards = [], foes = [], motes = [], shots = [], bullets = [], strikes = [], parts = [], pops = [], banners = [], beams = [], rings = [], shrooms = [];
@@ -22991,7 +23096,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached index.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-12a';
+  const BUILD = '2026-11-12c';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23279,13 +23384,21 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   function spawnFoe(kind, x, y) {
-    const zd = run.zone ? (kind === 'boss' ? run.zone.def.boss : run.zone.def.foes[kind]) : null;
+    // The Chaos Rift's foes are named '<rift id>:<kind>' and are spawned as guests of their home rift.
+    if (!zoneDefOv && run.zone && run.zone.def.chaos && kind.includes(':')) {
+      const i = kind.indexOf(':'), hd = ZONES.find(z => z.id === kind.slice(0, i));
+      if (!hd) return null;
+      zoneDefOv = hd; try { return spawnFoe(kind.slice(i + 1), x, y); } finally { zoneDefOv = null; }
+    }
+    // zoneDefOv: a guest from another rift (the Ascent's ? room stranger) and its summons use that rift's foes.
+    const zdef = run.zone ? zoneDefOv || run.zone.def : null, zd = zdef ? (kind === 'boss' ? zdef.boss : zdef.foes[kind]) : null;
     const f = zd || FOES[kind];
     // Rift foes are a touch tougher; rift guardians grow with how deep into the night you are.
     const hpMul = (zd ? (kind === 'boss' ? (1 + run.t / 400) * riftK(RIFT_BOSS_HP) * HARD.guardian : (1 + run.t / 60 * .35) * 1.1 * riftK(RIFT_HP)) : f.boss ? HARD.boss[kind] || 1 : 1 + run.t / 60 * .35 + .04 * (run.t / 60) ** 2)
       * (f.boss || kind === 'boss' ? 1 : HARD.hp(run.t / 60));
     const e = { kind, x, y, hp: f.hp * hpMul, max: f.hp * hpMul, sp: f.sp * rnd(.92, 1.08) * (1 + .04 * (run.passives.dusk || 0)), dmg: zd ? f.dmg * riftK(RIFT_DMG) : f.dmg, xp: f.xp, r: zd ? f.r * 1.15 : f.r, heavy: !!f.heavy, boss: !!f.boss || (!!zd && kind === 'boss'), def: zd,
       kx: 0, ky: 0, flash: 0, seed: Math.random() * 6, ph: 0, ang: 0, cds: {}, t1: 2, t2: 5, t3: 9, mode: 'walk', mt: 2.5 };
+    if (zd && zoneDefOv) e.home = zoneDefOv;
     foes.push(e);
     if (zd && zd.init) zoneCall(() => zd.init(e, Z));
     return e;
@@ -23434,11 +23547,23 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // A cricket that dies before it lands takes its landing ring with it.
     if (e.land && e.land.t > 0) { const i = hazards.indexOf(e.land); if (i >= 0) hazards.splice(i, 1); }
     if (pv('bell') && (run.bellKills = (run.bellKills || 0) + 1) >= 34 - 4 * pv('bell')) { run.bellKills = 0; withSrc('p:bell', ringBell); }
-    if (e.def && e.def.death) zoneCall(() => e.def.death(e, Z));
+    if (e.def && e.def.death) { zoneDefOv = e.home || null; zoneCall(() => e.def.death(e, Z)); zoneDefOv = null; }
+    if (e.qStranger) { strangerDown(e); return; }
     if (run.zone && !e.boss) questKill(e);
     snd.fx(e.boss ? 'bossdown' : e.elite ? 'chestdrop' : 'kill');
     const col = { ghost: '#cfe0ff', wasp: '#ffcf5a', beetle: '#6f8ac0', stag: '#6f8ac0', locust: '#8ac060', spider: '#8a7090', bomber: '#ff8a50', centi: '#a0603a', mosq: '#9a90a0', brood: '#a090b8', rhino: '#7a6448', cricket: '#7a5a30', snail: '#8adf5a', ember: '#ff7a3a' }[e.kind] || '#b8a888';
     burst(e.x, e.y, col, e.boss ? 80 : 7, e.boss ? 420 : 160);
+    if (e.chaosG && run.zone && run.zone.bosses) {
+      // The Chaos Rift's twin guardians: the first to fall leaves a plain chest; the last one is the real guardian kill.
+      const other = run.zone.bosses.find(o => o !== e && !o.dead);
+      if (other) {
+        motes.push({ kind: 'chest', x: e.x, y: e.y, boss: true, bob: 0, relic: null });
+        for (let i = 0; i < 15; i++) dropXp(e.x + rnd(-60, 60), e.y + rnd(-60, 60), 10);
+        run.boss = other; run.zone.boss = other;
+        banner(`${e.def.name} falls! ${other.def.name} remains`, '#ffe27a', true); shake = Math.max(shake, 12);
+        return;
+      }
+    }
     if (e.boss || e.elite) {
       motes.push({ kind: 'chest', x: e.x, y: e.y, boss: e.boss, bob: 0, relic: e.def && e.boss && run.zone ? RELIC_DROP[run.zone.def.id] ?? run.zone.def.id : null });
       if (e.boss) {
@@ -23512,7 +23637,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- Zone API: the only surface rift zone modules touch ---------- */
-  let zoneErrs = 0, zoneActor = null;   // the rift foe whose update is running (owns the shots and strikes it makes)
+  let zoneErrs = 0, zoneActor = null, zoneDefOv = null;   // the rift foe whose update is running (owns the shots and strikes it makes)
   function zoneCall(fn) { try { fn(); } catch (err) { if (zoneErrs++ < 8) console.error('Till Dawn: zone error', err); } }
   const Z = {
     ctx, TAU, rnd, P, now: 0, t: 0, dt: 0, W: 0, H: 0,
@@ -23531,7 +23656,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         bullets.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: o.r || 6, dmg: (o.dmg ?? 8) * riftK(RIFT_DMG), life: o.life || 5, col: o.col, web: !!o.slow, from: zoneActor });
     },
     ring(x, y, n, sp, o = {}, off = 0) { for (let i = 0; i < n; i++) Z.shoot(x, y, off + i / n * TAU, sp, o); },
-    spawn(kind, x, y) { return run.zone && run.zone.def.foes[kind] && Number.isFinite(x) && Number.isFinite(y) && foes.length < 500 ? spawnFoe(kind, x, y) : null; },
+    spawn(kind, x, y) { return run.zone && (zoneDefOv || run.zone.def).foes[kind] && Number.isFinite(x) && Number.isFinite(y) && foes.length < 500 ? spawnFoe(kind, x, y) : null; },
     hazard(x, y, o = {}) { if (Number.isFinite(x) && Number.isFinite(y)) { const t = o.t ?? .9; hazards.push({ x, y, t, T: t, r: o.r || 70, dmg: (o.dmg ?? 10) * riftK(RIFT_DMG), col: o.col, foes: !!o.foes, from: zoneActor }); } },
     burst: (x, y, col, n = 10, sp = 200) => burst(x, y, col || '#ffffff', Math.min(n, 60), sp),
     shake: n => { shake = Math.max(shake, Math.min(n, 20)); },
@@ -24172,7 +24297,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
             burst(d.x, d.y, w.evo ? '#ffc24a' : '#bfe8ff', 8, 120); snd.fx('pick');
             if (w.evo) {
               const t = nearest(d.x, d.y, 600), ang = t ? Math.atan2(t.y - d.y, t.x - d.x) : a;
-              shots.push({ type: 'bolt', x: d.x, y: d.y, vx: Math.cos(ang) * 620, vy: Math.sin(ang) * 620, dmg: Math.max(20, (b.dmg || 8) * 3) * might, pierce: 2, life: 1.2, r: 6, hit: new Set(), col: '255,190,70', aoe: 0 });
+              shots.push({ type: 'bolt', x: d.x, y: d.y, vx: Math.cos(ang) * 620, vy: Math.sin(ang) * 620, dmg: Math.max(20, (b.dmg || 8) * 3) * might, pierce: 1, life: 1.2, r: 6, hit: new Set(), col: '255,190,70', aoe: 75 * S.area, amber: true });
             }
             break;
           }
@@ -24375,6 +24500,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     aurora: { name: 'Aurora Ribbon', mega: 'Northern Veil', desc: 'A long ribbon of shimmering light trails behind you as you move, burning every moth it touches. Standing still, it curls around you.', megaDesc: 'A wider, longer curtain of aurora that also stops enemy bullets crossing it.' },
     monkey: { name: 'Grog Keg', mega: 'Flaming Grog Barrage', desc: 'Rolls a keg of grog at the nearest moth. It bursts in a splash of grog that leaves a sticky puddle, slowing and dissolving every moth that wades through it.', megaDesc: 'Three kegs at once, harder-hitting, and every grog puddle catches fire.' },
     necro: { name: 'Dance Floor', mega: 'Rave of the Dead', desc: 'A checkerboard dance floor follows you, flipping its lit tiles on every beat. Moths caught on a lit tile take a hit each time it lights.', megaDesc: 'A bigger, harder-hitting floor, and every fourth beat the bass drops: the whole floor slams at once and hurls moths back.' },
+    chaos: { name: 'Kaleidoscope Shard', mega: 'Kaleidoscope Storm', desc: 'A shard of the Chaos Rift. It channels two random relics at once, a little weaker each, and reshuffles them every few seconds.', megaDesc: 'Three random relics at once, in their MEGA forms, reshuffled even faster.' },
     lol:   { name: 'Allied Minion Wave', mega: 'Empowered Siege Wave', desc: 'Every so often a wave of your own blue minions marches out to fight for you.', megaDesc: 'Bigger waves, faster, with cannon minions.' },
   };
   let pendingRelic = null;
@@ -24417,11 +24543,33 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (big && span >= TAU) rings.push({ x: P.x, y: P.y, r: R * 1.25, life: 0, ttl: .4, col: '255,90,60' });
     snd.fx('moon'); shake = Math.max(shake, big ? 4 : 2);
   }
+  // Kaleidoscope Shard (the Chaos Rift's relic): runs CHAOS_N random other relics at once (CHAOS_MEGA_N at MEGA), each at
+  // CHAOS_POW of its power (CHAOS_MEGA_POW at MEGA, where they use their MEGA forms), reshuffled every CHAOS_SHUFFLE s.
+  // Each borrowed relic keeps its own state in r.subs; updateRelic and drawRelicGlow run once per state (relicStates).
+  const CHAOS_N = 2, CHAOS_MEGA_N = 3, CHAOS_POW = .45, CHAOS_MEGA_POW = .36, CHAOS_SHUFFLE = [8, 8, 7, 7, 6];
+  let relicPowK = 1;
+  const relicStates = () => !run.relic ? [] : run.relic.id === 'chaos' ? run.relic.subs || [] : [run.relic];
+  function updateRelicAll(dt) {
+    const r = run.relic;
+    if (!r || r.id !== 'chaos') return updateRelic(dt);
+    const lv = relicLv(), mega = lv === 4;
+    if (!r.subs || (r.shuf -= dt) <= 0) {
+      r.shuf = CHAOS_SHUFFLE[lv] * (.85 + Math.random() * .3);
+      const ids = shuf(Object.keys(RELICS).filter(id => id !== 'chaos')).slice(0, mega ? CHAOS_MEGA_N : CHAOS_N);
+      r.subs = ids.map(id => Object.assign(newRelic(id), { t: 1 + Math.random() * .8 }));
+      if (!ids.includes('potato')) allies = allies.filter(a => a.type !== 'fist');
+      if (!ids.includes('temple')) plague = [];   // the borrowed plague ends with its relic, or it would outlive every shuffle
+      pops.push({ x: P.x, y: P.y - 46, txt: ids.map(id => RELICS[id][mega ? 'mega' : 'name']).join(' + '), col: `hsl(${Math.random() * 360 | 0},90%,72%)`, life: 0, ttl: 1.6 });
+      burst(P.x, P.y, '#e080ff', 14, 200);
+    }
+    relicPowK = mega ? CHAOS_MEGA_POW : CHAOS_POW;
+    try { for (const sub of r.subs) { run.relic = sub; updateRelic(dt); } } finally { run.relic = r; relicPowK = 1; }
+  }
   const DANCE_BEAT = .5, DANCE_T = 48;   // Dance Floor: 120 beats a minute, 48 px tiles
   function updateRelic(dt) {
     const r = run.relic;
     if (!r) return;
-    const lv = relicLv(), mega = lv === 4, pow = HARD.relic[lv] * S.might;
+    const lv = relicLv(), mega = lv === 4, pow = HARD.relic[lv] * S.might * relicPowK;
     r.t -= dt;
     switch (r.id) {
       case 'd2': {
@@ -24938,7 +25086,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const RIFT_HP = [.75, .9, 1, 1.1, 1.2], RIFT_BOSS_HP = [.75, .9, 1.4, 2, 2.6, 3.2], RIFT_DMG = [.8, .9, 1, 1.1, 1.15];
   const riftK = tbl => run && run.zone ? tbl[Math.max(0, Math.min(tbl.length - 1, run.rifts - 1))] : 1;
   // Rare rifts: the secret cow pasture never opens on its own. It only opens through the Wirt's Leg quest (see updateQuest).
-  const RIFT_WEIGHT = {};
+  // The Chaos Rift opens only after CHAOS_AFTER other rifts this run, then is a little likelier than the rest.
+  const RIFT_WEIGHT = { chaos: 2 }, CHAOS_AFTER = 2;
   const QUEST_ZONES = ['cow'];
   // Relics a guardian drops instead of its own zone's (the cow king drops the Chaos Orb; the Peg Leg became the quest key).
   const RELIC_DROP = { cow: 'orb' };
@@ -25349,11 +25498,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (!RQ_START[id] || (rq[id] && !QUEST_TEST) || !questOpen(q, 'rq:' + id) || !qRoll(RQ[id])) return;
     rq[id] = 1; questBegin(q, 'rq:' + id); RQ_START[id](q, add);
   }
-  // A regular rift foe dies: quest kills (the peon's helpers, golden minions, the ? room elite, doubloons from skeletons).
+  // A regular rift foe dies: quest kills (the peon's helpers, golden minions, doubloons from skeletons).
   function questKill(e) {
     const q = run.quest;
     if (e.qGold) goldDown(e);
-    if (e.qElite) { banner('The elite falls! The spoon is yours', '#ffe0a0', true); addBoon(e.qElite); }
     for (const s of q.spots) if (s.kind === 'peon' && s.state === 'clear' && (e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (PEON_R + 40) ** 2) s.kills++;
     if (run.zone.def.id === 'bay' && (e.kind === 'skel' || e.kind === 'gunner') && q.spots.length < 90 && q.spots.some(s => s.kind === 'captchest' && s.state === 'collect') && Math.random() < DBL_CHANCE)
       q.spots.push({ kind: 'dbl', x: e.x, y: e.y, life: 14, ph: Math.random() * 6 });
@@ -25375,17 +25523,35 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (s.hits + GOLD_MINIONS - s.n < GOLD_NEED) { s.gone = true; questFail(run.quest, 'rq:lol'); banner('Too many last hits missed. The golden minions stop coming', '#c8b8a0', true); return; }
     banner(ok ? `Last hit! (${s.hits} of ${GOLD_NEED})` : `Missed the last hit: be within reach when it falls (${s.hits} of ${GOLD_NEED})`, ok ? '#ffcf4a' : '#d8c8a8');
   }
+  // The ? room in the Ascent: pay a little max health, or fight a guardian from another rift that steps out of a torn
+  // page of the map. STRANGER_HP scales it against this rift's own guardian; STRANGER_SKIP lists rifts whose guardians
+  // never visit (this one, the secret cow pasture, and the Catacombs, whose guardian runs on its own floor's beat clock).
+  const QROOM_COST = 5, STRANGER_HP = .6, STRANGER_SKIP = ['spire', 'cow', 'necro'];
   function touchQRoom(s) {
     const b = QUEST_BOONS.spire, opts = [];
-    if (S.maxHp - 10 >= 40) opts.push({ name: 'Bargain (−10 max health)', sub: `Take the ${b.name} (${boonText(b)}) and a level-up.`, btn: 'Bargain', fn: () => { s.gone = true; addMaxHp(-10); run.pending++; addBoon('spire'); } });
-    opts.push({ name: 'Fight for it', sub: `An elite cultist guards the altar. Beat it for the ${b.name}.`, btn: 'Fight', fn: () => {
-      s.gone = true;
-      zoneCall(() => { const e = Z.spawn('cultist', s.x + 170, s.y - 40); if (e) { e.hp = e.max = e.max * 10; e.dmg *= 1.3; e.qElite = 'spire'; e.qRing = '255,207,90'; } });
-      banner('An elite steps out of the dark!', '#ffcf5a', true); snd.fx('warn');
-    } });
-    openQuest({ eyebrow: '? Room', title: 'The Humming Altar', text: 'A bent brass spoon lies on a cracked altar, humming softly. Something with too many eyes watches from the dark…',
+    if (S.maxHp - QROOM_COST >= 40) opts.push({ name: `Bargain (−${QROOM_COST} max health)`, sub: `Take the ${b.name} (${boonText(b)}) and a level-up.`, btn: 'Bargain', fn: () => { s.gone = true; addMaxHp(-QROOM_COST); run.pending++; addBoon('spire'); } });
+    const pool = ZONES.filter(z => z.boss && !z.chaos && !STRANGER_SKIP.includes(z.id)), def = pool[Math.floor(Math.random() * pool.length)];
+    if (def) opts.push({ name: 'Fight a stranger', sub: `Something from another rift tears through the map. Beat it for the ${b.name} and a chest.`, btn: 'Fight', fn: () => { s.gone = true; spawnStranger(def, s); } });
+    openQuest({ eyebrow: '? Room', title: 'The Humming Altar', text: 'A bent brass spoon lies on a cracked altar, humming softly. The map around it is torn, and something from another world presses at the tear…',
       options: opts, leave: 'Leave', onLeave: () => { s.gone = true; questFail(run.quest, 'rq:spire'); banner('You leave the altar be', '#c8b8a0'); } });
     return false;
+  }
+  function spawnStranger(def, s) {
+    const a = Math.atan2(s.y - P.y, s.x - P.x), x = P.x + Math.cos(a) * 260, y = P.y + Math.sin(a) * 260;
+    let e = null;
+    zoneDefOv = def; zoneCall(() => { e = spawnFoe('boss', x, y); }); zoneDefOv = null;
+    if (!e) { addBoon('spire'); return; }
+    e.hp = e.max = e.max * STRANGER_HP; e.qStranger = def; e.qRing = '255,207,90';
+    if (!run.boss) { run.boss = e; snd.setBoss(true); }
+    warp = { t: .6, col: def.portal }; burst(x, y, `rgb(${def.portal})`, 40, 300); shake = Math.max(shake, 10); snd.fx('boss');
+    banner(`${def.boss.name} steps out of a torn page!`, '#ffcf5a', true);
+  }
+  function strangerDown(e) {
+    snd.fx('bossdown'); burst(e.x, e.y, '#ffcf5a', 70, 380); shake = Math.max(shake, 12);
+    motes.push({ kind: 'chest', x: e.x, y: e.y, boss: true, bob: 0, relic: null });
+    for (let i = 0; i < 20; i++) dropXp(e.x + rnd(-60, 60), e.y + rnd(-60, 60), 10);
+    if (run.boss === e) { const g = run.zone && run.zone.boss; run.boss = g && !g.dead ? g : null; if (!run.boss) snd.setBoss(false); }
+    banner(`${e.qStranger.boss.name} falls! The spoon is yours`, '#ffe0a0', true); addBoon('spire');
   }
   function duelRound(s, k) {
     const [ins, good] = INSULTS[s.rounds[k]], wrong = shuf(INSULTS.filter((_, i) => i !== s.rounds[k]).map(p => p[1])).slice(0, 2);
@@ -26068,7 +26234,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (run.portalT > 0 || run.boss || run.t > DAWN - 50 || nextBossIn() < 35) return false;
     run.portalT = rnd(70, 105);
     // Some rifts are too tough to be a run's first: they only open once you've been through another one.
-    const open = ZONES.filter(z => !QUEST_ZONES.includes(z.id));
+    const open = ZONES.filter(z => !QUEST_ZONES.includes(z.id) && !(z.chaos && run.rifts < CHAOS_AFTER));
     const fresh = open.filter(z => !run.seen.includes(z.id) && !(run.rifts === 0 && NOT_FIRST.includes(z.id))), pool = fresh.length ? fresh : open;
     // Weighted pick: secret rifts (RIFT_WEIGHT below 1) turn up far less often than the rest.
     const wsum = pool.reduce((t, z) => t + (RIFT_WEIGHT[z.id] ?? 1), 0);
@@ -26116,6 +26282,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   function updateZone(z) {
     while (z.ev < z.events.length && z.events[z.ev].t <= z.t) { const ev = z.events[z.ev++]; zoneCall(() => ev.run(Z)); }
+    if (!z.boss && z.t >= ZONE_BOSS_AT && z.def.chaos) chaosGuardians(z);
     if (!z.boss && z.t >= ZONE_BOSS_AT) {
       const e = spawnEdge('boss'); z.boss = e; run.boss = e;
       snd.fx('boss'); snd.setBoss(true);
@@ -26187,7 +26354,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R;
       }
       if (e.def) {
-        zoneActor = e; zoneCall(() => e.def.update ? e.def.update(e, Z) : Z.chase(e)); zoneActor = null;
+        zoneActor = e; zoneDefOv = e.home || null; zoneCall(() => e.def.update ? e.def.update(e, Z) : Z.chase(e)); zoneActor = null; zoneDefOv = null;
         if (e.remove) { e.gone = true; continue; }   // a zone foe can vanish without a death (e.g. a sapper that blew itself up)
         if (!e.boss && d2(e, P) > far * far) { const a = Math.random() * TAU, R = spawnR(); e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R; }
         if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) { e.x = P.x + spawnR(); e.y = P.y; }
@@ -26272,8 +26439,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
     for (const id in run.weapons) withSrc(id, () => updateWeapon(id, run.weapons[id], dt));
     const rsrc = run.relic ? 'r:' + run.relic.id : 'other';
-    withSrc(rsrc, () => { updateRelic(dt); updateAllies(dt); });
-    withSrc('r:temple', () => updatePlague(dt));
+    withSrc(rsrc, () => { updateRelicAll(dt); updateAllies(dt); });
+    withSrc(rsrc === 'r:chaos' ? rsrc : 'r:temple', () => updatePlague(dt));
 
     tagNew();
     for (const s of shots) {
@@ -26429,7 +26596,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
             s.hit.add(e); hit(e, s.dmg, 70, s.x - s.vx, s.y - s.vy); if (s.daze) e.slowT = Math.max(e.slowT || 0, .8);
             if (s.aoe) {
               for (const o of foes) if (!o.dead && o !== e && (o.x - s.x) ** 2 + (o.y - s.y) ** 2 < s.aoe ** 2) hit(o, s.dmg * .6, 80, s.x, s.y);
-              rings.push({ x: s.x, y: s.y, r: s.aoe, life: 0, ttl: .3, col: s.col || '255,160,80' });
+              rings.push({ x: s.x, y: s.y, r: s.aoe, life: 0, ttl: .3, col: s.col || '255,160,80' }); if (s.amber) burst(s.x, s.y, '#ffc24a', 10, 160);
             }
             if (--s.pierce <= 0) { s.life = 0; break; }
           }
@@ -27413,8 +27580,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   /* Relic visuals. Glows/beams go in the additive pass (drawRelicGlow); solid actors go in the normal pass (drawRelicActors). */
   function drawRelicGlow(now) {
     // Dance Floor: the lit half of the checkerboard, magenta and cyan on alternate beats, flaring on the beat.
-    if (run.relic && run.relic.id === 'necro' && run.relic.n) {
-      const r = run.relic, h = (r.n - 1) / 2, T = r.T, col = r.drop ? '255,120,240' : r.beat % 2 ? '60,240,220' : '255,60,200';
+    for (const r of relicStates()) if (r.id === 'necro' && r.n) {
+      const h = (r.n - 1) / 2, T = r.T, col = r.drop ? '255,120,240' : r.beat % 2 ? '60,240,220' : '255,60,200';
       r.flash = Math.max(0, r.flash - .06);
       ctx.fillStyle = `rgb(${col})`;
       for (let i = -h; i <= h; i++) for (let j = -h; j <= h; j++) {
@@ -27427,8 +27594,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
     // Aurora Ribbon: shimmering green-to-violet light along the trail, brightest where it is newest; the Northern Veil
     // adds rising curtain folds above it.
-    if (run.relic && run.relic.id === 'aurora' && run.relic.pts && run.relic.pts.length > 1) {
-      const pts = run.relic.pts, mega = run.minis >= RELIC_MEGA, n = pts.length;
+    for (const r of relicStates()) if (r.id === 'aurora' && r.pts && r.pts.length > 1) {
+      const pts = r.pts, mega = run.minis >= RELIC_MEGA, n = pts.length;
       ctx.lineCap = 'round';
       for (const [dy, wk, ak] of mega ? [[0, 1, 1], [-14, .7, .45], [-28, .45, .25]] : [[0, 1, 1]]) {
         for (let i = 1; i < n; i++) {
@@ -27482,7 +27649,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       ctx.globalAlpha = .35 * (1 - k); ctx.fillStyle = f.big ? '#ff6a4a' : '#e8eef8';
       ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.arc(P.x, P.y, f.R, a0, a1); ctx.closePath(); ctx.fill();
     }
-    const r = run.relic;
+    for (const r of relicStates()) {
     if (r && r.id === 'moo2' && r.sweep) for (const a of relicLv() === 4 ? [r.sweep.a, r.sweep.a + Math.PI] : [r.sweep.a]) {
       const ex = P.x + Math.cos(a) * r.sweep.len, ey = P.y + Math.sin(a) * r.sweep.len;
       ctx.lineCap = 'round';
@@ -27504,6 +27671,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         ctx.strokeStyle = '#ffd0d0'; ctx.lineWidth = r.beam.w * .35;
         ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(ex, ey); ctx.stroke();
       }
+    }
     }
     for (const a of allies) if (a.type === 'dragon') drawGlow('210,90,255', a.big ? 128 : 96, a.x, a.y, .5);
     for (const a of allies) if (a.type === 'bane' && onScreen(a, 40)) drawGlow('140,255,80', 26, a.x, a.y, .6);
@@ -28504,7 +28672,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     x += Math.cos(run.t * .3) * .25; y += Math.sin(run.t * .23) * .25;
     return { x, y };
   }
-  if (location.hash === '#debug') window.fj = Object.defineProperties(dbg, { run: { get: () => run }, S: { get: () => S }, foes: { get: () => foes }, motes: { get: () => motes }, P: { value: P }, snd: { value: snd }, spawn: { value: (k, dx = 160, dy = 0) => spawnFoe(k, P.x + dx, P.y + dy) },
+  if (location.hash === '#debug') window.fj = Object.defineProperties(dbg, { run: { get: () => run }, S: { get: () => S }, foes: { get: () => foes }, motes: { get: () => motes }, shots: { get: () => shots }, bullets: { get: () => bullets }, P: { value: P }, snd: { value: snd }, spawn: { value: (k, dx = 160, dy = 0) => spawnFoe(k, P.x + dx, P.y + dy) },
     zones: { get: () => ZONES.map(z => z.id) },
     rift: { value: id => { const d = ZONES.find(z => z.id === id) || ZONES[0]; if (d && run && !run.zone) enterZone(d, { x: P.x, y: P.y }); } },
     leave: { value: () => { if (run && run.zone) exitZone(); } },
@@ -28547,6 +28715,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (!o.stay) exitZone();
       return res;
     } },
+    stranger: { value: id => spawnStranger(ZONES.find(z => z.id === id), { x: P.x + 100, y: P.y }) },
     relic: { value: (id, minis) => { run.relic = newRelic(id); if (minis != null) run.minis = minis; allies = []; renderLoadout(); } },
     finale: { value: () => { run.t = DAWN; } },
     // Quest helpers: the quest state, and spot lists in the current rift / the meadow.
@@ -28622,7 +28791,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       Z.ctx = main; g.restore(); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
     };
     for (const d of ZONES) {
-      if (pick && !pick.includes(d.id)) continue;
+      if ((pick && !pick.includes(d.id)) || d.chaos) continue;
       enterZone(d, { x: P.x, y: P.y });
       const kinds = Object.keys(d.foes), list = kinds.map(k => ({ k, e: spawnFoe(k, P.x + 160, P.y), boss: false }));
       list.push({ k: d.boss.name, e: spawnFoe('boss', P.x + 160, P.y), boss: true });
