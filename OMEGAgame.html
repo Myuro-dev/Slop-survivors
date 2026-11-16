@@ -865,13 +865,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Heals more, bigger pool of light', 'Lanterns last longer, planted more often', 'A second lantern can burn at once', 'Heals more, bigger, planted more often', 'Heals more, lasts longer, planted more often'] },
     dew2: { name: 'Dewdrop Shields', desc: 'Glassy dewdrops orbit close around you. Each one swallows an enemy bullet, then regrows; they also bump enemies away.', evo: 'wax', evoName: 'Amber Bulwark', evoDesc: 'Six amber drops that regrow fast and fling every bullet they catch back at the enemies, bursting in an amber blast.',
       up: ['+1 dewdrop', 'Regrow faster, damage +25%', '+1 dewdrop, damage +20%', 'Regrow faster, damage +20%', '+1 dewdrop, regrow faster, damage +15%'] },
-    bow: { name: 'Moonbow', desc: 'Looses a heavy silver arrow at the toughest enemy in sight, from far away, piercing everything in its line.', evo: 'gold', evoName: 'Huntress Moon', evoDesc: 'A volley of three arrows at the three toughest enemies. Every hit marks the enemy to take 25% more damage from everything.',
-      up: ['Damage +25%, shoots more often', 'Damage +20%', 'Damage +18%, shoots more often', 'A second arrow at the next toughest enemy', 'Damage +20%, shoots more often'] },
+    bow: { name: 'Moonbow', desc: 'Looses a heavy silver arrow at the toughest enemy in sight, from far away, piercing everything in its line.', evo: 'gold', evoName: 'Huntress Moon', evoDesc: 'A volley of three arrows at the toughest enemy. Every hit marks the enemy to take 25% more damage from everything.',
+      up: ['Damage +25%, shoots more often', 'Damage +20%', 'Damage +18%, shoots more often', 'A second arrow at the same target', 'Damage +20%, shoots more often'] },
     slam: { name: 'Groundbreaker', desc: 'Hexel heaves a great axe and slams the ground just ahead, a circular blast that hurls enemies back and briefly stuns them.', evo: 'brace', evoName: 'Earthsplitter', evoDesc: 'A colossal slam that splits the earth: a line of rock eruptions bursts forward from the impact.',
       up: ['Damage +25%, bigger slam', 'Damage +15%, slams more often', 'Damage +18%, bigger slam, slams more often', 'A second slam lands farther ahead', 'Damage +17%, bigger slam, slams more often'] },
     flame: { name: 'Witchfire', desc: "A hedge witch's blessing: breathe a short cone of green-gold witchfire at the nearest enemies, leaving them burning.", evo: 'kindle', evoName: 'Cauldron Inferno', evoDesc: 'A wide, roaring cone of witchfire that leaves the ground bubbling with flame.',
       up: ['Damage +33%, reaches further', 'Burns hotter, reaches further', 'Damage +25%, wider, reaches further', 'Damage +20%, burns hotter, wider', 'Damage +17%, burns hotter, wider, reaches further'] },
-    dice: { name: 'Fortune Dice', desc: 'Every few seconds Hexel rolls a die and the face decides what happens: 1 fizzles, 2 throws sparks, 3 a fireball, 4 chain lightning, 5 a shower of coins, 6 a meteor and another roll.', evo: 'shoe', evoName: 'Loaded Dice', evoDesc: 'Rolls two dice at once and both effects happen. Doubles hit 50% harder.',
+    dice: { name: 'Fortune Dice', desc: 'Every few seconds Hexel rolls a die and the face decides what happens: 1 fizzles, 2 throws sparks, 3 a fireball, 4 chain lightning, 5 a shower of coins, 6 a meteor and another roll.', evo: 'shoe', evoName: 'Loaded Dice', evoDesc: 'Rolls two weighted dice at once and both effects happen: no 1s, 6s twice as often, and doubles hit 50% harder.',
       up: ['Rolls faster, effects +20%', 'Rolls faster, effects +21%', 'Rolls faster, effects +17%', 'Rolls faster, effects +18%', 'Rolls faster, effects +18%'] },
     mine: { name: 'Puffcap Mines', desc: 'Every few seconds a glowing puffcap mushroom is planted where you stand. Caps wait up to 30 s; when an enemy steps on one it bursts, leaving a cloud of poisonous spores. Lead the swarm over your minefield.', evo: 'bloom', evoName: 'Mycelium Minefield', evoDesc: 'More caps and bigger bursts, and every burst sprouts three little caps that pop a moment later. The spore clouds also slow enemies.',
       up: ['Damage +20%, plants faster', 'Damage +21%, bigger burst, plants faster, +1 cap in the field', '+1 cap per planting, damage +17%, plants faster, +1 cap in the field', 'Damage +18%, bigger burst and cloud, plants faster, +1 cap in the field', 'Damage +19%, bigger cloud, spores last longer, plants faster, +1 cap in the field'] },
@@ -3461,7 +3461,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
               const a = i / n * TAU + e.seed;
               const f = Z.spawn('voidling', e.x + Math.cos(a) * e.r * .6, e.y + Math.sin(a) * e.r * .6);
               if (!f) continue;
-              f.gen = (e.gen || 0) + 1;
+              f.gen = (e.gen || 0) + 1; f.xp = 1;   // the pieces are worth 1 glow each, not the full 5
               f.r = Math.max(7, e.r * .65); f.max = f.hp = Math.max(6, e.max * .35);
               f.sp = e.sp * 1.5; f.kx = Math.cos(a) * 160; f.ky = Math.sin(a) * 160;
             }
@@ -8724,7 +8724,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const dt = Z.dt;
         if (e.lead === undefined) { // the first of a small group brings two companions
           e.lead = !e.kid;
-          if (e.lead && Z.foes().length < 230) for (let i = 0; i < 2; i++) { const k = Z.spawn('mosq', e.x + Z.rnd(-36, 36), e.y + Z.rnd(-36, 36)); if (k) { k.kid = true; k.cd += .4 + i * .5; } }
+          if (e.lead && Z.foes().length < 230) for (let i = 0; i < 2; i++) { const k = Z.spawn('mosq', e.x + Z.rnd(-36, 36), e.y + Z.rnd(-36, 36)); if (k) { k.kid = true; k.xp = 1; k.cd += .4 + i * .5; } }   // free companions: 1 glow each
         }
         if (e.cr > 0) { e.cr -= dt; Z.move(e, 0, 0); e.ang = e.da; if (e.cr <= 0) e.ds = .3; return; }
         if (e.ds > 0) { e.ds -= dt; Z.move(e, Math.cos(e.da) * 380, Math.sin(e.da) * 380); e.ang = e.da; if (e.ds <= 0) e.rc = .35; return; }
@@ -23108,7 +23108,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-12i';
+  const BUILD = '2026-11-16d';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23117,6 +23117,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     damage: { label: 'Most damage', fmt: v => Math.round(v).toLocaleString(), key: 'dmg' },
     kills: { label: 'Most enemies', fmt: v => Math.round(v).toLocaleString(), key: 'kills' },
     level: { label: 'Highest level', fmt: v => 'Lv ' + v, key: 'lv' },
+    // Banished runs only: the whole run (rifts included) up to the last boss beaten, and the lowest level. As on Fastest
+    // banish, a secret dawn boss win ranks above every Eclipse-only banish, each tier sorted on its own.
+    run: { label: 'Fastest run', fmt: v => Math.floor(v / 60) + ':' + String(Math.floor(v % 60)).padStart(2, '0'), key: 'clock', low: true, only: r => r.banished, cmp: (a, b) => (secretOf(b) ? 1 : 0) - (secretOf(a) ? 1 : 0) || a.clock - b.clock },
+    lowlv: { label: 'Lowest level', fmt: v => 'Lv ' + v, key: 'lv', low: true, only: r => r.banished, cmp: (a, b) => (secretOf(b) ? 1 : 0) - (secretOf(a) ? 1 : 0) || a.lv - b.lv },
   };
   // Which secret dawn boss a run beat (0 none, 1 Blood Moon, 2 Forgotten Light); older rows and local bests say `blood`.
   const secretOf = r => r.secret_end ?? (r.blood === 2 ? 2 : r.blood ? 1 : 0);
@@ -23132,10 +23136,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       d: Object.fromEntries(Object.entries(run.dmgBy || {}).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([k, v]) => [k, Math.round(v)])),
       q: quests };
     // Every run that banished the Eclipse Moth counts; a secret win ranks above them (secret_end: 1 = Blood Moon, 2 = the
-    // Forgotten Light) and its time is the secret fight alone. A lost secret fight keeps the Eclipse time.
-    const f = run.finale, ban = ['perfect', 'blood', 'light', 'bloodfled', 'lightfled'].includes(how), secret = how === 'blood' || how === 'light';
+    // Forgotten Light) and its time is the secret fight alone. A lost secret fight keeps the Eclipse time, whether the secret
+    // boss fled or Hexel died to it (a death there used to drop the banish). `clock` for a banished run is the run's length
+    // up to the last boss beaten (the Fastest run board): the whole run for a secret win, else up to the Eclipse Moth's banish.
+    const f = run.finale, ban = ['perfect', 'blood', 'light', 'bloodfled', 'lightfled'].includes(how) || !!(f && f.eclipseT > 0), secret = how === 'blood' || how === 'light';
     return { version: GAME_VERSION, banished: ban, banish_t: ban ? +(secret ? f.t : f.eclipseT).toFixed(2) : null, secret_end: how === 'light' ? 2 : how === 'blood' ? 1 : 0,
-      dmg: Math.round(run.dmg), kills: run.kills, lv: run.lv, survived: +Math.min(DAWN, run.t).toFixed(1), clock: +run.clock.toFixed(1),
+      dmg: Math.round(run.dmg), kills: run.kills, lv: run.lv, survived: +Math.min(DAWN, run.t).toFixed(1), clock: +(ban && !secret && f.clockAt ? f.clockAt : run.clock).toFixed(1),
       rifts: run.rifts, relic: run.relic ? run.relic.id : null, build: JSON.stringify(build), created: Date.now() };
   }
   // Keep this device's top 10 per board; returns the boards where the run placed, e.g. { damage: 2 }.
@@ -23275,10 +23281,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const b = BOARDS[lbTab], me = lbStore.get('fjr-name', '');
     const fill = (rows, note) => {
       $('lbNote').textContent = note; const ol = $('lbList'); ol.innerHTML = '';
-      if (!rows.length) { const li = document.createElement('li'); li.textContent = lbTab === 'banish' ? 'No banishes yet.' : 'No runs yet.'; ol.appendChild(li); }
+      if (!rows.length) { const li = document.createElement('li'); li.textContent = BOARDS[lbTab].only ? 'No banishes yet.' : 'No runs yet.'; ol.appendChild(li); }
       rows.forEach((r, i) => {
         const li = document.createElement('li'); if (me && r.name && r.name.toLowerCase() === me.toLowerCase()) li.className = 'me';
-        const sec = secretOf(r), tier = lbTab !== 'banish' || !sec ? '' : sec === 2 ? 'light' : 'blood'; if (tier) li.classList.add(tier);
+        const sec = secretOf(r), tier = !BOARDS[lbTab].only || !sec ? '' : sec === 2 ? 'light' : 'blood'; if (tier) li.classList.add(tier);
         const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = '#' + (i + 1);
         const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name || 'You';
         const sm = document.createElement('small'); sm.textContent = [relicName(r.relic), r.created ? new Date(r.created).toLocaleDateString() : ''].filter(Boolean).join(' · '); nm.appendChild(sm);
@@ -23592,7 +23598,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       return;
     }
-    dropXp(e.x, e.y, e.xp);
+    dropXp(e.x, e.y, e.xp * (run.zone ? RIFT_XP[run.zone.def.id] || 1 : 1));
     if (pv('bloom') && Math.random() < .05 * pv('bloom') && traps.length < 80) traps.push({ x: e.x, y: e.y, r: 42 * S.area, life: 2 * S.dur, max: 2 * S.dur, tick: 0, dmg: (4 + 2 * pv('bloom')) * S.might, spore: true, src: 'p:bloom' });
     if (e.kind === 'bomber') hazards.push({ x: e.x, y: e.y, t: .9, r: 70, dmg: 16, foes: true, from: "a bomber beetle's blast" });
     if (e.kind === 'snail') addBurn(e.x, e.y, 140, { kind: 'acid', life: 6, dmg: 7 });
@@ -23994,9 +24000,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Fortune Dice: one roll (two when evolved). Drawn dice tumble above Hexel for DIE_SPIN seconds, land showing the face
   // and its effect's name, and the effect fires as they land.
   const DIE_SPIN = .3, DIE_NAME = ['', 'Fizzle', 'Sparks', 'Fireball', 'Lightning', 'Coins', 'Meteor!'];
-  const rollFace = () => 1 + Math.floor(Math.random() * 6);
+  // Fortune Dice rolls a fair die. Loaded Dice (the evolution) are weighted: never a 1, and a 6 twice as often.
+  function rollFace(w) {
+    const lo = w.evo ? 2 : 1, six = w.evo ? 2 : 1;
+    const k = Math.floor(Math.random() * (6 - lo + six));
+    return Math.min(6, lo + k);
+  }
   function diceRoll(w, st) {
-    const faces = w.evo ? [rollFace(), rollFace()] : [rollFace()], dbl = faces.length > 1 && faces[0] === faces[1];
+    const faces = w.evo ? [rollFace(w), rollFace(w)] : [rollFace(w)], dbl = faces.length > 1 && faces[0] === faces[1];
     faces.forEach((f, i) => rfx.push({ type: 'die', face: f, slot: i, n: faces.length, dbl, life: 0, ttl: 1.5 }));
     snd.fx('dice');
     w.pend = { t: DIE_SPIN, faces, k: dbl ? 1.5 : 1 };
@@ -24328,9 +24339,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (!cand.length) { w.t = .3; break; }
         w.t = st.cd * S.cd;
         const score = e => (e.boss ? 1e9 : 0) + (e.elite ? 1e6 : 0) + e.hp;
-        const picks = cand.sort((a, b) => score(b) - score(a)).slice(0, st.n + S.amount);
-        for (const e of picks) {
-          const a = Math.atan2(e.y - P.y, e.x - P.x);
+        // A sniper: every arrow of the volley flies at the single toughest target in a tight fan, piercing whatever
+        // stands in the line, so a boss takes the whole volley.
+        const e = cand.reduce((b, c) => score(c) > score(b) ? c : b), n = st.n + S.amount, a0 = Math.atan2(e.y - P.y, e.x - P.x);
+        for (let i = 0; i < n; i++) {
+          const a = a0 + (i - (n - 1) / 2) * .035;
           shots.push({ type: 'arrow', x: P.x, y: P.y, a, sp: st.sp * S.projSp, dist: 0, max: range * 1.25, dmg: st.dmg * might, hit: new Set(), life: 1, mark: w.evo });
         }
         snd.fx('bolt');
@@ -25080,7 +25093,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   // The Eclipse Moth is banished: a secret boss follows if a quest called one (a choice if more than one did).
   function eclipseDown() {
-    const f = run.finale; f.eclipseT = f.t;
+    const f = run.finale; f.eclipseT = f.t; f.clockAt = run.clock;
     const ready = Object.keys(SECRETS).filter(k => SECRETS[k].ready());
     if (!ready.length) { gameOver(true, 'perfect'); return; }
     const go = k => { f.next = k; f.wait = 2.5; f.t = 0; bullets.length = 0; banner('The Eclipse Moth is banished… but the night is not over', '#ffe27a', true); };
@@ -26231,6 +26244,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     });
   }
   const NOT_FIRST = ['z', 'moo2'];   // The Robot Wars and The Antaran Deep are too hard as a first rift.
+  // Glow multiplier per rift, so every rift pays about the same (measured: same strong build, full 150 s, median ~15,000 XP).
+  // Below 1: rifts whose foes are worth more or come in bigger numbers. The secret cow level is left alone: it pays the most
+  // (~1.35x the median on average), as a reward for the Wirt's Leg quest.
+  const RIFT_XP = { necro: 1.45, z: 1.3, hk: 1.35, lol: 1.3, tibia: 1.25, isaac: 1.2, zelda: .6, moo2: .65, ds: .8 };
   function nextBossIn() { for (let i = run.ev; i < EVENTS.length; i++) if (EVENTS[i].kind === 'boss') return EVENTS[i].t - run.t; return Infinity; }
   function updatePortal(dt) {
     const p = run.portal;
