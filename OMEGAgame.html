@@ -23109,7 +23109,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-17d';
+  const BUILD = '2026-11-17h';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -25100,6 +25100,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const b = spawnFoe(sc ? sc.foe : 'eclipse', P.x + Math.cos(a) * 300, P.y + Math.sin(a) * 300);
     b.t1 = 2; b.t2 = 3;
     run.boss = b; run.finale = Object.assign(run.finale || {}, { t: 0, boss: b, kind, wait: 0 }); run.portal = null;
+    summonPhantom();
     snd.fx('boss'); snd.setBoss(true);
     if (sc) { banner(sc.intro, sc.col, true); banner(`${sc.verb} within ${FINALE_TIME} seconds`, sc.col); }
     else { banner('The Eclipse Moth swallows the sunrise!', '#ffb33b', true); banner(`Banish it within ${FINALE_TIME} seconds`, '#ffe27a'); }
@@ -25174,7 +25175,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     tome: [() => 'Tome of Town Portal', () => 'A tome that opens a portal. Paired with the leg, it can open somewhere very strange.', () => 'Quest item'],
     doll: [() => 'Dino Doll', () => 'A little green dino doll, still damp from the sea. Some child must be missing it.', () => 'Quest item: someone in another rift is looking for it'],
     ribbon: [() => 'Pink Ribbon', () => 'A child gave you this for the doll. In the dark it shimmers green and violet, like a northern sky.', () => 'Quest item: the wandering peddler collects curious things'],
-    sign: [() => 'Summon Sign', () => 'A knight of the sun left you his golden sign. He will answer it at the next great battle in the meadow.', () => 'Quest item: used when the next main-map boss arrives'],
+    sign: [() => 'Summon Sign', () => 'A knight of the sun left you his golden sign. He answers it at every great battle ahead: every boss of the meadow and the dawn.', () => 'Quest item: the Sun Knight joins every main-map and dawn boss fight'],
     flies: [() => 'Lost Fireflies', () => `You carry ${run.quest.flies} lost firefl${run.quest.flies === 1 ? 'y' : 'ies'}.`, () => 'Bring them home to the glass jar in the meadow'],
     jar: [() => `Firefly Jar · ${run.quest.jar} of ${JAR_FULL}`, () => 'Fireflies you brought home from the rifts. A full jar lights the finale: Hexel deals 25% more damage to the dawn boss.', () => jarFull() ? 'Full!' : 'Lost fireflies hide in the rifts'],
     shards: [() => `Moon Shards · ${run.quest.shards} of 3`, () => `Beat a main-map boss quickly to earn a shard: the Great Luna Moth within ${SHARD_T.luna} s, the Stag Beetle within ${SHARD_T.stag} s, the Moth Queen within ${SHARD_T.queen} s (watch the ☾ on its health bar).`, () => run.quest.shards >= 3 ? 'At dawn you may call a stranger moon' : 'Three shards can call a stranger moon at dawn'],
@@ -25275,6 +25276,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         zoneCall(() => { for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; Z.spawn('imp', s.x + Math.cos(a) * 60, s.y + Math.sin(a) * 60); } Z.spawn('shaman', s.x + 30, s.y - 40); });
       },
       touch(s) { run.quest.leg = true; banner('Wirt\'s Leg: someone must have needed this…', '#e8c890', true); snd.fx('chest'); burst(s.x, s.y, '#e8c890', 16, 140); return true; } },
+    // The Sun Knight's summon sign, left where he won (picked up automatically on leaving the rift if you forget it).
+    signdrop: { r: 26, glow: '255,220,120', arrow: ['#3a2a08', '#ffd870'], draw: drawSignDrop,
+      touch(s) { run.quest.sign = true; renderLoadout(); banner('Summon Sign: the Sun Knight will answer at every great battle ahead', '#ffd870', true); snd.fx('chest'); burst(s.x, s.y, '#ffe08a', 18, 160); return true; } },
     // The trading sequence: a doll on the shore, then a crying child in the next rift.
     doll: { r: 22, glow: '150,230,140', arrow: ['#1e3a1a', '#9ae68a'], draw: drawDoll,
       touch(s) { run.quest.doll = true; banner('A Dino Doll! Some child must be missing it…', '#a8e898', true); snd.fx('chest'); burst(s.x, s.y, '#9ae68a', 14, 140); return true; } },
@@ -25408,8 +25412,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       if (s.hp <= 0) { s.state = 'fallen'; s.t = 2; questFail(run.quest, 'knight'); banner('The knight falls… his sign fades away', '#c8a070', true); burst(s.x, s.y, '#c8a070', 20, 160); return; }
       if (s.t <= 0) {
-        s.state = 'praise'; s.t = 2.4; run.quest.sign = true; questWin(run.quest, 'knight'); renderLoadout();
-        banner('"Praise the sun!" He leaves you his summon sign', '#ffd870', true); snd.fx('evolve'); burst(s.x, s.y - 20, '#ffe08a', 30, 200);
+        s.state = 'praise'; s.t = 2.4; questWin(run.quest, 'knight');
+        run.quest.spots.push({ kind: 'signdrop', x: s.x + 34, y: s.y + 14 });
+        banner('"Praise the sun!" He leaves his summon sign on the ground', '#ffd870', true); snd.fx('evolve'); burst(s.x, s.y - 20, '#ffe08a', 30, 200);
       }
     } else if ((s.t -= dt) <= 0) s.gone = true;
   }
@@ -26198,7 +26203,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (id !== 'cow' && (q.flies || 0) + (q.jar || 0) < JAR_FULL && Math.random() < FLY_CHANCE) { add('firefly', 900, 1400, { ph: Math.random() * 6, a: Math.random() * TAU }); banner('A lost firefly glimmers somewhere in this rift', '#ffe27a'); }
   }
   function questExit() {
-    const q = run.quest; q.spots = [];
+    const q = run.quest;
+    if (q.spots.some(s => s.kind === 'signdrop')) { q.sign = true; renderLoadout(); banner('You take the summon sign with you', '#ffd870'); }
+    q.spots = [];
     q.dbl = 0; q.obel = 0;   // doubloons and obelisk map pieces only count inside their rift
     // Quests begun in this rift and not won fail as it closes (their slots free up); the doll trade carries on.
     for (const k of q.here || []) if (!(k === 'doll' && (q.doll || q.ribbon))) questFail(q, k);
@@ -26217,10 +26224,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       banner('Flawless! A red door creaks open…', '#ff5a3a', true);
     }
   }
-  // A main-map boss arrives: the summon sign brings the Sun Knight's phantom.
-  function questBossArrives(e) {
-    if (!run.quest.sign) return;
-    run.quest.sign = false; renderLoadout();
+  // A main-map boss or a dawn boss arrives: the summon sign (kept for the whole night) brings the Sun Knight's phantom.
+  function questBossArrives(e) { summonPhantom(); }
+  function summonPhantom() {
+    if (!run.quest.sign || (run.quest.phantom && run.quest.phantom.leave == null)) return;
     run.quest.phantom = { x: P.x - 50, y: P.y + 30, sw: 1, sp: 3, swing: 0, face: 1, leave: null };
     banner('Your summon sign glows: the Sun Knight answers!', '#ffd870', true); snd.fx('evolve');
   }
@@ -26233,7 +26240,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (q.shards >= 3) banner('Three shards… at dawn they can call a stranger moon', '#ff7a8a', true);
   }
   // The Sun Knight's golden phantom: stays by the boss, swings at it and anything close, throws a sunlight spear.
-  // Its damage scales with the boss's health, so it helps about as much against any of them (~1/270 of it per second).
+  // Its damage scales with the boss's health, so it helps about as much against any of them: a swing for 0.2% of the boss's
+  // health every 0.9 s and a spear for 0.5% every 6 s, about 0.3% per second (~10% of the Stag Beetle in a 35 s fight),
+  // halved against the dawn bosses (~9% of the Eclipse Moth in its minute). It joins every main-map and dawn boss now.
   function updatePhantom(dt) {
     const ph = run.quest.phantom;
     if (!ph) return;
@@ -26247,12 +26256,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ph.face = dx < 0 ? -1 : 1;
     withSrc('q:sun', () => {
       if ((ph.sw -= dt) <= 0 && d < want + 60) {
-        ph.sw = .8; ph.swing = .25;
-        hit(b, b.max * .0025, 0, ph.x, ph.y);
-        for (const e of foes) if (e !== b && !e.dead && (e.x - ph.x) ** 2 + (e.y - ph.y) ** 2 < (70 + e.r) ** 2) hit(e, 40 * (1 + run.t / 200), 160, ph.x, ph.y);
+        ph.sw = .9; ph.swing = .25;
+        hit(b, b.max * .002 * (run.finale ? .5 : 1), 0, ph.x, ph.y);
+        for (const e of foes) if (e !== b && !e.dead && (e.x - ph.x) ** 2 + (e.y - ph.y) ** 2 < (70 + e.r) ** 2) hit(e, 25 * (1 + run.t / 200), 160, ph.x, ph.y);
       }
       if ((ph.sp -= dt) <= 0) {
-        ph.sp = 5; hit(b, b.max * .006, 0, ph.x, ph.y); snd.fx('chain');
+        ph.sp = 6; hit(b, b.max * .005 * (run.finale ? .5 : 1), 0, ph.x, ph.y); snd.fx('chain');
         beams.push({ x1: ph.x, y1: ph.y - 30, x2: b.x, y2: b.y, life: 0, col: '#ffe08a' });
         burst(b.x, b.y, '#ffe08a', 14, 200);
       }
@@ -26269,7 +26278,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // out that rift's enemies until it is destroyed; they leave no glow and don't count as kills. A breach that takes no
   // damage for BREACH_IDLE seconds also calls its rift's guardian (once), which gives no chest, glow or relic either.
   // Closing a breach pays a little glow and pulls its remaining enemies back in. Dawn closes them all.
-  const BREACH_COUNT = { 75: 0, 210: 1, 390: 3, 540: 5 }, BREACH_EVERY = 2.6, BREACH_CAP = 8, BREACH_IDLE = 60, BREACH_SKIP = ['cow', 'necro', 'chaos'];
+  const BREACH_COUNT = { 75: 0, 210: 1, 390: 3, 540: 5 }, BREACH_EVERY = 2.6, BREACH_CAP = 20, BREACH_IDLE = 60, BREACH_SKIP = ['cow', 'necro', 'chaos'];
   function pickMix(mix) {
     const ent = Object.entries(mix), tot = ent.reduce((a, [, w]) => a + w, 0);
     let r = Math.random() * tot;
@@ -26280,7 +26289,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (run.zone || run.finale || n < 1) return;
     const pool = shuf(ZONES.filter(z => !z.chaos && !BREACH_SKIP.includes(z.id) && z.mix && z.boss)), a0 = Math.random() * TAU;
     for (let i = 0; i < n && pool.length; i++) {
-      const def = pool[i % pool.length], a = a0 + i * TAU / n + rnd(-.3, .3), d = rnd(650, 950);
+      const def = pool[i % pool.length], a = a0 + i * TAU / n + rnd(-.3, .3), d = rnd(1300, 1900);
       const e = spawnFoe('breach', P.x + Math.cos(a) * d, P.y + Math.sin(a) * d);
       Object.assign(e, { breach: true, bdef: def, hx: e.x, hy: e.y, spawnT: 1.2 + i * .7, kids: [], idle: 0, lastHp: e.hp, called: false });
       burst(e.x, e.y, `rgb(${def.portal})`, 30, 260);
@@ -26305,7 +26314,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if ((e.spawnT -= dt) > 0) return;
     e.spawnT = BREACH_EVERY;
     e.kids = e.kids.filter(k => !k.dead && !k.gone);
-    const n = run.t >= 300 ? 2 : 1;
+    const n = run.t >= 300 ? 4 : 2;   // per tick (was 1 / 2)
     for (let i = 0; i < n && e.kids.length < BREACH_CAP && foes.length < 480; i++) {
       const k = breachSpawn(e, pickMix(e.bdef.mix), e.x + rnd(-40, 40), e.y + rnd(-40, 40));
       if (k) { e.kids.push(k); burst(k.x, k.y, `rgb(${e.bdef.portal})`, 6, 120); }
@@ -26318,33 +26327,64 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const left = foes.filter(o => o.breach && !o.dead && o !== e).length;
     banner(left ? `Breach closed · ${left} left` : 'Every breach is sealed!', left ? '#d8a8ff' : '#ffe27a', !left);
   }
-  // A torn, slowly turning portal in the rift's colour around a dark vortex; its health bar above, and a red ring that
+  // An upright oval portal ringed with writhing thorns, its frame glowing in the rift's colour around a dark swirl; its health bar above, and a red ring that
   // fills while it is left alone (full: its guardian steps out).
   function drawBreach(e, now) {
     const col = e.bdef ? e.bdef.portal : '200,80,255', r = e.r, white = e.flash > 0;
+    const rx = r * .85, ry = r * 1.35;   // an upright oval doorway
     ctx.save(); ctx.translate(e.x, e.y);
-    ctx.fillStyle = 'rgba(16,4,22,.5)'; ctx.beginPath(); ctx.ellipse(0, r * .95, r * 1.5, r * .4, 0, 0, TAU); ctx.fill();
-    ctx.save(); ctx.rotate(now * 1.3 + e.seed);
-    ctx.beginPath();
-    for (let i = 0; i < 28; i++) { const a = i / 28 * TAU, rr = r * (i % 2 ? .98 : 1.2 + .12 * Math.sin(now * 7 + i * 1.7)); i ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.moveTo(rr, 0); }
-    ctx.closePath(); ctx.fillStyle = white ? '#ffffff' : `rgba(${col},.9)`; ctx.fill();
-    ctx.strokeStyle = '#1a0614'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = 'rgba(16,4,22,.55)'; ctx.beginPath(); ctx.ellipse(0, ry * .92, rx * 1.5, r * .32, 0, 0, TAU); ctx.fill();
+    // Thorns around the rim, pointing out along the oval's normal and slowly writhing.
+    const N = 18;
+    for (let i = 0; i < N; i++) {
+      const a = i / N * TAU + Math.sin(now * .7 + e.seed) * .05, ca = Math.cos(a), sa = Math.sin(a);
+      const bx = ca * rx, by = sa * ry, nx = ca / rx, ny = sa / ry, nl = Math.hypot(nx, ny), ux = nx / nl, uy = ny / nl;
+      const len = r * (.42 + .22 * ((i * 7) % 3) / 2) * (1 + .12 * Math.sin(now * 5 + i * 1.9)), half = .13;
+      const a0 = a - half, a1 = a + half;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a0) * rx * .96, Math.sin(a0) * ry * .96);
+      ctx.lineTo(bx + ux * len - uy * len * .12 * Math.sin(now * 3 + i), by + uy * len + ux * len * .12 * Math.sin(now * 3 + i));
+      ctx.lineTo(Math.cos(a1) * rx * .96, Math.sin(a1) * ry * .96);
+      ctx.closePath();
+      ctx.fillStyle = white ? '#ffffff' : '#2a0a24'; ctx.fill();
+      ctx.strokeStyle = `rgba(${col},.85)`; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+    // The frame: a dark band with a glowing inner lip.
+    ctx.beginPath(); ctx.ellipse(0, 0, rx * 1.04, ry * 1.04, 0, 0, TAU);
+    ctx.strokeStyle = white ? '#ffffff' : '#1a0614'; ctx.lineWidth = 7; ctx.stroke();
+    ctx.strokeStyle = `rgba(${col},${.75 + .25 * Math.sin(now * 4 + e.seed)})`; ctx.lineWidth = 3; ctx.stroke();
+    // Inside: a dark swirl into the rift.
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, TAU); ctx.clip();
+    ctx.scale(rx / ry, 1);
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, ry);
+    g.addColorStop(0, '#000000'); g.addColorStop(.55, '#0e0318'); g.addColorStop(1, `rgba(${col},.75)`);
+    ctx.fillStyle = g; ctx.fillRect(-ry, -ry, ry * 2, ry * 2);
+    ctx.lineCap = 'round';
+    for (let j = 0; j < 4; j++) {
+      const rot = -now * 1.8 + j * TAU / 4;
+      ctx.strokeStyle = `rgba(${col},${.35 + .12 * j})`; ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      for (let k = 0; k <= 14; k++) { const t = k / 14, rr = ry * (.12 + .85 * t), aa = rot + t * 3.2; k ? ctx.lineTo(Math.cos(aa) * rr, Math.sin(aa) * rr) : ctx.moveTo(Math.cos(aa) * rr, Math.sin(aa) * rr); }
+      ctx.stroke();
+    }
+    // Motes being pulled into the middle.
+    for (let k = 0; k < 6; k++) {
+      const t = ((now * .6 + k / 6 + e.seed) % 1), rr = ry * (1 - t), aa = k * 2.4 + t * 4;
+      ctx.fillStyle = `rgba(${col},${1 - t})`; ctx.beginPath(); ctx.arc(Math.cos(aa) * rr, Math.sin(aa) * rr, 2.2 * (1 - t) + .6, 0, TAU); ctx.fill();
+    }
     ctx.restore();
-    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, r * .9);
-    g.addColorStop(0, '#000000'); g.addColorStop(.7, '#12041c'); g.addColorStop(1, `rgba(${col},.6)`);
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * .88, 0, TAU); ctx.fill();
-    ctx.strokeStyle = `rgba(${col},.75)`; ctx.lineWidth = 2.5;
-    for (let j = 0; j < 3; j++) { const a = -now * 2.2 + j * TAU / 3; ctx.beginPath(); ctx.arc(0, 0, r * (.3 + .17 * j), a, a + 2.2); ctx.stroke(); }
     ctx.restore();
-    const w = 56, k = Math.max(0, e.hp / e.max), by = e.y - r - 20;
+    const w = 56, k = Math.max(0, e.hp / e.max), by = e.y - ry - r * .55 - 14;
     ctx.fillStyle = 'rgba(8,4,14,.85)'; ctx.fillRect(e.x - w / 2 - 1, by - 1, w + 2, 7);
     ctx.fillStyle = `rgb(${col})`; ctx.fillRect(e.x - w / 2, by, w * k, 5);
     if (!e.called && e.idle > 5) {
       const p = Math.min(1, e.idle / BREACH_IDLE);
       ctx.strokeStyle = `rgba(255,${Math.round(120 - 100 * p)},${Math.round(140 - 120 * p)},${.35 + .5 * p})`; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.45, -Math.PI / 2, -Math.PI / 2 + p * TAU); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, rx + r * .75, ry + r * .75, 0, -Math.PI / 2, -Math.PI / 2 + p * TAU); ctx.stroke();
     }
   }
+
   function nextBossIn() { for (let i = run.ev; i < EVENTS.length; i++) if (EVENTS[i].kind === 'boss') return EVENTS[i].t - run.t; return Infinity; }
   function updatePortal(dt) {
     const p = run.portal;
@@ -26483,7 +26523,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (e.def) {
         zoneActor = e; zoneDefOv = e.home || null; noXpCtx = !!e.noXp; zoneCall(() => e.def.update ? e.def.update(e, Z) : Z.chase(e)); zoneActor = null; zoneDefOv = null; noXpCtx = false;
         if (e.remove) { e.gone = true; continue; }   // a zone foe can vanish without a death (e.g. a sapper that blew itself up)
-        if (!e.boss && d2(e, P) > far * far) { const a = Math.random() * TAU, R = spawnR(); e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R; }
+        if (!e.boss && !e.noXp && d2(e, P) > far * far) { const a = Math.random() * TAU, R = spawnR(); e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R; }
         if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) { e.x = P.x + spawnR(); e.y = P.y; }
       }
       else if (e.boss) bossAI(e, dt);
@@ -27132,6 +27172,21 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.fillStyle = '#9ad8ff';
     for (let i = 0; i < 3; i++) { const ph = (now * 1.6 + i / 3) % 1, k = i % 2 ? 1 : -1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(x + k * (6 + ph * 3), y - 11 + ph * 16, 1.6, 0, TAU); ctx.fill(); }
     ctx.globalAlpha = 1;
+  }
+  // The Sun Knight's summon sign on the ground: a glowing golden sigil (a ring of runes around a little sun) that pulses.
+  function drawSignDrop(s, now) {
+    const p = .5 + .5 * Math.sin(now * 3);
+    ctx.save(); ctx.translate(s.x, s.y);
+    ctx.scale(1, .55);
+    ctx.strokeStyle = `rgba(255,226,130,${.55 + .35 * p})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, 24, 0, TAU); ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 17, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU + now * .4; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 18.5, Math.sin(a) * 18.5); ctx.lineTo(Math.cos(a) * 22.5, Math.sin(a) * 22.5); ctx.stroke(); }
+    ctx.restore();
+    const y = s.y - 14 - 3 * Math.sin(now * 2.2);
+    ctx.fillStyle = '#ffe9a0'; ctx.beginPath(); ctx.arc(s.x, y, 6.5, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#ffcf50'; ctx.lineWidth = 2;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + now; ctx.beginPath(); ctx.moveTo(s.x + Math.cos(a) * 9, y + Math.sin(a) * 9); ctx.lineTo(s.x + Math.cos(a) * 13, y + Math.sin(a) * 13); ctx.stroke(); }
   }
   // The knight of the sun: bucket helm, mail, a white tabard with a painted sun, straight sword. The phantom is gold.
   function drawKnight(s, now, phantom) {
