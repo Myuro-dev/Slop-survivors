@@ -1005,6 +1005,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     luna:   { hp: 1500, sp: 58,  dmg: 20, xp: 0, r: 44, boss: true, name: 'The Great Luna Moth' },
     stag:   { hp: 16400, sp: 40,  dmg: 30, xp: 0, r: 46, boss: true, name: 'The Stag Beetle' },
     queen:  { hp: 26000, sp: 52,  dmg: 34, xp: 0, r: 52, boss: true, name: 'The Moth Queen' },
+    breach: { hp: 300, sp: 0, dmg: 0, xp: 0, r: 30, heavy: true, name: 'Rift breach' },
     eclipse: { hp: 110000, sp: 40, dmg: 30, xp: 0, r: 72, boss: true, name: 'The Eclipse Moth' },
     bloodmoon: { hp: 160000, sp: 44, dmg: 34, xp: 0, r: 78, boss: true, name: 'The Blood Moon' },
     light: { hp: 160000, sp: 70, dmg: 30, xp: 0, r: 64, boss: true, name: 'The Forgotten Light' },
@@ -23108,7 +23109,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-16d';
+  const BUILD = '2026-11-17d';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23409,7 +23410,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       zoneDefOv = hd; try { return spawnFoe(kind.slice(i + 1), x, y); } finally { zoneDefOv = null; }
     }
     // zoneDefOv: a guest from another rift (the Ascent's ? room stranger) and its summons use that rift's foes.
-    const zdef = run.zone ? zoneDefOv || run.zone.def : null, zd = zdef ? (kind === 'boss' ? zdef.boss : zdef.foes[kind]) : null;
+    const zdef = zoneDefOv || (run.zone ? run.zone.def : null), zd = zdef ? (kind === 'boss' ? zdef.boss : zdef.foes[kind]) : null;
     const f = zd || FOES[kind];
     // Rift foes are a touch tougher; rift guardians grow with how deep into the night you are.
     const hpMul = (zd ? (kind === 'boss' ? (1 + run.t / 400) * riftK(RIFT_BOSS_HP) * HARD.guardian : (1 + run.t / 60 * .35) * 1.1 * riftK(RIFT_HP)) : f.boss ? HARD.boss[kind] || 1 : 1 + run.t / 60 * .35 + .04 * (run.t / 60) ** 2)
@@ -23417,6 +23418,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const e = { kind, x, y, hp: f.hp * hpMul, max: f.hp * hpMul, sp: f.sp * rnd(.92, 1.08) * (1 + .04 * (run.passives.dusk || 0)), dmg: zd ? f.dmg * riftK(RIFT_DMG) : f.dmg, xp: f.xp, r: zd ? f.r * 1.15 : f.r, heavy: !!f.heavy, boss: !!f.boss || (!!zd && kind === 'boss'), def: zd,
       kx: 0, ky: 0, flash: 0, seed: Math.random() * 6, ph: 0, ang: 0, cds: {}, t1: 2, t2: 5, t3: 9, mode: 'walk', mt: 2.5 };
     if (zd && zoneDefOv) e.home = zoneDefOv;
+    if (noXpCtx) e.noXp = true;
     foes.push(e);
     if (zd && zd.init) zoneCall(() => zd.init(e, Z));
     return e;
@@ -23468,6 +23470,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const e = spawnEdge('beetle');
       e.hp = e.max = e.max * 9; e.r = 26; e.dmg = 20; e.elite = true; e.sp = 46;
       banner('A golden beetle carries treasure', '#ffb33b'); snd.fx('warn');
+      openBreaches(BREACH_COUNT[ev.t] ?? 3);
     } else if (ev.kind === 'boss') {
       const e = spawnEdge(ev.boss);
       run.boss = e; e.born = run.clock; snd.fx('boss'); snd.setBoss(true);
@@ -23501,7 +23504,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (typeof src === 'string') return src;
     const e = src || (run.boss && !run.boss.dead ? run.boss : null);
     if (!e) return run.zone ? 'the dangers of ' + run.zone.def.name : 'the swarm';
-    if (e.def) return e.boss ? e.def.name : 'the creatures of ' + (run.zone ? run.zone.def.name : 'a rift');
+    if (e.def) return e.boss ? e.def.name : 'the creatures of ' + (run.zone ? run.zone.def.name : e.home ? e.home.name : 'a rift');
     if (e.elite) return 'a golden beetle';
     return e.boss ? FOES[e.kind].name : FOE_LABEL[e.kind] || 'the swarm';
   }
@@ -23561,16 +23564,22 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   function kill(e) {
-    e.dead = true; run.kills++;
+    e.dead = true; if (!e.noXp) run.kills++;   // enemies from a rift breach count for nothing (no glow, no kills)
     // A cricket that dies before it lands takes its landing ring with it.
     if (e.land && e.land.t > 0) { const i = hazards.indexOf(e.land); if (i >= 0) hazards.splice(i, 1); }
-    if (pv('bell') && (run.bellKills = (run.bellKills || 0) + 1) >= 34 - 4 * pv('bell')) { run.bellKills = 0; withSrc('p:bell', ringBell); }
-    if (e.def && e.def.death) { zoneDefOv = e.home || null; zoneCall(() => e.def.death(e, Z)); zoneDefOv = null; }
+    if (!e.noXp && pv('bell') && (run.bellKills = (run.bellKills || 0) + 1) >= 34 - 4 * pv('bell')) { run.bellKills = 0; withSrc('p:bell', ringBell); }
+    if (e.def && e.def.death) { zoneDefOv = e.home || null; noXpCtx = !!e.noXp; zoneCall(() => e.def.death(e, Z)); zoneDefOv = null; noXpCtx = false; }
+    if (e.breach) { breachDown(e); return; }
     if (e.qStranger) { strangerDown(e); return; }
     if (run.zone && !e.boss) questKill(e);
     snd.fx(e.boss ? 'bossdown' : e.elite ? 'chestdrop' : 'kill');
     const col = { ghost: '#cfe0ff', wasp: '#ffcf5a', beetle: '#6f8ac0', stag: '#6f8ac0', locust: '#8ac060', spider: '#8a7090', bomber: '#ff8a50', centi: '#a0603a', mosq: '#9a90a0', brood: '#a090b8', rhino: '#7a6448', cricket: '#7a5a30', snail: '#8adf5a', ember: '#ff7a3a' }[e.kind] || '#b8a888';
     burst(e.x, e.y, col, e.boss ? 80 : 7, e.boss ? 420 : 160);
+    if (e.noXp) {
+      // A breach's enemies (and a guardian it called) leave nothing behind.
+      if (e.boss) { if (run.boss === e) { run.boss = null; snd.setBoss(false); } banner(e.def.name + ' is driven back into the rift', '#d8a8ff', true); }
+      return;
+    }
     if (e.chaosG && run.zone && run.zone.bosses) {
       // The Chaos Rift's twin guardians: the first to fall leaves a plain chest; the last one is the real guardian kill.
       const other = run.zone.bosses.find(o => o !== e && !o.dead);
@@ -23655,7 +23664,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   /* ---------- Zone API: the only surface rift zone modules touch ---------- */
-  let zoneErrs = 0, zoneActor = null, zoneDefOv = null;   // the rift foe whose update is running (owns the shots and strikes it makes)
+  let zoneErrs = 0, zoneActor = null, zoneDefOv = null, noXpCtx = false;   // the rift foe whose update is running (owns the shots and strikes it makes)
   function zoneCall(fn) { try { fn(); } catch (err) { if (zoneErrs++ < 8) console.error('Till Dawn: zone error', err); } }
   const Z = {
     ctx, TAU, rnd, P, now: 0, t: 0, dt: 0, W: 0, H: 0,
@@ -23674,7 +23683,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         bullets.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: o.r || 6, dmg: (o.dmg ?? 8) * riftK(RIFT_DMG), life: o.life || 5, col: o.col, web: !!o.slow, from: zoneActor });
     },
     ring(x, y, n, sp, o = {}, off = 0) { for (let i = 0; i < n; i++) Z.shoot(x, y, off + i / n * TAU, sp, o); },
-    spawn(kind, x, y) { return run.zone && (zoneDefOv || run.zone.def).foes[kind] && Number.isFinite(x) && Number.isFinite(y) && foes.length < 500 ? spawnFoe(kind, x, y) : null; },
+    spawn(kind, x, y) { const zd = zoneDefOv || (run.zone && run.zone.def); return zd && zd.foes[kind] && Number.isFinite(x) && Number.isFinite(y) && foes.length < 500 ? spawnFoe(kind, x, y) : null; },
     hazard(x, y, o = {}) { if (Number.isFinite(x) && Number.isFinite(y)) { const t = o.t ?? .9; hazards.push({ x, y, t, T: t, r: o.r || 70, dmg: (o.dmg ?? 10) * riftK(RIFT_DMG), col: o.col, foes: !!o.foes, from: zoneActor }); } },
     burst: (x, y, col, n = 10, sp = 200) => burst(x, y, col || '#ffffff', Math.min(n, 60), sp),
     shake: n => { shake = Math.max(shake, Math.min(n, 20)); },
@@ -25080,7 +25089,13 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       intro: 'The Forgotten Light awakens! Every moth turns toward it', goal: 'Outshine the Forgotten Light!', verb: 'Outshine it' },
   };
   function startFinale(kind = 'eclipse') {
-    for (const e of foes) if (e.boss && !e.dead) { e.gone = true; burst(e.x, e.y, '#ffe8b0', 40, 300); }
+    // Main-map bosses leave at dawn. Rift breaches still open close, but each one that hasn't called its guardian yet lets
+    // it through now, to fight beside the dawn boss (no rewards, like every breach guardian); guardians already out stay.
+    const unsealed = foes.filter(e => e.breach && !e.dead);
+    for (const e of foes) if (!e.dead && ((e.boss && !e.noXp) || (e.noXp && !e.boss))) { e.gone = true; burst(e.x, e.y, '#ffe8b0', e.boss ? 40 : 6, 300); }
+    let late = 0;
+    for (const e of unsealed) { e.gone = true; burst(e.x, e.y, `rgb(${e.bdef.portal})`, 30, 300); if (!e.called && breachSpawn(e, 'boss', e.x, e.y)) late++; }
+    if (late) setTimeout(() => banner(late > 1 ? `${late} guardians step through the unsealed breaches!` : 'A guardian steps through the unsealed breach!', '#ff6aa8', true), 1200);
     const a = Math.random() * TAU, sc = SECRETS[kind];
     const b = spawnFoe(sc ? sc.foe : 'eclipse', P.x + Math.cos(a) * 300, P.y + Math.sin(a) * 300);
     b.t1 = 2; b.t2 = 3;
@@ -25108,7 +25123,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Rift difficulty also climbs with how many rifts you have entered this run (on top of the night-clock scaling):
   // the first is gentler, later ones get meaner. Index = rifts entered - 1 (the current rift), capped at the last entry.
   // Guardians climb much steeper from the 3rd rift on (builds snowball much faster than the night clock).
-  const RIFT_HP = [.75, .9, 1, 1.1, 1.2], RIFT_BOSS_HP = [.75, .9, 1.4, 2, 2.6, 3.2], RIFT_DMG = [.8, .9, 1, 1.1, 1.15];
+  const RIFT_HP = [.75, .9, 1, 1.1, 1.2], RIFT_BOSS_HP = [.75, .9, 1.4, 2, 2.6, 3.2], RIFT_DMG = [.5, .9, 1, 1.1, 1.15];
   const riftK = tbl => run && run.zone ? tbl[Math.max(0, Math.min(tbl.length - 1, run.rifts - 1))] : 1;
   // Rare rifts: the secret cow pasture never opens on its own. It only opens through the Wirt's Leg quest (see updateQuest).
   // The Chaos Rift opens only after CHAOS_AFTER other rifts this run, then is a little likelier than the rest.
@@ -26248,6 +26263,88 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Below 1: rifts whose foes are worth more or come in bigger numbers. The secret cow level is left alone: it pays the most
   // (~1.35x the median on average), as a reward for the Wirt's Leg quest.
   const RIFT_XP = { necro: 1.45, z: 1.3, hk: 1.35, lol: 1.3, tibia: 1.25, isaac: 1.2, zelda: .6, moo2: .65, ds: .8 };
+  /* ---------- Rift breaches ---------- */
+  // Golden beetles tear hostile portals open around the meadow (BREACH_COUNT by the beetle's time: none at 1:15, one at
+  // 3:30, three at 6:30, five at 9:00), each into a random rift. A breach pours
+  // out that rift's enemies until it is destroyed; they leave no glow and don't count as kills. A breach that takes no
+  // damage for BREACH_IDLE seconds also calls its rift's guardian (once), which gives no chest, glow or relic either.
+  // Closing a breach pays a little glow and pulls its remaining enemies back in. Dawn closes them all.
+  const BREACH_COUNT = { 75: 0, 210: 1, 390: 3, 540: 5 }, BREACH_EVERY = 2.6, BREACH_CAP = 8, BREACH_IDLE = 60, BREACH_SKIP = ['cow', 'necro', 'chaos'];
+  function pickMix(mix) {
+    const ent = Object.entries(mix), tot = ent.reduce((a, [, w]) => a + w, 0);
+    let r = Math.random() * tot;
+    for (const [k, w] of ent) if ((r -= w) <= 0) return k;
+    return ent[0][0];
+  }
+  function openBreaches(n = 3) {
+    if (run.zone || run.finale || n < 1) return;
+    const pool = shuf(ZONES.filter(z => !z.chaos && !BREACH_SKIP.includes(z.id) && z.mix && z.boss)), a0 = Math.random() * TAU;
+    for (let i = 0; i < n && pool.length; i++) {
+      const def = pool[i % pool.length], a = a0 + i * TAU / n + rnd(-.3, .3), d = rnd(650, 950);
+      const e = spawnFoe('breach', P.x + Math.cos(a) * d, P.y + Math.sin(a) * d);
+      Object.assign(e, { breach: true, bdef: def, hx: e.x, hy: e.y, spawnT: 1.2 + i * .7, kids: [], idle: 0, lastHp: e.hp, called: false });
+      burst(e.x, e.y, `rgb(${def.portal})`, 30, 260);
+    }
+    banner(n > 1 ? 'Rift breaches tear open! Close them before they spill over' : 'A rift breach tears open! Close it before it spills over', '#ff6aa8', true); snd.fx('portal');
+  }
+  function breachSpawn(e, kind, x, y) {
+    zoneDefOv = e.bdef; noXpCtx = true;
+    try { return spawnFoe(kind, x, y); } finally { zoneDefOv = null; noXpCtx = false; }
+  }
+  function updateBreach(e, dt) {
+    if (e.hp < e.lastHp) { e.idle = 0; e.lastHp = e.hp; } else e.idle += dt;
+    if (!e.called && e.idle >= BREACH_IDLE) {
+      e.called = true;
+      const g = breachSpawn(e, 'boss', e.x, e.y + 70);
+      if (g) {
+        if (!run.boss) { run.boss = g; snd.setBoss(true); }
+        burst(g.x, g.y, `rgb(${e.bdef.portal})`, 50, 320); shake = Math.max(shake, 10); snd.fx('boss');
+        banner(`${e.bdef.boss.name} answers the untended breach!`, '#ff6aa8', true);
+      }
+    }
+    if ((e.spawnT -= dt) > 0) return;
+    e.spawnT = BREACH_EVERY;
+    e.kids = e.kids.filter(k => !k.dead && !k.gone);
+    const n = run.t >= 300 ? 2 : 1;
+    for (let i = 0; i < n && e.kids.length < BREACH_CAP && foes.length < 480; i++) {
+      const k = breachSpawn(e, pickMix(e.bdef.mix), e.x + rnd(-40, 40), e.y + rnd(-40, 40));
+      if (k) { e.kids.push(k); burst(k.x, k.y, `rgb(${e.bdef.portal})`, 6, 120); }
+    }
+  }
+  function breachDown(e) {
+    burst(e.x, e.y, `rgb(${e.bdef.portal})`, 60, 380); shake = Math.max(shake, 8); snd.fx('chestdrop');
+    for (const k of e.kids) if (!k.dead && !k.gone) { k.gone = true; burst(k.x, k.y, `rgb(${e.bdef.portal})`, 6, 140); }
+    for (let i = 0; i < 8; i++) dropXp(e.x + rnd(-50, 50), e.y + rnd(-50, 50), 3 + run.t / 90);
+    const left = foes.filter(o => o.breach && !o.dead && o !== e).length;
+    banner(left ? `Breach closed · ${left} left` : 'Every breach is sealed!', left ? '#d8a8ff' : '#ffe27a', !left);
+  }
+  // A torn, slowly turning portal in the rift's colour around a dark vortex; its health bar above, and a red ring that
+  // fills while it is left alone (full: its guardian steps out).
+  function drawBreach(e, now) {
+    const col = e.bdef ? e.bdef.portal : '200,80,255', r = e.r, white = e.flash > 0;
+    ctx.save(); ctx.translate(e.x, e.y);
+    ctx.fillStyle = 'rgba(16,4,22,.5)'; ctx.beginPath(); ctx.ellipse(0, r * .95, r * 1.5, r * .4, 0, 0, TAU); ctx.fill();
+    ctx.save(); ctx.rotate(now * 1.3 + e.seed);
+    ctx.beginPath();
+    for (let i = 0; i < 28; i++) { const a = i / 28 * TAU, rr = r * (i % 2 ? .98 : 1.2 + .12 * Math.sin(now * 7 + i * 1.7)); i ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.moveTo(rr, 0); }
+    ctx.closePath(); ctx.fillStyle = white ? '#ffffff' : `rgba(${col},.9)`; ctx.fill();
+    ctx.strokeStyle = '#1a0614'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, r * .9);
+    g.addColorStop(0, '#000000'); g.addColorStop(.7, '#12041c'); g.addColorStop(1, `rgba(${col},.6)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * .88, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(${col},.75)`; ctx.lineWidth = 2.5;
+    for (let j = 0; j < 3; j++) { const a = -now * 2.2 + j * TAU / 3; ctx.beginPath(); ctx.arc(0, 0, r * (.3 + .17 * j), a, a + 2.2); ctx.stroke(); }
+    ctx.restore();
+    const w = 56, k = Math.max(0, e.hp / e.max), by = e.y - r - 20;
+    ctx.fillStyle = 'rgba(8,4,14,.85)'; ctx.fillRect(e.x - w / 2 - 1, by - 1, w + 2, 7);
+    ctx.fillStyle = `rgb(${col})`; ctx.fillRect(e.x - w / 2, by, w * k, 5);
+    if (!e.called && e.idle > 5) {
+      const p = Math.min(1, e.idle / BREACH_IDLE);
+      ctx.strokeStyle = `rgba(255,${Math.round(120 - 100 * p)},${Math.round(140 - 120 * p)},${.35 + .5 * p})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.45, -Math.PI / 2, -Math.PI / 2 + p * TAU); ctx.stroke();
+    }
+  }
   function nextBossIn() { for (let i = run.ev; i < EVENTS.length; i++) if (EVENTS[i].kind === 'boss') return EVENTS[i].t - run.t; return Infinity; }
   function updatePortal(dt) {
     const p = run.portal;
@@ -26328,7 +26425,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (zone) zone.t += dt; else run.t += dt;
     run.clock += dt;   // always advances, even while the dawn clock is frozen inside a rift
     snd.intensity(run.t / DAWN);
-    Z.dt = dt; Z.t = zone ? zone.t : 0; Z.W = W; Z.H = H;
+    Z.dt = dt; Z.t = zone ? zone.t : run.clock; Z.W = W; Z.H = H;
     const dir = inputDir();
     P.moving = dir.x || dir.y;
     P.slowT -= dt;
@@ -26377,13 +26474,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           if (e.fearBump && !e.dead) for (const o of foes) if (o !== e && !o.dead && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < ((o.r + e.r) * 1.1) ** 2) { hit(e, e.fearBump, 60, o.x, o.y); hit(o, e.fearBump * .5, 60, e.x, e.y); burst(e.x, e.y, '#e8d8ff', 4, 120); break; }
         }
       }
+      if (e.breach) { e.x = e.hx; e.y = e.hy; e.kx = e.ky = 0; updateBreach(e, dt); continue; }
       if ((e.boss || e.elite) && d2(e, P) > far * far * .45) {
         // Bosses and treasure beetles never lose you: they swoop back in from the edge.
         const a = Math.atan2(e.y - P.y, e.x - P.x) + Math.PI + rnd(-.8, .8), R = spawnR() * .9;
         e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R;
       }
       if (e.def) {
-        zoneActor = e; zoneDefOv = e.home || null; zoneCall(() => e.def.update ? e.def.update(e, Z) : Z.chase(e)); zoneActor = null; zoneDefOv = null;
+        zoneActor = e; zoneDefOv = e.home || null; noXpCtx = !!e.noXp; zoneCall(() => e.def.update ? e.def.update(e, Z) : Z.chase(e)); zoneActor = null; zoneDefOv = null; noXpCtx = false;
         if (e.remove) { e.gone = true; continue; }   // a zone foe can vanish without a death (e.g. a sapper that blew itself up)
         if (!e.boss && d2(e, P) > far * far) { const a = Math.random() * TAU, R = spawnR(); e.x = P.x + Math.cos(a) * R; e.y = P.y + Math.sin(a) * R; }
         if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) { e.x = P.x + spawnR(); e.y = P.y; }
@@ -26677,7 +26775,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     bullets = bullets.filter(b => b.life > 0);
 
     if (P.inv <= 0) for (const e of foes) {
-      if (e.dead || e.air) continue;
+      if (e.dead || e.air || e.breach) continue;
       if ((e.x - P.x) ** 2 + (e.y - P.y) ** 2 < (e.r + P.r - 3) ** 2) { hurt(e.dmg, e); break; }
       if (e.segs && e.segs.some(q => (q.x - P.x) ** 2 + (q.y - P.y) ** 2 < (e.r * .85 + P.r - 3) ** 2)) { hurt(e.dmg, e); break; }
     }
@@ -26919,6 +27017,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
 
   function drawFoe(e, now) {
+    if (e.breach) { drawBreach(e, now); return; }
     if (e.def) { Z.now = now; zoneCall(() => e.def.draw(e, Z, e.flash > 0)); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; return; }
     const s = e.r, white = e.flash > 0;
     const flap = Math.abs(Math.sin(now * (e.boss ? 6 : 13) + e.seed));
@@ -28227,6 +28326,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.globalCompositeOperation = 'lighter';
     for (const s of shrooms) drawGlow('90,200,220', 18, s.x, s.y - 6, .35 + .2 * Math.sin(now * 2 + s.h * 50));
     if (live && run.portal) drawGlow(run.portal.def.portal, 80, run.portal.x, run.portal.y, .8);
+    if (live && !run.zone) for (const e of foes) if (e.breach && !e.dead && onScreen(e, 120)) drawGlow(e.bdef ? e.bdef.portal : '200,80,255', 70, e.x, e.y, .55 + .2 * Math.sin(now * 5 + e.seed));
     if (live && run.peddler && !run.zone) drawGlow('255,210,120', 70, run.peddler.x - 22, run.peddler.y - 30, .7 + .15 * Math.sin(now * 3));
     if (live) drawQuestGlow(now);
     if (live && run.finale && run.finale.kind === 'blood' && onScreen(run.finale.boss, 160)) drawGlow('255,50,70', 128, run.finale.boss.x, run.finale.boss.y, .4 + .1 * Math.sin(now * 2));
@@ -28502,6 +28602,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           ctx.restore(); ctx.globalAlpha = 1;
         }
       }
+      // Point toward open rift breaches (a jagged violet-red arrow).
+      if (!run.zone) for (const e of foes) {
+        if (!e.breach || e.dead || inArrowBox(e)) continue;
+        const a = Math.atan2(e.y - P.y, e.x - P.x), [cx, cy] = edgeAt(a);
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+        ctx.fillStyle = '#ff4a8a'; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-6, -10); ctx.lineTo(-2, -2); ctx.lineTo(-10, 0); ctx.lineTo(-2, 2); ctx.lineTo(-6, 10); ctx.fill();
+        ctx.strokeStyle = '#2a0820'; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore();
+      }
       // Point toward any chest that is off screen.
       for (const m of motes) {
         if (m.kind !== 'chest' || inArrowBox(m)) continue;
@@ -28744,6 +28852,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (!o.stay) exitZone();
       return res;
     } },
+    breaches: { value: n => openBreaches(n) },
     stranger: { value: id => spawnStranger(ZONES.find(z => z.id === id), { x: P.x + 100, y: P.y }) },
     relic: { value: (id, minis) => { run.relic = newRelic(id); if (minis != null) run.minis = minis; allies = []; renderLoadout(); } },
     finale: { value: () => { run.t = DAWN; } },
