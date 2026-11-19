@@ -23109,7 +23109,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-17h';
+  const BUILD = '2026-11-19b';
   $('buildStamp').textContent = `Kausi ${seasonName(GAME_VERSION)} · versio ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -26267,7 +26267,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
     });
   }
-  const NOT_FIRST = ['z', 'moo2'];   // The Robot Wars and The Antaran Deep are too hard as a first rift.
+  // Rift difficulty tiers, measured 2026-11-19 (each rift entered first at 1:00 with an early build: Lv 6, Spark Bolt 3,
+  // Starfall 2, Deeper Jar 1, autopilot dodging, two full 150 s runs): damage taken per second, how hard single hits land,
+  // enemy shots and ground hazards per second, and the guardian. A run's first rift always comes from the easy tier.
+  const RIFT_TIER = {
+    easy: ['isaac', 'ds', 'tibia', 'homm', 'necro', 'd2', 'bay', 'lol'],
+    medium: ['hk', 'z', 'spire', 'temple', 'gw2', 'monkey', 'wc2', 'cow', 'chaos'],
+    hard: ['zerg', 'zelda', 'moo2', 'potato'],
+  };
   // Glow multiplier per rift, so every rift pays about the same (measured: same strong build, full 150 s, median ~15,000 XP).
   // Below 1: rifts whose foes are worth more or come in bigger numbers. The secret cow level is left alone: it pays the most
   // (~1.35x the median on average), as a reward for the Wirt's Leg quest.
@@ -26399,9 +26406,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Never during a boss, right before one, or at the very end of the night.
     if (run.portalT > 0 || run.boss || run.t > DAWN - 50 || nextBossIn() < 35) return false;
     run.portalT = rnd(70, 105);
-    // Some rifts are too tough to be a run's first: they only open once you've been through another one.
+    // A run's first rift is always an easy one (RIFT_TIER.easy); the rest open once you've been through it.
     const open = ZONES.filter(z => !QUEST_ZONES.includes(z.id) && !(z.chaos && run.rifts < CHAOS_AFTER));
-    const fresh = open.filter(z => !run.seen.includes(z.id) && !(run.rifts === 0 && NOT_FIRST.includes(z.id))), pool = fresh.length ? fresh : open;
+    const fresh = open.filter(z => !run.seen.includes(z.id) && !(run.rifts === 0 && !RIFT_TIER.easy.includes(z.id))), pool = fresh.length ? fresh : open;
     // Weighted pick: secret rifts (RIFT_WEIGHT below 1) turn up far less often than the rest.
     const wsum = pool.reduce((t, z) => t + (RIFT_WEIGHT[z.id] ?? 1), 0);
     let roll = Math.random() * wsum, def = pool[pool.length - 1];
