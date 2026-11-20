@@ -822,8 +822,6 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       // Hexwave: a deep stamp with a rumbling roll of low noise.
       quake: t => { tn('sine', 120, 42, t, .004, .4, .1); tn('triangle', 90, 50, t, .006, .3, .03); nz(t, .7, .04, 'lowpass', 380, .8, 120); },
       // Silver Rapier: a quick metallic swish; the riposte rings brighter.
-      // Hexagon trial: a soft kick on every beat.
-      hexbeat: t => { tn('sine', 120, 50, t, .003, .14, .06); },
       // Potato Cannon: a hollow pop when it fires, a soft wet thud when a potato lands.
       lob: t => { tn('sine', 220, 520, t, .003, .09, .05); nz(t, .05, .02, 'lowpass', 900, .7); },
       splat: t => { tn('sine', 140, 70, t, .003, .1, .035); nz(t, .08, .02, 'lowpass', 700, .7); },
@@ -861,7 +859,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (all) { if (!tapAll) { tapAll = ac.createAnalyser(); tapAll.fftSize = 2048; masterBus.connect(tapAll); } return { a: tapAll, muffled: musicIn.frequency.value < 10000 }; }
       if (!tapA) { tapA = ac.createAnalyser(); tapA.fftSize = 2048; musicIn.connect(tapA); } return { a: tapA, muffled: musicIn.frequency.value < 10000 };
     }
-    return { init, fx, muffle, toggle, musicTap, get reduction() { return limiter ? [compressor.reduction, limiter.reduction] : null; }, setVol, hidden, prefs, setZone, set onFx(f) { onFx = f; }, mode: m => { mode = m; }, setBoss: on => { boss = on; }, intensity: x => { inten = x; }, get state() { return ac ? ac.state : 'none'; }, get cached() { return ksCache.size; }, get owSteps() { return owSteps; }, get inZoneMusic() { return !!zoneMusic; } };
+    return { get time() { return ac ? ac.currentTime : 0; }, init, fx, muffle, toggle, musicTap, get reduction() { return limiter ? [compressor.reduction, limiter.reduction] : null; }, setVol, hidden, prefs, setZone, set onFx(f) { onFx = f; }, mode: m => { mode = m; }, setBoss: on => { boss = on; }, intensity: x => { inten = x; }, get state() { return ac ? ac.state : 'none'; }, get cached() { return ksCache.size; }, get owSteps() { return owSteps; }, get inZoneMusic() { return !!zoneMusic; } };
   })();
   function renderAudio() {
     for (const b of document.querySelectorAll('.aud-music')) {
@@ -23176,7 +23174,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-20c';
+  const BUILD = '2026-11-20d';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -25361,6 +25359,48 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const HEX_TRIAL_T = 30, HEX_SEC = TAU / 6, HEX_PR = 62, HEX_CORE = 44, HEX_SPAWN = 760, HEX_TH = 22, HEX_TURN = 3.2 * Math.PI;
   // Eased 2026-11-20 for players new to the genre: slower walls (190 + 4.5/s, was 260 + 7.5/s), more room between and
   // within patterns, easy patterns for the first 10 s (was 6), a gentler spin and a ±5 (was ±7) wall-touch margin.
+  // The hexagon trial's own score: an original driving electro piece in E minor, 130 bpm in 16ths, a 16-bar loop
+  // (Em C G D | Am Em B B, two bars each). Pumping saw bass on 8ths, a stereo square arpeggio, four-on-the-floor kick
+  // and offbeat hats from the start; the lead melody joins at 10 s of the trial, pads and snare fills at 20 s, and the
+  // bass filter opens as it goes. Each kick is also handed to the trial (hexT.beats) so the screen pulses on it.
+  const HEX_MUSIC = (() => {
+    const PROG = ['Em', 'C', 'G', 'D', 'Am', 'Em', 'B', 'B'];
+    const ROOT = { Em: 40, C: 36, G: 43, D: 38, Am: 45, B: 35 };
+    const CH = { Em: [64, 67, 71], C: [60, 64, 67], G: [62, 67, 71], D: [62, 66, 69], Am: [60, 64, 69], B: [59, 63, 66] };
+    // lead phrases, one per chord (two bars = 32 sixteenths): [step, midi, length in steps]
+    const MEL = [
+      [[0, 76, 3], [4, 74, 2], [6, 71, 2], [8, 74, 4], [12, 76, 4], [16, 79, 6], [24, 78, 2], [26, 76, 2], [28, 74, 4]],
+      [[0, 76, 3], [4, 72, 2], [6, 67, 2], [8, 72, 4], [12, 76, 4], [16, 74, 8], [24, 72, 4], [28, 71, 4]],
+      [[0, 74, 2], [2, 71, 2], [4, 74, 2], [6, 79, 6], [12, 78, 4], [16, 76, 4], [20, 74, 4], [24, 71, 8]],
+      [[0, 78, 4], [4, 74, 2], [6, 69, 2], [8, 74, 4], [12, 78, 4], [16, 81, 6], [22, 78, 2], [24, 76, 8]],
+      [[0, 76, 4], [4, 72, 2], [6, 69, 4], [10, 72, 2], [12, 76, 4], [16, 81, 8], [24, 79, 4], [28, 76, 4]],
+      [[0, 79, 4], [4, 76, 2], [6, 71, 4], [10, 76, 2], [12, 79, 4], [16, 83, 8], [24, 81, 4], [28, 79, 4]],
+      [[0, 78, 4], [4, 75, 4], [8, 71, 4], [12, 75, 4], [16, 78, 8], [24, 81, 8]],
+      [[0, 83, 6], [6, 81, 2], [8, 78, 4], [12, 75, 4], [16, 71, 16]],
+    ];
+    const BPM = 130, DIV = 4, SP = 60 / BPM / DIV;
+    return {
+      bpm: BPM, div: DIV,
+      step(s, t, A) {
+        const lv = hexT ? hexT.t : 0, bar = Math.floor(s / 16), b = s % 16, ci = Math.floor(bar / 2) % PROG.length, name = PROG[ci], ch = CH[name], root = ROOT[name], inBar = (bar % 2) * 16 + b;
+        // drums
+        if (b % 4 === 0) { A.kick(t, .72); if (hexT) hexT.beats.push(t); }
+        if (b % 4 === 2) A.hat(t, .035);
+        if (lv >= 20 && b % 8 === 4) A.snare(t, .22);
+        if (lv >= 20 && bar % 16 === 15 && b >= 12) A.snare(t, .1 + (b - 12) * .04);          // a fill into the loop
+        // bass: pumping octaves on 8ths, the filter opening as the trial goes on
+        if (b % 2 === 0) A.tone(t, root + (b % 4 === 2 ? 12 : 0), SP * 1.7, .075, { type: 'sawtooth', decay: true, cutoff: 420 + Math.min(30, lv) * 28, q: 4 });
+        // arpeggio: chord tones over two octaves, panned left and right
+        const arp = ch[s % 3] + ((s >> 2) & 1) * 12;
+        A.tone(t, arp, SP * .9, .02, { type: 'square', decay: true, cutoff: 2400 + Math.min(30, lv) * 40, pan: s % 2 ? .35 : -.35, attack: .003 });
+        // lead from 10 s
+        if (lv >= 10) for (const [at, m, len] of MEL[ci]) if (at === inBar) A.tone(t, m, SP * len * .95, .034, { type: 'square', cutoff: 3200, vib: len >= 6 ? .3 : 0, attack: .006 });
+        // pads from 20 s, once per chord
+        if (lv >= 20 && inBar === 0) A.pad(ch.map(m => m - 12), t, SP * 32, .012, { type: 'sawtooth', cutoff: 1100, detune: 9 });
+      },
+    };
+  })();
+
   let hexT = null;
   function startHexTrial(onEnd) {
     if (hexT) return;
@@ -25369,7 +25409,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     cv.hidden = false;
     let best = 0; try { best = +(localStorage.getItem('fjr-hexbest') || 0) || 0; } catch (e) {}
     hexT = { cv, cx: cv.getContext('2d'), t: 0, ang: -Math.PI / 2, rot: 0, om: 1, flip: rnd(4, 7), walls: [], beat: 0, pulse: 0,
-      dead: 0, won: 0, end: 0, onEnd, best, touch: 0, last: performance.now(), hue: 0 };
+      dead: 0, won: 0, end: 0, onEnd, best, touch: 0, last: performance.now(), hue: 0, beats: [], noBeat: 0 };
     // Touch / mouse: every finger is tracked on its own (pointerId → the screen half it is on). The most recently pressed
     // finger still down steers; lifting it hands control back to a finger still held, and Hexel stops only when none is.
     const ptrs = new Map(), side = e => { const r = cv.getBoundingClientRect(); return e.clientX < r.left + r.width / 2 ? -1 : 1; };
@@ -25377,7 +25417,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     cv.onpointerdown = e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (err) {} ptrs.delete(e.pointerId); ptrs.set(e.pointerId, side(e)); upd(); };
     cv.onpointermove = e => { if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, side(e)); upd(); };   // sliding across the middle switches direction
     cv.onpointerup = cv.onpointercancel = cv.onlostpointercapture = e => { ptrs.delete(e.pointerId); upd(); };
-    state = 'trial'; joy = null; keys.clear(); $('hud').hidden = true; snd.fx('warn');
+    state = 'trial'; joy = null; keys.clear(); $('hud').hidden = true; snd.fx('warn'); snd.setZone(HEX_MUSIC);
     hexSpawn(); requestAnimationFrame(hexLoop);
   }
   // Wall patterns, as rows of filled sectors behind the last row: every pattern always leaves a way through.
@@ -25409,7 +25449,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // spin: speeds up, and flips direction every few seconds
     if ((T.flip -= dt) <= 0) { T.flip = rnd(4, 7) - Math.min(1.5, T.t * .04); T.om = -Math.sign(T.om) * (1 + T.t * .03); }
     T.rot += T.om * dt;
-    if ((T.beat -= dt) <= 0) { T.beat = .5; T.pulse = 1; snd.fx('hexbeat'); }
+    let beat = false; while (T.beats.length && snd.time >= T.beats[0]) { T.beats.shift(); beat = true; }
+    if (beat) T.noBeat = 0; else if ((T.noBeat += dt) > .8) { T.noBeat = .34; beat = true; }   // no music running: keep pulsing
+    if (beat) T.pulse = 1;
     T.pulse = Math.max(0, T.pulse - dt * 4);
     // steer; a wall beside you blocks the move
     const inp = ((keys.has('a') || keys.has('arrowleft') ? -1 : 0) + (keys.has('d') || keys.has('arrowright') ? 1 : 0)) || T.touch;
@@ -25475,7 +25517,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function hexFinish() {
     const T = hexT; hexT = null; T.cv.hidden = true; T.cv.onpointerdown = T.cv.onpointermove = T.cv.onpointerup = T.cv.onpointercancel = T.cv.onlostpointercapture = null;
     if (T.t > T.best) try { localStorage.setItem('fjr-hexbest', T.t.toFixed(2)); } catch (e) {}
-    keys.clear(); $('hud').hidden = false; resume();
+    keys.clear(); $('hud').hidden = false; snd.setZone(run && run.zone ? run.zone.def.music : null); resume();
     if (T.onEnd) T.onEnd(!!T.won, T.t);
   }
 
@@ -29360,6 +29402,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       allies = []; renderLoadout();
     } },
     spots: { get: () => run && (run.zone ? run.quest.spots : run.quest.home) },
+    // The running hexagon trial's state (null when none is running).
+    hexTrial: { get: () => hexT },
     // Opens a quest weapon's reward card: fj.questWeapon('rapier').
     questWeapon: { value: id => offerQuestWeapon(id, 'Debug') } });
 
