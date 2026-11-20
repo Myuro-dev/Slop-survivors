@@ -34,6 +34,7 @@
 html, body { height: 100%; }
 body { background: var(--night); color: var(--ink); font-family: var(--body); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#hexTrial { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 8; touch-action: none; }
 .hud { position: fixed; left: 0; right: 0; top: 0; z-index: 2; pointer-events: none; padding-top: env(safe-area-inset-top, 0px); padding-bottom: 22px; background: linear-gradient(rgba(6,9,18,.62), rgba(6,9,18,0)); text-shadow: 0 1px 3px rgba(0,0,0,.6); }
 .xp { position: relative; height: 10px; background: rgba(255,255,255,.08); border-bottom: 1px solid var(--line); }
 .xp i { position: absolute; inset: 0; background: linear-gradient(90deg, #7fd0ff, var(--glow)); transform-origin: left; transform: scaleX(0); box-shadow: 0 0 12px rgba(127,208,255,.6); }
@@ -156,7 +157,24 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .arena .btn.ghost.sel { border-color: var(--glow); color: var(--glow); box-shadow: 0 0 0 1px var(--glow) inset; }
 .arena label { font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 /* Leaderboards */
-#openBoards { margin-top: -4px; }
+#openBoards, #openCodex { margin-top: -4px; }
+/* Codex: every weapon and relic with its upgrade path */
+#codex { z-index: 6; background: rgb(8, 12, 24); place-items: start center; padding-top: max(24px, 5vh); }   /* opaque: the title card showed through and shaded the cards unevenly */
+#codex .card { max-width: 640px; }
+.cxlist { width: 100%; display: grid; gap: 10px; text-align: left; }
+.cx { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); box-shadow: 0 0 0 1px var(--line) inset; font-size: 14px; }
+.cx h3 { margin: 0 0 2px; font-size: 17px; }
+.cx .from { font-size: 12px; color: var(--muted); }
+.cx p { margin: 4px 0 6px; color: var(--muted); }
+.cx ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 13px; }
+.cx ol li { display: grid; grid-template-columns: 3.6em minmax(0, 1fr); gap: 6px; }   /* wrapped lines stay in their column */
+.cx ol b { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The evolution / MEGA section is .cxup, not .evo: .evo is also the evolved chip's own class, and the section's
+   divider rule used to land on the chip (a dark top border on it). */
+.cx .cxup { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
+.cx .cxup .chip { display: inline-block; vertical-align: middle; margin: 0 6px 2px 0; }
+.cx .cxup .how { vertical-align: middle; color: var(--muted); }
+.cx .cxup div { margin-top: 3px; }
 #boards { z-index: 6; background: rgba(8, 12, 24, .95); place-items: start center; padding-top: max(24px, 5vh); }
 .lbseason { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .lbarrow { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; width: 30px; height: 30px; font-size: 18px; line-height: 1; cursor: pointer; padding: 0; }
@@ -253,6 +271,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <p class="sub">A weapon at level 6 plus its paired charm evolves when you open a boss chest.</p>
     <button class="btn" id="newRun">Begin the night</button>
     <button class="btn ghost" id="openBoards">Leaderboards</button>
+    <button class="btn ghost" id="openCodex">Weapons &amp; Relics</button>
     <div class="vol"><button class="btn ghost aud-music">Music: on</button><input type="range" min="0" max="100" class="vol-music" aria-label="Music volume"><button class="btn ghost aud-sfx">Sound: on</button><input type="range" min="0" max="100" class="vol-sfx" aria-label="Sound volume"></div>
     <span class="sub" id="bestTitle"></span>
     <span class="build" id="buildStamp"></span>
@@ -334,6 +353,17 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     </div>
     <div class="overbtns"><button class="btn" id="again">Try another night</button><button class="btn ghost" id="overBoards">Leaderboards</button><button class="btn ghost" id="toMenu">Main menu</button></div>
     <span class="sub" id="bestOver"></span>
+  </div>
+</div>
+
+<div class="overlay" id="codex" hidden>
+  <div class="card">
+    <span class="eyebrow">Codex</span>
+    <h2>Weapons &amp; Relics</h2>
+    <div class="lbtabs" id="cxTabs"><button class="btn ghost sel" data-t="w">Weapons</button><button class="btn ghost" data-t="r">Relics</button></div>
+    <p class="lbnote" id="cxNote"></p>
+    <div class="cxlist" id="cxList"></div>
+    <button class="btn" id="closeCodex">Back</button>
   </div>
 </div>
 
@@ -745,7 +775,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
 
     const FX_KEY = new Set(['boss', 'bossdown', 'level', 'evolve', 'chestdrop', 'revive', 'death', 'dawn', 'hurt', 'warn', 'rift']);
-    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2, wail: .4, dice: .2, coins: 4, mask: .5, puff: .08 };
+    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2, wail: .4, quake: .3, lob: .12, splat: .07, thrust: .08, riposte: .15, dice: .2, coins: 4, mask: .5, puff: .08 };
     const PENT = [74, 77, 79, 81, 84, 86, 88, 89];
     const FX = {
       // Hits and kills are soft tonal taps. They used to be tiny bursts of 2-3 kHz noise, which at ~30 per second in a
@@ -789,6 +819,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       mask: t => { tn('sine', 150, 360, t, .07, .35, .05, .7); tn('sine', 360, 170, t + .35, .02, .6, .045, .7); tn('triangle', 225, 540, t, .07, .35, .014, .7); tn('sine', 70, 95, t, .08, .8, .06, .5); nz(t, .6, .02, 'bandpass', 450, 1.5, 1100); },
       puff: t => { tn('sine', 150, 60, t, .004, .22, .07); nz(t, .3, .035, 'lowpass', 1100, .7, 300); },
       dice: t => { tn('triangle', 1500, 900, t, .002, .03, .03); tn('triangle', 1250, 800, t + .07, .002, .03, .025); tn('triangle', 1100, 700, t + .13, .002, .03, .02); },
+      // Hexwave: a deep stamp with a rumbling roll of low noise.
+      quake: t => { tn('sine', 120, 42, t, .004, .4, .1); tn('triangle', 90, 50, t, .006, .3, .03); nz(t, .7, .04, 'lowpass', 380, .8, 120); },
+      // Silver Rapier: a quick metallic swish; the riposte rings brighter.
+      // Hexagon trial: a soft kick on every beat.
+      hexbeat: t => { tn('sine', 120, 50, t, .003, .14, .06); },
+      // Potato Cannon: a hollow pop when it fires, a soft wet thud when a potato lands.
+      lob: t => { tn('sine', 220, 520, t, .003, .09, .05); nz(t, .05, .02, 'lowpass', 900, .7); },
+      splat: t => { tn('sine', 140, 70, t, .003, .1, .035); nz(t, .08, .02, 'lowpass', 700, .7); },
+      thrust: t => { tn('triangle', 2200, 1100, t, .002, .07, .016); nz(t, .06, .012, 'highpass', 5000, .7); },
+      riposte: t => { tn('triangle', 2600, 1300, t, .002, .09, .022); tn('sine', 3300, 3300, t + .03, .003, .25, .012); nz(t, .07, .015, 'highpass', 5000, .7); },
       wail: t => { tn('sine', 880, 520, t, .04, .5, .03, .6); tn('triangle', 660, 395, t, .06, .45, .012, .6); },
       rift: t => { [86, 91, 95].forEach((m, i) => bell(m, t + i * .1, .045)); nz(t, .6, .05, 'highpass', 3000, .7); },
       dawn: t => { [50, 57, 62, 66, 69, 74, 78].forEach((m, i) => bell(m, t + i * .12, .07)); pad([62, 66, 69], t, 5, .03, sfxOut); },
@@ -877,11 +917,20 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Damage +20%, plants faster', 'Damage +21%, bigger burst, plants faster, +1 cap in the field', '+1 cap per planting, damage +17%, plants faster, +1 cap in the field', 'Damage +18%, bigger burst and cloud, plants faster, +1 cap in the field', 'Damage +19%, bigger cloud, spores last longer, plants faster, +1 cap in the field'] },
     wail: { name: 'Banshee Lantern', desc: 'A lantern holding a wailing spirit. Every few seconds its wail rolls out in a cone and frightens the enemies it reaches: they flee from you, fading as they go.', evo: 'veil', evoName: 'Wailing Veil', evoDesc: 'The wail rings out all around you. Frightened enemies that crash into each other take heavy damage, and bosses are slowed.',
       up: ['Damage +25%, faster, wider, frightens longer', 'Damage +20%, faster, reaches further, frightens longer', 'Damage +17%, faster, wider, reaches further, frightens longer', 'Damage +21%, faster, wider, frightens longer', 'Damage +18%, faster, wider, reaches further, frightens longer'] },
-    frost: { name: 'Moonfrost', desc: 'A cone of frost behind you that chills and slows whatever is chasing you.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes enemies solid.',
+    frost: { name: 'Moonfrost', desc: 'A cone of frost behind you that chills and slows whatever is chasing you. Chilled enemies turn brittle and take 20% more damage from everything.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes enemies solid. Frozen enemies take 40% more damage from everything.',
       up: ['Damage +20%, reaches further, chills longer', 'Damage +25%, faster', 'Damage +20%, wider, faster', 'Damage +22%, wider, faster', 'Damage +18%, wider, reaches further'] },
+    wave: { name: 'Hexwave', quest: true, desc: 'Every few seconds Hexel stamps the ground and a hexagonal shockwave rolls slowly outward from where it stood, striking each enemy it passes and shoving it back.', evo: 'ember', evoName: 'Resonance', evoDesc: 'Twin hexwaves reach much farther, then turn around and roll back to you, striking every enemy again on the way home.',
+      up: ['Damage +25%', 'Damage +20%, reaches further, rolls faster', 'A second wave follows the first', 'Damage +20%, reaches further, stamps more often', 'Damage +20%, reaches further, stamps more often'] },
+    // Quest weapons (quest: true) never appear in level-ups, chests or the starting pick; a quest hands them out
+    // (offerQuestWeapon). Once owned they level up like any other weapon.
+    rapier: { name: 'Silver Rapier', quest: true, desc: "A swordmaster's blade, won with words. Lunges at the nearest enemy, piercing everything along the thrust, and finds weak spots (+15% crit chance). Taking a hit readies a riposte that strikes twice as hard.", evo: 'keen', evoName: 'Final Word', evoDesc: 'A flurry of five thrusts, and every riposte answers with a ring of thrusts all around you.',
+      up: ['Damage +31%', 'A second thrust, thrusts faster, longer reach', 'Damage +24%, thrusts faster, longer reach', 'Damage +19%, longer reach', 'A third thrust, damage +19%, thrusts faster, longer reach'] },
+    spud: { name: 'Potato Cannon', quest: true, desc: 'Found inside a runaway loot crate. Lobs potatoes at enemies; each one keeps bouncing onward, splatting everything where it lands.', evo: 'shoe', evoName: 'Spud Barrage', evoDesc: 'Three potatoes at once, five bounces each, and the last bounce bursts in a wide splat of mash that slows enemies.',
+      up: ['Damage +25%', '+1 bounce', 'A second potato, fires faster', 'Damage +20%, bigger splat', '+1 bounce, damage +17%, fires faster'] },
   };
   // Weapons level to 8 (levels 7–8 are generic power steps); evolution needs level 6 plus the paired charm.
   const WMAX = 8, EVO_LV = 6, SLOTS = 6;
+  const RAPIER_CRIT = .15;   // the Silver Rapier's own extra crit chance
 
   /* ---------- Late-game balance (from the hard-mode fork, ../firefly-jar-hard) ----------
      Flattens how much stronger weapons and relics grow, so the night gets harder toward dawn instead of easier, and
@@ -954,6 +1003,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         : { cd: [4.2, 4, 3.8, 3.5, 3.2, 3][L], dmg: [8, 10, 12, 14, 17, 20][L], range: [170, 180, 195, 210, 225, 240][L], cone: [1, 1.1, 1.2, 1.35, 1.5, 1.7][L], fear: [1.4, 1.6, 1.8, 2, 2.3, 2.6][L] };
       case 'frost': return evo ? { cd: 1.2, dmg: 34, range: 230, cone: 7, slow: 2.5, freeze: true }
         : { cd: [2.4, 2.2, 2.1, 1.9, 1.7, 1.5][L], dmg: [10, 12, 15, 18, 22, 26][L], range: [120, 130, 140, 150, 160, 175][L], cone: [1.2, 1.2, 1.3, 1.4, 1.5, 1.6][L], slow: [1.2, 1.4, 1.6, 1.8, 2, 2.2][L] };
+      case 'spud': return evo ? { cd: 1.3, n: 3, b: 5, dmg: 160, R: 60, fin: 110 }
+        : { cd: [2, 2, 2, 1.8, 1.8, 1.6][L], n: [1, 1, 1, 2, 2, 2][L], b: [3, 3, 4, 4, 4, 5][L], dmg: [60, 75, 75, 75, 90, 105][L], R: [45, 45, 45, 45, 52, 52][L], fin: 0 };
+      case 'rapier': return evo ? { cd: .65, n: 5, dmg: 85, len: 190, w: 8, fan: .2, ring: 10 }
+        : { cd: [1.2, 1.2, 1.1, 1, 1, .9][L], n: [1, 1, 2, 2, 2, 3][L], dmg: [32, 42, 42, 52, 62, 74][L], len: [130, 130, 140, 145, 150, 160][L], w: 7, fan: .22, ring: 0 };
+      case 'wave': return evo ? { cd: 3.6, n: 2, dmg: 135, R: 400, sp: 160, gap: .4 }
+        : { cd: [5.4, 5.4, 5.1, 5.1, 4.6, 4.2][L], n: [1, 1, 1, 2, 2, 2][L], dmg: [36, 45, 54, 54, 65, 78][L], R: [250, 250, 270, 270, 290, 310][L], sp: [110, 110, 120, 120, 125, 130][L], gap: .45 };
       case 'nova': return evo ? { cd: 4, dmg: 170, r: 330 }
         : { cd: [9, 8.5, 8, 7, 6.5, 6][L], dmg: [40, 52, 60, 72, 86, 100][L], r: [170, 180, 190, 205, 215, 235][L] };
     }
@@ -971,6 +1026,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     dew:    { name: 'Morning Dew',     max: 5, desc: 'Recover 0.25 health per second.' },
     gold:   { name: 'Gold Rush',       max: 5, desc: 'Gain 10% more experience.' },
     wax:    { name: 'Beeswax',         max: 5, desc: 'Take 1 less damage from every hit.' },
+    // Echo Charm is deliberately never the evolution charm of any weapon (2026-11-20): keep it pairless.
     echo:   { name: 'Echo Charm',      max: 2, desc: 'Every weapon fires one extra firefly, spark, star, bat or blade, but you take 15% more damage from every hit.' },
     wind:   { name: 'Second Wind',     max: 1, desc: 'The first time you fall, rise again at half health. Used up when it saves you.' },
     ward:   { name: 'Moth-Silk Ward',  max: 5, desc: 'Blocks one hit completely. Recharges in 14s, 2s faster per level.' },
@@ -22800,7 +22856,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       crit: .07 * pv('keen') + (voc === 'paladin' ? .08 : 0) + (bn.crit || 0),
       ignite: .04 * pv('kindle'),
       maxHp: Math.max(30, Math.round(100 * (1 + .2 * pv('heart')) * (voc === 'knight' ? 1.3 : 1) + (run.quest.hp || 0) + (bn.hp || 0))),
-      speed: 150 * (1 + .1 * pv('wings')) * (run.quest.groove ? 1.12 : 1) * (1 + (bn.speed || 0)),
+      speed: 150 * (1 + .1 * pv('wings')) * (run.quest.groove ? 1.12 : 1) * (1 + (bn.speed || 0) + (run.chestSpd || 0)),
       magnet: 110 * (1 + .3 * pv('magnet')) * (1 + (bn.magnet || 0)),
       dur: 1 + .12 * pv('linger'),
       projSp: 1 + .1 * pv('linger') + (voc === 'paladin' ? .25 : 0),
@@ -22824,7 +22880,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     recalc();
     run.rid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); setTimeout(() => playPing('start'), 0);
     foes = []; motes = []; shots = []; bullets = []; strikes = []; parts = []; pops = []; banners = []; beams = []; rings = [];
-    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = []; pendingRelic = null;
+    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = []; if (run.weapons.wave) run.weapons.wave.waves = []; pendingRelic = null;
     P.x = 0; P.y = 0; P.inv = 0; P.slowT = 0; P.spin = 0; P.squish = 0; cam.x = 0; cam.y = 0; hazards = [];
     renderLoadout();
     openLevel();
@@ -22839,7 +22895,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (const id in WEAPONS) {
       const w = run.weapons[id];
       if (w) { if (w.lv < WMAX) pool.push({ type: 'w', id, lv: w.lv + 1 }); }
-      else if (nW < SLOTS) pool.push({ type: 'w', id, lv: 1 });
+      else if (nW < SLOTS && !WEAPONS[id].quest) pool.push({ type: 'w', id, lv: 1 });   // quest weapons only come from quests
     }
     for (const id in PASSIVES) {
       const k = pv(id);
@@ -22884,7 +22940,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const START_SKIP = ['lamp', 'dew2'];
   function rollOffers() {
     // The first pick never offers the purely defensive weapons: you need something that kills moths from the start.
-    const pool = run.start ? Object.keys(WEAPONS).filter(id => !START_SKIP.includes(id)).map(id => ({ type: 'w', id, lv: 1 })) : choicePool();
+    const pool = run.start ? Object.keys(WEAPONS).filter(id => !START_SKIP.includes(id) && !WEAPONS[id].quest).map(id => ({ type: 'w', id, lv: 1 })) : choicePool();
     offers = sample(pool, run.start ? 3 : 3 + (Math.random() < .1 * pv('clover') ? 1 : 0));
     $('picks').classList.toggle('four', offers.length > 3);
     if (!offers.length) offers = [{ type: 'heal' }];
@@ -22920,8 +22976,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         hint: run.weapons[o.id] && run.weapons[o.id].evo ? `Evolved: ${d.evoName}` : `Evolves at Lv 6 with ${PASSIVES[d.evo].name}` };
     }
     const d = PASSIVES[o.id];
-    const pair = Object.entries(WEAPONS).find(([, w]) => w.evo === o.id);
+    const pair = charmPair(o.id);
     return { cls: '', kind: o.lv > 1 ? `Charm · Lv ${o.lv}` : 'Charm', isNew: o.lv === 1, name: d.name, desc: d.desc, hint: pair ? `Evolves ${pair[1].name}` : '' };
+  }
+  // The weapon a charm evolves, for hints: one you own first (a charm can pair with a normal and a quest weapon), else
+  // the normal one, so a quest weapon you haven't found stays a secret.
+  function charmPair(cid) {
+    const all = Object.entries(WEAPONS).filter(([, w]) => w.evo === cid);
+    return all.find(([id]) => run && run.weapons[id]) || all.find(([, w]) => !w.quest) || null;
   }
   function apply(o) {
     if (o.type === 'w') {
@@ -22964,7 +23026,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const n = evos.length ? bonus : (boss ? (Math.random() < .3 ? 5 : 3) : (Math.random() < .25 ? 3 : 1)) + bonus;
       for (let i = 0; i < n; i++) {
         const [o] = sample(choicePool(), 1);
-        if (!o) break;
+        if (!o) {
+          // Everything is maxed: each prize is +5 max health or +2% speed instead.
+          if (Math.random() < .5) { addMaxHp(5); loot.push({ name: '+5 max health', desc: `You already hold everything. Max health ${Math.round(S.maxHp)}.` }); }
+          else { run.chestSpd = (run.chestSpd || 0) + .02; recalc(); loot.push({ name: '+2% speed', desc: `You already hold everything. +${Math.round(run.chestSpd * 100)}% speed from chests.` }); }
+          continue;
+        }
         apply(o);
         const c = describe(o);
         loot.push({ name: c.name + (o.lv > 1 ? ` · Lv ${o.lv}` : ''), desc: c.desc });
@@ -23083,7 +23150,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (!d) return;
       add('b', `${d.name}${d.max > 1 ? ` · Lv ${lv} of ${d.max}` : ''}`);
       box.appendChild(document.createTextNode(d.desc));
-      const ev = Object.entries(WEAPONS).find(([, w]) => w.evo === id);
+      const ev = charmPair(id);
       if (ev) add('i', `Evolves ${ev[1].name}`);
     } else if (kind === 'q') {
       const bq = id.startsWith('boon_') && QUEST_BOONS[id.slice(5)];
@@ -23109,7 +23176,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-19b';
+  const BUILD = '2026-11-20b';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23214,6 +23281,38 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('lbOlder').hidden = !(i >= 0 && i < list.length - 1);
     $('lbNewer').hidden = !(i > 0);
   }
+  // Codex (title menu): every weapon with its levels and evolution, and every relic a rift guardian drops with its
+  // MEGA form (named by its rift only). Relics with no guardian to drop them (the secret cow level's, the quest-only Aurora Ribbon, the unused
+  // Peg Leg) stay hidden.
+  let cxTab = 'w';
+  function codexRelics() { return ZONES.filter(z => !QUEST_ZONES.includes(z.id) && RELICS[z.id]).map(z => [z.id, z]); }
+  function renderCodex() {
+    for (const b of $('cxTabs').children) b.classList.toggle('sel', b.dataset.t === cxTab);
+    let html = '';
+    if (cxTab === 'w') {
+      $('cxNote').textContent = 'Weapons level up to 8. A weapon at level 6 plus its paired charm evolves when you open a chest.';
+      for (const [id, d] of Object.entries(WEAPONS)) {
+        if (d.quest) continue;   // quest weapons stay a secret
+        const ch = PASSIVES[d.evo];
+        html += `<div class="cx"><h3>${d.name}</h3><p>${d.desc}</p><ol>`
+          + d.up.map((u, i) => `<li><b>Lv ${i + 2}</b>${u}</li>`).join('')
+          + `<li><b>Lv 7–8</b>${'Damage +22%, faster and bigger each level'}</li></ol>`
+          + `<div class="cxup"><span class="chip evo">${d.evoName}</span><span class="how">${`Lv ${EVO_LV} + ${ch.name}`}</span>`
+          + `<div>${d.evoDesc}</div><div class="from">${ch.name}: ${ch.desc}</div></div></div>`;
+      }
+    } else {
+      $('cxNote').textContent = `Rift guardians drop relics. You carry one at a time; it grows with every guardian you beat this night (Lv 1–3) and awakens at ${RELIC_MEGA}.`;
+      for (const [id, z] of codexRelics()) {
+        const Rl = RELICS[id], who = z.name;   // the rift only, never its guardian's name
+        html += `<div class="cx"><h3>${Rl.name}</h3><div class="from">${who}</div><p>${Rl.desc}</p>`
+          + `<ol><li><b>Lv 1–3</b>${'Stronger with each rift guardian beaten'}</li></ol>`
+          + `<div class="cxup"><span class="chip relic">${Rl.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} guardians`}</span><div>${Rl.megaDesc}</div></div></div>`;
+      }
+    }
+    $('cxList').innerHTML = html;
+  }
+  function openCodex() { $('codex').hidden = false; renderCodex(); $('codex').scrollTop = 0; }
+
   async function openBoards() {
     $('boards').hidden = false; lbVer = GAME_VERSION; lbSeasons = null; renderBoards();
     if (!LB_URL) return;
@@ -23395,10 +23494,17 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   // Is a world point inside that box? Otherwise it gets an edge arrow.
   function inArrowBox(o) { const R = arrowRect(), x = o.x - cam.x + W / 2, y = o.y - cam.y + H / 2; return x > R.l && x < R.r && y > R.t && y < R.b; }
-  // Where the arrow toward angle a goes: along the ray from the hero to the edge of the box.
+  // Where the arrow toward angle a goes: along the ray from the hero to a hexagon around Hexel (flat-topped, like
+  // Hexel's own body; circumradius ARROW_HEX of the screen's short side, at least 150 px), cut short by the HUD box.
+  // Arrows sit close to Hexel where the eye already is; at the very screen edge they were easy to miss.
+  const ARROW_HEX = .38;
   function edgeAt(a) {
-    const R = arrowRect(), ox = Math.max(R.l, Math.min(R.r, P.x - cam.x + W / 2)), oy = Math.max(R.t, Math.min(R.b, P.y - cam.y + H / 2)), c = Math.cos(a), sn = Math.sin(a);
-    const t = Math.min(c > 1e-6 ? (R.r - ox) / c : c < -1e-6 ? (R.l - ox) / c : Infinity, sn > 1e-6 ? (R.b - oy) / sn : sn < -1e-6 ? (R.t - oy) / sn : Infinity);
+    const B = arrowRect(), ox = Math.max(B.l, Math.min(B.r, P.x - cam.x + W / 2)), oy = Math.max(B.t, Math.min(B.b, P.y - cam.y + H / 2)), c = Math.cos(a), sn = Math.sin(a);
+    const tBox = Math.min(c > 1e-6 ? (B.r - ox) / c : c < -1e-6 ? (B.l - ox) / c : Infinity, sn > 1e-6 ? (B.b - oy) / sn : sn < -1e-6 ? (B.t - oy) / sn : Infinity);
+    // Distance to a flat-topped hexagon's edge: apothem / cos(angle to the nearest edge normal, at 30° + k·60°).
+    const Rh = Math.max(150, Math.min(W, H) * ARROW_HEX), sec = TAU / 6;
+    const off = ((a % sec) + sec) % sec - sec / 2, tHex = Rh * Math.cos(sec / 2) / Math.cos(off);
+    const t = Math.min(tBox, tHex);
     return [ox + c * t, oy + sn * t];
   }
 
@@ -23519,6 +23625,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const d = Math.max(1, Math.round(dmg * S.frail - S.armor));
     if (run.zone && run.zone.boss && !run.zone.boss.dead) run.zone.hitBoss = true;   // the devil only deals with flawless fights
     run.hp -= d; P.inv = S.ifr; hurtT = .35; P.squish = 1; snd.fx('hurt'); run.killer = killerName(src);
+    if (run.weapons.rapier) run.weapons.rapier.riposte = true;   // Silver Rapier: the next thrust is a riposte
     shake = Math.max(shake, 5);
     pops.push({ x: P.x, y: P.y - 24, txt: '−' + d, col: '#ff7a8a', life: 0, ttl: .8, big: true });
     if (run.hp <= 0) {
@@ -23547,9 +23654,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     let crit = false;
     if (dmg > 0) { const w = run.weapons[dsrc]; if (w) dmg *= HARD.wLv[Math.min(w.lv, 8)] * (w.evo ? HARD.evo : 1) * (HARD.near[dsrc] || 1); }
     if (dmg > 0 && e.markT > run.clock) dmg *= 1.25;
+    if (dmg > 0 && e.chillT > run.clock) dmg *= e.chillK;   // Moonfrost: brittle with cold
     if (dmg > 0 && run.finale && e === run.finale.boss && jarFull()) dmg *= 1.25;   // a full firefly jar lights the finale
     if (dmg > 0 && S.brute && (e.heavy || e.boss || e.elite)) dmg *= 1 + S.brute;
-    if (dmg > 0 && dmg < 9000 && S.crit && Math.random() < S.crit) { dmg *= 2; crit = true; }
+    if (dmg > 0 && dmg < 9000 && Math.random() < S.crit + (dsrc === 'rapier' ? RAPIER_CRIT : 0)) { dmg *= 2; crit = true; }
     if (dmg > 0 && S.ignite && !(e.burn > 0) && Math.random() < S.ignite) { e.burn = 2.2; e.burnSrc = 'p:kindle'; e.burnDmg = Math.max(e.burnDmg || 0, Math.max(2, dmg * .25)); }
     e.hp -= dmg;
     // The white hit flash fires at most ~4 times a second, so enemies under constant fire stay readable.
@@ -24401,6 +24509,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           if (half < 3 && Math.abs(Math.atan2(Math.sin(df), Math.cos(df))) > half) continue;
           hit(e, st.dmg * might, 40, P.x, P.y);
           e.slowT = st.slow * S.dur; e.frozen = !!st.freeze;
+          // Brittle: chilled enemies take +20% damage from everything, frozen ones (Absolute Zero) +40%.
+          e.chillT = run.clock + st.slow * S.dur; e.chillK = st.freeze ? 1.4 : 1.2;
         }
         snd.fx('chain');
         break;
@@ -24455,6 +24565,85 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           e.fearT = Math.max(e.fearT || 0, st.fear * S.dur); e.fearDot = st.dmg * .35 * might; e.fearBump = w.evo ? st.bump * might : 0;
         }
         snd.fx('wail');
+        break;
+      }
+      case 'spud': {
+        // Lobs potatoes (arcing, 0.55 s) at enemies within reach; each lands, splats everything within R, then bounces
+        // on in the same direction (80 px hops, 0.32 s) until its bounces run out. Spud Barrage's last bounce bursts wide
+        // (fin) and slows. The potatoes live on the weapon (w.spuds) and are drawn by drawSpuds.
+        const sp = w.spuds || (w.spuds = []);
+        for (const o of sp) {
+          if ((o.t += dt) < o.dur) continue;
+          const last = o.b <= 0, big = last && st.fin, R = (big ? st.fin : st.R) * S.area;
+          for (const e of foes) if (!e.dead && (e.x - o.x2) ** 2 + (e.y - o.y2) ** 2 < (R + e.r) ** 2) { hit(e, st.dmg * (big ? 2 : 1) * might, 80, o.x2, o.y2); if (big && !e.boss) e.slowT = Math.max(e.slowT || 0, 1.5); }
+          burst(o.x2, o.y2, big ? '#e8d27a' : '#b08850', big ? 18 : 6, big ? 200 : 110); snd.fx('splat');
+          if (last) { o.done = true; continue; }
+          o.b--; o.x1 = o.x2; o.y1 = o.y2; o.x2 += o.dx * 80; o.y2 += o.dy * 80; o.t = 0; o.dur = .32; o.h *= .6;
+        }
+        w.spuds = sp.filter(o => !o.done);
+        w.t -= dt; if (w.t > 0) break;
+        const reachS = 400, near = foes.filter(e => !e.dead && d2(e, P) < reachS * reachS).sort((a, b) => d2(a, P) - d2(b, P)).slice(0, 6);
+        if (!near.length) { w.t = .2; break; }
+        w.t = st.cd * S.cd; snd.fx('lob');
+        for (let i = 0; i < st.n + S.amount; i++) {
+          const e = near[(i + Math.floor(Math.random() * near.length)) % near.length], tx = e.x + rnd(-14, 14), ty = e.y + rnd(-14, 14), L = Math.hypot(tx - P.x, ty - P.y) || 1;
+          w.spuds.push({ x1: P.x, y1: P.y, x2: tx, y2: ty, dx: (tx - P.x) / L, dy: (ty - P.y) / L, t: -i * .12, dur: .55, h: 70, b: st.b - 1, rot: Math.random() * TAU });
+        }
+        break;
+      }
+      case 'rapier': {
+        // Lunges at the nearest enemy: n thrusts in a narrow fan, each piercing along its line. Taking a hit (hurt())
+        // readies a riposte: the next thrust comes at once and hits twice as hard; evolved, it also rings Hexel with thrusts.
+        w.t -= dt; if (w.riposte && w.t > .12) w.t = .12;
+        if (w.t > 0) break;
+        const R = st.len * S.area, tg = nearest(P.x, P.y, R + 30);
+        if (!tg) { w.t = .15; break; }
+        const rip = !!w.riposte, k = rip ? 2 : 1; w.riposte = false; w.t = st.cd * S.cd;
+        const base = Math.atan2(tg.y - P.y, tg.x - P.x), n = st.n + S.amount, wd = st.w * Math.sqrt(S.area);
+        const thrust = (a, len) => { lances.push({ x: P.x, y: P.y, a, len, w: wd, life: 0, col: '228,234,255' }); hitLine(P.x, P.y, a, len, wd, st.dmg * k * might, 60, null, 0); };
+        for (let i = 0; i < n; i++) thrust(base + (i - (n - 1) / 2) * st.fan, R);
+        if (rip && st.ring) for (let i = 0; i < st.ring; i++) thrust(base + (i + .5) * TAU / st.ring, R * .8);
+        if (rip) pops.push({ x: P.x, y: P.y - 34, txt: 'Riposte!', col: '#e8ecff', life: 0, ttl: .7, big: true });
+        snd.fx(rip ? 'riposte' : 'thrust');
+        break;
+      }
+      case 'wave': {
+        // A hexagonal shockwave rolls out slowly from where Hexel stamped, hitting each enemy once as it passes.
+        // Resonance (evolved, with Ember Heart): the wave stays centred on Hexel the whole time. It expands, slows over its
+        // last 60 px, turns, eases back up to speed from rest over 0.4 s and shrinks back onto Hexel, hitting everything once more
+        // on the way in (no knockback). Being centred on Hexel there is never a gap to close, so it can't lag, speed up,
+        // back away or lose its shape however Hexel moves.
+        w.waves = w.waves || []; w.q = w.q || [];
+        for (const qd of w.q) qd.t -= dt;
+        while (w.q.length && w.q[0].t <= 0) { w.q.shift(); w.waves.push({ x: P.x, y: P.y, r: 0, R: st.R * S.area, sp: st.sp, hit: new Set(), evo: w.evo, rot: 0 }); snd.fx('quake'); shake = Math.max(shake, w.evo ? 5 : 3); }
+        for (const v of w.waves) {
+          if (v.evo) { v.x = P.x; v.y = P.y; }
+          const r0 = v.r, spd = v.sp * S.projSp * dt;
+          if (!v.back) {
+            v.r += spd * (v.evo ? Math.max(.15, Math.min(1, (v.R - v.r) / 60)) : 1);
+            if (v.evo && v.r >= v.R - .5) { v.back = true; v.bt = 0; v.hit = new Set(); }
+          } else {
+            v.bt += dt; const ez = Math.min(1, v.bt / .4);
+            v.r -= spd * ez * ez * (3 - 2 * ez);   // from rest, so the turn has no flick
+          }
+          const band = 26, lo = Math.min(r0, v.r), hi = Math.max(r0, v.r);
+          for (const e of foes) {
+            if (e.dead || v.hit.has(e)) continue;
+            const dx = e.x - v.x, dy = e.y - v.y, d = Math.hypot(dx, dy);
+            // Distance in "hexagon units": the hexagon's edge at this angle is apothem / cos(offset from the edge normal).
+            const sec = TAU / 6, an = Math.atan2(dy, dx) - v.rot, off = ((an % sec) + sec) % sec - sec / 2, hd = d * Math.cos(off) / Math.cos(sec / 2);
+            if (hd > hi + e.r || hd < lo - band - e.r) continue;
+            v.hit.add(e);
+            hit(e, st.dmg * might, v.back ? 0 : 100, v.x, v.y);
+            if (!e.boss) e.slowT = Math.max(e.slowT || 0, .5);
+          }
+        }
+        w.waves = w.waves.filter(v => v.back ? v.r > 3 : v.r < v.R);
+        w.t -= dt; if (w.t > 0) break;
+        if (!nearest(P.x, P.y, st.R * S.area)) { w.t = .3; break; }
+        w.t = st.cd * S.cd;
+        const n = st.n + S.amount;
+        for (let i = 0; i < n; i++) w.q.push({ t: i * st.gap });
         break;
       }
       case 'nova': {
@@ -25151,6 +25340,140 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
        Timed on autopilot (fresh runs, god mode) with the boss arena's "strong" builds, which made them in
        17.7 / 34.9 / 31.2 s; the "typical" builds don't come close. */
   // Moth shrines: three rise in the meadow each night (one at a time); stand in one for SHRINE_HOLD s to light it.
+  /* ---------- The hexagon trial ----------
+     A closing-hexagon survival minigame on its own full-screen canvas (#hexTrial). Hexel orbits a pulsing central
+     hexagon at a fixed radius and steers left / right (A / D, the arrow keys, or holding the left / right half of the
+     screen). Rings of hexagonal walls close in with gaps; walls block sideways movement and touching one head-on
+     shatters the run. The field spins, flips direction and speeds up; survive HEX_TRIAL_T s to win. The game is paused
+     underneath (state 'trial'). Everything is in "field units" (700 = the screen's short side, 520 on narrow screens). */
+  // Retryable quests (the insult duel, the Keeper's dance-off, the hexagon trial) allow at most QUEST_TRIES attempts;
+  // the last failure fails the quest and its figure leaves. triesLeft(n) is the banner text.
+  // The hexagon altar (rare meadow quest, HEX_CHANCE of nights, no quest slot): once, at a random time, it rises
+  // 1300–1800 px away (gold arrow) and sinks again after HEX_LIFE s unless you reach it; win its trial (3 tries) for the
+  // Hexwave quest weapon.
+  const HEX_CHANCE = .05, HEX_LIFE = 90;
+  const QUEST_TRIES = 3, triesLeft = n => n === 1 ? '1 try left' : `${n} tries left`;
+  const HEX_TRIAL_T = 30, HEX_SEC = TAU / 6, HEX_PR = 62, HEX_CORE = 44, HEX_SPAWN = 760, HEX_TH = 22, HEX_TURN = 3.2 * Math.PI;
+  // Eased 2026-11-20 for players new to the genre: slower walls (190 + 4.5/s, was 260 + 7.5/s), more room between and
+  // within patterns, easy patterns for the first 10 s (was 6), a gentler spin and a ±5 (was ±7) wall-touch margin.
+  let hexT = null;
+  function startHexTrial(onEnd) {
+    if (hexT) return;
+    let cv = $('hexTrial');
+    if (!cv) { cv = document.createElement('canvas'); cv.id = 'hexTrial'; document.body.appendChild(cv); }
+    cv.hidden = false;
+    let best = 0; try { best = +(localStorage.getItem('fjr-hexbest') || 0) || 0; } catch (e) {}
+    hexT = { cv, cx: cv.getContext('2d'), t: 0, ang: -Math.PI / 2, rot: 0, om: 1, flip: rnd(4, 7), walls: [], beat: 0, pulse: 0,
+      dead: 0, won: 0, end: 0, onEnd, best, touch: 0, last: performance.now(), hue: 0 };
+    // Touch / mouse: every finger is tracked on its own (pointerId → the screen half it is on). The most recently pressed
+    // finger still down steers; lifting it hands control back to a finger still held, and Hexel stops only when none is.
+    const ptrs = new Map(), side = e => { const r = cv.getBoundingClientRect(); return e.clientX < r.left + r.width / 2 ? -1 : 1; };
+    const upd = () => { if (hexT) hexT.touch = ptrs.size ? [...ptrs.values()].pop() : 0; };
+    cv.onpointerdown = e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (err) {} ptrs.delete(e.pointerId); ptrs.set(e.pointerId, side(e)); upd(); };
+    cv.onpointermove = e => { if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, side(e)); upd(); };   // sliding across the middle switches direction
+    cv.onpointerup = cv.onpointercancel = cv.onlostpointercapture = e => { ptrs.delete(e.pointerId); upd(); };
+    state = 'trial'; joy = null; keys.clear(); $('hud').hidden = true; snd.fx('warn');
+    hexSpawn(); requestAnimationFrame(hexLoop);
+  }
+  // Wall patterns, as rows of filled sectors behind the last row: every pattern always leaves a way through.
+  function hexSpawn() {
+    const T = hexT, g = Math.floor(Math.random() * 6), rows = [], kind = Math.floor(Math.random() * (T.t < 10 ? 2 : 5));
+    const all = [0, 1, 2, 3, 4, 5], row = (secs, gap) => rows.push({ secs, gap });
+    if (kind === 0) row(all.filter(i => i !== g), 0);                                                   // a ring with one gap
+    else if (kind === 1) { row([0, 2, 4].map(i => (i + g) % 6), 0); row([1, 3, 5].map(i => (i + g) % 6), 210); }   // alternating thirds
+    else if (kind === 2) { const dir = Math.random() < .5 ? 1 : -1; for (let k = 0; k < 5; k++) row(all.filter(i => i !== (g + dir * k + 12) % 6), k ? 140 : 0); }   // a gap that walks around
+    else if (kind === 3) { row(all.filter(i => i !== g), 0); row(all.filter(i => i !== (g + 3) % 6), 300); }   // two rings, gaps opposite
+    else row(all.filter(i => i !== g && i !== (g + 3) % 6), 0);                                          // two gaps opposite
+    let d = Math.max(HEX_SPAWN, ...T.walls.map(w => w.d + 300));
+    for (const r of rows) { d += r.gap; for (const sec of r.secs) T.walls.push({ sec, d }); }
+  }
+  function hexLoop(ms) {
+    const T = hexT; if (!T) return;
+    const dt = Math.min(.05, Math.max(0, (ms - T.last) / 1000)); T.last = ms;
+    if (!T.dead && !T.won) hexStep(T, dt); else if ((T.end -= dt) <= 0) { hexFinish(); return; }
+    hexDraw(T);
+    requestAnimationFrame(hexLoop);
+  }
+  function hexStep(T, dt) {
+    T.t += dt; T.hue += dt * 18;
+    if (keys.has('escape')) { keys.delete('escape'); T.dead = 1; T.end = .6; return; }
+    const sp = 190 + T.t * 4.5;                                           // walls close in faster and faster
+    for (const w of T.walls) w.d -= sp * dt;
+    T.walls = T.walls.filter(w => w.d + HEX_TH > HEX_CORE - 4);
+    if (!T.walls.some(w => w.d > HEX_SPAWN - 300)) hexSpawn();
+    // spin: speeds up, and flips direction every few seconds
+    if ((T.flip -= dt) <= 0) { T.flip = rnd(4, 7) - Math.min(1.5, T.t * .04); T.om = -Math.sign(T.om) * (1 + T.t * .03); }
+    T.rot += T.om * dt;
+    if ((T.beat -= dt) <= 0) { T.beat = .5; T.pulse = 1; snd.fx('hexbeat'); }
+    T.pulse = Math.max(0, T.pulse - dt * 4);
+    // steer; a wall beside you blocks the move
+    const inp = ((keys.has('a') || keys.has('arrowleft') ? -1 : 0) + (keys.has('d') || keys.has('arrowright') ? 1 : 0)) || T.touch;
+    const secOf = a => ((Math.floor(a / HEX_SEC) % 6) + 6) % 6, blocked = sec => T.walls.some(w => w.sec === sec && w.d < HEX_PR + 5 && w.d + HEX_TH > HEX_PR - 5);
+    if (inp) {
+      const na = T.ang + inp * HEX_TURN * dt, s0 = secOf(T.ang), s1 = secOf(na);
+      if (s1 === s0 || !blocked(s1)) T.ang = na;
+      else T.ang = inp > 0 ? Math.ceil(T.ang / HEX_SEC) * HEX_SEC - .001 : Math.floor(T.ang / HEX_SEC) * HEX_SEC + .001;
+    }
+    if (blocked(secOf(T.ang))) { T.dead = 1; T.end = 1.6; snd.fx('hurt'); }
+    else if (T.t >= HEX_TRIAL_T) { T.won = 1; T.end = 1.8; snd.fx('evolve'); }
+  }
+  function hexDraw(T) {
+    const cv = T.cv, dpr = Math.min(2, devicePixelRatio || 1), w = innerWidth, h = innerHeight;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const c = T.cx, u = Math.min(w, h) / (w < 600 ? 520 : 700), hue = (T.hue + 215) % 360, flash = T.dead ? .5 + .5 * Math.sin(T.end * 30) : 0;
+    const wallCol = `hsl(${(hue + 180) % 360}, 90%, 72%)`;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = `hsl(${hue}, 45%, ${9 + flash * 20}%)`; c.fillRect(0, 0, w, h);
+    const z = u * (1 + T.pulse * .035);
+    c.save(); c.translate(w / 2, h / 2); c.scale(z, z * .92); c.rotate(T.rot);
+    // background wedges in two shades
+    const R = 1400;
+    for (let i = 0; i < 6; i++) {
+      c.fillStyle = i % 2 ? `hsl(${hue}, 45%, ${13 + flash * 20}%)` : `hsl(${hue}, 50%, ${18 + flash * 20}%)`;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(i * HEX_SEC) * R, Math.sin(i * HEX_SEC) * R); c.lineTo(Math.cos((i + 1) * HEX_SEC) * R, Math.sin((i + 1) * HEX_SEC) * R); c.closePath(); c.fill();
+    }
+    // walls: trapezoid slices of a hexagonal ring
+    c.fillStyle = wallCol;
+    for (const wl of T.walls) {
+      const r0 = Math.max(HEX_CORE, wl.d), r1 = Math.max(HEX_CORE, wl.d + HEX_TH); if (r1 <= r0) continue;
+      const a0 = wl.sec * HEX_SEC, a1 = a0 + HEX_SEC;
+      c.beginPath(); c.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0); c.lineTo(Math.cos(a1) * r0, Math.sin(a1) * r0); c.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r1); c.lineTo(Math.cos(a0) * r1, Math.sin(a0) * r1); c.closePath(); c.fill();
+    }
+    // the core hexagon, pulsing on the beat
+    const cr = HEX_CORE * (1 + T.pulse * .12);
+    c.beginPath(); for (let i = 0; i <= 6; i++) { const a = i * HEX_SEC; if (i) c.lineTo(Math.cos(a) * cr, Math.sin(a) * cr); else c.moveTo(cr, 0); }
+    c.fillStyle = `hsl(${hue}, 40%, 8%)`; c.fill(); c.lineWidth = 5; c.strokeStyle = wallCol; c.stroke();
+    // Hexel: a little glowing hexagon on its orbit (blinking once shattered)
+    if (!T.dead || Math.sin(T.end * 40) > 0) {
+      c.save(); c.translate(Math.cos(T.ang) * HEX_PR, Math.sin(T.ang) * HEX_PR); c.rotate(T.ang);
+      c.shadowColor = '#ffe27a'; c.shadowBlur = 14; c.fillStyle = '#ffe27a';
+      c.beginPath(); for (let i = 0; i <= 6; i++) { const a = i * HEX_SEC; if (i) c.lineTo(Math.cos(a) * 10, Math.sin(a) * 10); else c.moveTo(10, 0); } c.fill();
+      c.restore();
+    }
+    c.restore();
+    // text: time, best, progress, hints
+    c.textAlign = 'left'; c.fillStyle = '#fff'; c.font = '800 28px Grandstander, system-ui, sans-serif';
+    c.fillText(T.t.toFixed(2), 18, 42);
+    c.font = '600 13px Bricolage Grotesque, system-ui, sans-serif'; c.fillStyle = 'rgba(255,255,255,.7)';
+    c.fillText(`of ${HEX_TRIAL_T} s · best ${Math.max(T.best, T.dead ? T.t : 0).toFixed(2)}`, 18, 62);
+    c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(18, 72, 160, 5); c.fillStyle = '#ffe27a'; c.fillRect(18, 72, 160 * Math.min(1, T.t / HEX_TRIAL_T), 5);
+    c.textAlign = 'center';
+    if (T.t < 3 && !T.dead) { c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '600 14px Bricolage Grotesque, system-ui, sans-serif'; if (w < 640) { c.fillText('Steer with A / D or ← →', w / 2, h - 46); c.fillText('or hold the left / right side · Esc gives up', w / 2, h - 26); } else c.fillText('Steer with A / D or ← →, or hold the left / right side · Esc gives up', w / 2, h - 28); }
+    if (T.dead || T.won) {
+      c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(0, h / 2 - 50, w, 100);
+      c.fillStyle = T.won ? '#ffe27a' : '#ff9aa8'; c.font = '800 36px Grandstander, system-ui, sans-serif';
+      c.fillText(T.won ? 'The hexagon yields!' : 'Shattered', w / 2, h / 2 + 4);
+      c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '600 15px Bricolage Grotesque, system-ui, sans-serif';
+      c.fillText(T.won ? `You lasted all ${HEX_TRIAL_T} seconds` : `after ${T.t.toFixed(2)} s`, w / 2, h / 2 + 30);
+    }
+  }
+  function hexFinish() {
+    const T = hexT; hexT = null; T.cv.hidden = true; T.cv.onpointerdown = T.cv.onpointermove = T.cv.onpointerup = T.cv.onpointercancel = T.cv.onlostpointercapture = null;
+    if (T.t > T.best) try { localStorage.setItem('fjr-hexbest', T.t.toFixed(2)); } catch (e) {}
+    keys.clear(); $('hud').hidden = false; resume();
+    if (T.onEnd) T.onEnd(!!T.won, T.t);
+  }
+
   const SHRINE_T = [40, 200, 370], SHRINE_LIFE = 75, SHRINE_R = 95, SHRINE_HOLD = 5;
   // The Crooning Keeper's dance-off (the crypt rift): DANCE_STEPS beats of KEEP_STEP s on a 3×3 pad of KEEP_PAD px tiles.
   const DANCE_STEPS = 8, DANCE_NEED = 6, KEEP_STEP = .7, KEEP_PAD = 60, KEEP_PADY = 110;
@@ -25184,7 +25507,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     groove: [() => 'Groove', () => '+12% speed and +8% damage for the rest of the night. You danced with the Crooning Keeper and never missed a beat (well, hardly).', () => 'Quest reward'],
     dbl: [() => `Doubloons · ${run.quest.dbl} of ${DBL_NEED}`, () => 'Cursed gold from the skeleton crew. The ghost captain on the dock wants ten of them.', () => 'Quest item: bring them to the chest on the dock (lost if you leave the bay)'],
     obel: [() => `Puzzle Map · ${run.quest.obel} of 4`, () => 'Pieces of an old map, one from each obelisk. Together they show where an artifact lies buried.', () => 'Quest item: visit all four obelisks (lost if you leave the rift)'],
-    shrines: [() => `Moth Shrines · ${run.quest.shrines} of 3`, () => 'Shrines to the light the moths once worshipped. Three rise in the meadow each night (at 0:40, 3:20 and 6:10); stand in one for 5 seconds to light it before it fades.',
+    shrines: [() => `Moth Shrines · ${run.quest.shrines} of 3`, () => 'Shrines to the light the moths once worshipped. Three rise in the meadow each night (at 0:40, 3:20 and 6:10); stand in one for 5 seconds to light it before it fades. Miss one and no more rise tonight.',
       () => run.quest.shrines >= 3 ? 'After the Eclipse Moth, a forgotten light may answer' : 'Light all three to call something at dawn'],
   };
   function questChips() {
@@ -25364,7 +25687,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           rings.push({ x: px, y: py, r: 230, life: 0, ttl: .35, col: '255,200,120' });
         }
         if (++s.step < DANCE_STEPS) { s.t = KEEP_STEP; return; }
-        if (s.hits < DANCE_NEED) { s.state = 'idle'; banner(`"You missed the beat! ${s.hits} of ${DANCE_STEPS}. Come back and dance again!"`, '#ffc890', true); return; }
+        if (s.hits < DANCE_NEED) {
+          s.tries = (s.tries || 0) + 1;
+          if (s.tries >= QUEST_TRIES) { s.gone = true; questFail(run.quest, 'keeper'); burst(s.x, s.y - 20, '#ffc890', 20, 160); banner(`"${s.hits} of ${DANCE_STEPS}… three left feet! Off with you." The Keeper sinks back into the dark`, '#ffc890', true); return; }
+          s.state = 'idle'; banner(`"You missed the beat! ${s.hits} of ${DANCE_STEPS}. Come back and dance again!" (${triesLeft(QUEST_TRIES - s.tries)})`, '#ffc890', true); return;
+        }
         s.state = 'won'; run.quest.danced = true; questWin(run.quest, 'keeper');
         openQuest({ eyebrow: `Dance-off · ${s.hits} of ${DANCE_STEPS}`, title: '"What moves! Take something for the road"', text: 'The Crooning Keeper bows, still humming. Pick one gift.',
           options: [
@@ -25375,9 +25702,24 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       } },
     // A forgotten moth shrine in the meadow: stand in its circle for SHRINE_HOLD s to light it (progress drains while
     // you're outside). Stepping in first wakes a ring of moths and ghosts. It goes dark after SHRINE_LIFE s.
+    // The hexagon altar: touching it starts the hexagon trial; a win removes it (s.onWin), and after QUEST_TRIES
+    // failures it crumbles (s.onLost).
+    hexaltar: { r: 34, glow: '255,226,122', arrow: ['#2a2410', '#ffe27a'], draw: drawHexAltar,
+      update(s, d, dt) { if (s.life != null && !s.started && (s.life -= dt) <= 0) { s.gone = true; banner('The hexagon altar sinks back into the earth', '#c8b878', true); } },
+      touch(s) {
+        s.started = true;
+        startHexTrial((won, t) => {
+          if (won) { s.gone = true; burst(s.x, s.y, '#ffe27a', 30, 220); if (s.onWin) s.onWin(); return; }
+          s.tries = (s.tries || 0) + 1;
+          if (s.tries >= QUEST_TRIES) { s.gone = true; burst(s.x, s.y, '#8a8060', 24, 160); banner(`Shattered after ${t.toFixed(1)} s. The altar crumbles to dust`, '#ffe27a', true); if (s.onLost) s.onLost(); return; }
+          banner(`The hexagon shatters you after ${t.toFixed(1)} s. Walk away and touch it to try again (${triesLeft(QUEST_TRIES - s.tries)})`, '#ffe27a', true);
+        });
+        return false;
+      } },
     shrine: { r: 30, glow: '255,236,170', arrow: ['#3a3424', '#fff0c0'], draw: drawShrine,
       update(s, d, dt) {
-        if ((s.life -= dt) <= 0) { s.gone = true; banner('A moth shrine went dark… its light is lost for tonight', '#b8ac90', true); return; }
+        // Missing one ends the shrines for the night: the Forgotten Light needs all three, so no more rise.
+        if ((s.life -= dt) <= 0) { s.gone = true; run.quest.shrineMissed = true; banner('A moth shrine went dark… no more will rise tonight', '#b8ac90', true); return; }
         if (d > SHRINE_R) { s.prog = Math.max(0, s.prog - dt * .5); return; }
         if (!s.stirred) {
           s.stirred = true; banner('Hold the light! The enemies are gathering…', '#fff0c0', true); snd.fx('warn');
@@ -25491,7 +25833,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     potato: { name: 'Lucky Potato', from: 'Potato Fields', k: 'regen', v: .3, text: 'The only thing in the runaway crate. It keeps sprouting, and so do you.' },
     spire: { name: 'Bent Brass Spoon', from: 'The Ascent', k: 'area', v: .06, text: 'Taken from the ? room. Whatever you swing seems to reach a little farther.' },
     temple: { name: 'Serpent Blood Vial', from: 'Temple of the Blood Serpent', k: 'hp', v: 12, text: 'Caught from the fourth brazier as it flared. It beats like a second heart.' },
-    monkey: { name: 'Silver-Tongued Rapier', from: 'Grogwater Isle', k: 'crit', v: .04, text: 'Won with words, not steel. Its point always finds the weak spot.' },
+    monkey: { name: "Duellist's Plume", from: 'Grogwater Isle', k: 'crit', v: .04, text: "The swordmaster's hat feather, won with words, not steel. It keeps your eye on the weak spot." },
   });
   // Damage sources quests add (damage stats and leaderboard details).
   const QUEST_SRC = { 'q:sun': 'Sun Knight', 'q:brood': 'Broodling', 'q:bay': 'Ghostly Broadside' };
@@ -25602,13 +25944,39 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const [ins, good] = INSULTS[s.rounds[k]], wrong = shuf(INSULTS.filter((_, i) => i !== s.rounds[k]).map(p => p[1])).slice(0, 2);
     openQuest({ eyebrow: `Insult duel · round ${k + 1} of 3`, title: `"${ins}"`, text: k ? 'He presses on, blade and tongue both.' : 'The swordmaster twirls his moustache and lunges, mouth first. Answer with the perfect comeback.',
       options: shuf([good, ...wrong]).map(c => ({ name: `"${c}"`, sub: '', btn: 'Say it', fn: () => {
-        if (c !== good) { s.laugh = 2.6; banner('"Hah! Pathetic!" He laughs you off. Walk away, then try again', '#e0b0ff', true); snd.fx('hurt'); return; }
+        if (c !== good) {
+          s.fails = (s.fails || 0) + 1; snd.fx('hurt');
+          if (s.fails >= QUEST_TRIES) { s.state = 'lost'; s.t = 2.5; questFail(run.quest, 'rq:monkey'); banner('"Three times tongue-tied! Begone, ye mute lamp!" He stalks off', '#e0b0ff', true); return; }
+          s.laugh = 2.6; banner(`"Hah! Pathetic!" He laughs you off. Walk away, then try again (${triesLeft(QUEST_TRIES - s.fails)})`, '#e0b0ff', true); return;
+        }
         pops.push({ x: s.x, y: s.y - 50, txt: 'Touché!', col: '#e0b0ff', life: 0, ttl: 1, big: true });
         if (k + 1 < 3) s.ask = k + 1;
-        else { s.state = 'won'; s.t = 2.5; burst(s.x, s.y - 20, '#e0b0ff', 24, 180); banner('"…I yield! Take my rapier, you silver-tongued lamp."', '#e0b0ff', true); addBoon('monkey'); }
+        else { s.state = 'won'; s.t = 2.5; burst(s.x, s.y - 20, '#e0b0ff', 24, 180); banner('"…I yield! Take my rapier, you silver-tongued lamp."', '#e0b0ff', true); addBoon('monkey'); queueMicrotask(() => offerQuestWeapon('rapier', 'The swordmaster yields')); }
       } })), leave: 'Back off', onLeave: () => banner('"Come back when ye find yer tongue!"', '#e0b0ff') });
   }
 
+  // Quest weapons: offered on a quest card. With a free slot it comes at about your average weapon level; with all
+  // slots full you may swap one weapon out and it takes that weapon's level (an evolution is lost). Only the weapon:
+  // it evolves with an existing charm, which comes the usual way.
+  function offerQuestWeapon(id, eyebrow) {
+    const d = WEAPONS[id]; if (!d || run.weapons[id]) return;
+    const ws = Object.entries(run.weapons), give = (lv, out) => {
+      if (out) delete run.weapons[out];
+      run.weapons[id] = Object.assign(newWeapon(), { lv: Math.max(1, Math.min(WMAX, lv)) });
+      banner(`${d.name} joins your weapons at Lv ${run.weapons[id].lv}`, '#e8ecff', true); snd.fx('evolve');
+    };
+    if (ws.length < SLOTS) {
+      const lv = Math.max(1, Math.min(6, Math.round(ws.reduce((a, [, w]) => a + w.lv, 0) / Math.max(1, ws.length))));
+      openQuest({ eyebrow, title: d.name, text: d.desc,
+        options: [{ name: `Take the ${d.name}`, sub: `Joins your weapons at Lv ${lv}.`, btn: 'Take', fn: () => give(lv) }],
+        leave: 'Leave it' });
+    } else {
+      openQuest({ eyebrow, title: d.name, text: d.desc + ' Your weapon slots are full: swap one out for it, or leave it.',
+        options: ws.map(([wid, w]) => ({ name: `Swap out ${w.evo ? WEAPONS[wid].evoName : WEAPONS[wid].name} (Lv ${w.lv})`,
+          sub: `The ${d.name} takes its place at Lv ${w.lv}.${w.evo ? ' Its evolution is lost.' : ''}`, btn: 'Swap', fn: () => give(w.lv, wid) })),
+        leave: 'Keep my weapons' });
+    }
+  }
   Object.assign(SPOTS, {
     // Grunt's Crossing: a peon pinned under a log. Clear PEON_KILLS foes around him; he chops free and finds a gold mine.
     peon: { r: 26, glow: '255,214,120', arrow: ['#3a2a10', '#ffd27a'], arrowIf: s => s.state === 'pinned' || s.state === 'clear', draw: drawPeon,
@@ -25779,6 +26147,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         if (s.state !== 'run') return false;
         for (let i = 0; i < 8; i++) dropXp(s.x + rnd(-30, 30), s.y + rnd(-30, 30), 4);
         burst(s.x, s.y, '#ffd27a', 26, 200); banner('Caught it! The crate pops open', '#ffd27a', true); addBoon('potato');
+        queueMicrotask(() => offerQuestWeapon('spud', 'Inside the crate'));
         return true;
       } },
     // The Ascent: a ? room. An event card: bargain max health, fight an elite, or leave.
@@ -25806,12 +26175,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         return false;
       } },
     // Grogwater Isle: an insult duel, three rounds; pick the right comeback each time. A wrong one: walk away and retry.
-    swordmaster: { r: 26, glow: '255,200,150', arrow: ['#2a1a30', '#e0b0ff'], arrowIf: s => s.state !== 'won', draw: drawSwordmaster,
-      touch(s) { if (s.state === 'won' || s.laugh > 0) return false; s.rounds = shuf(INSULTS.map((_, i) => i)).slice(0, 3); duelRound(s, 0); return false; },
+    swordmaster: { r: 26, glow: '255,200,150', arrow: ['#2a1a30', '#e0b0ff'], arrowIf: s => s.state !== 'won' && s.state !== 'lost', draw: drawSwordmaster,
+      touch(s) { if (s.state === 'won' || s.state === 'lost' || s.laugh > 0) return false; s.rounds = shuf(INSULTS.map((_, i) => i)).slice(0, 3); duelRound(s, 0); return false; },
       update(s, d, dt) {
         s.laugh = Math.max(0, (s.laugh || 0) - dt);
         if (s.ask != null && state === 'play') { const k = s.ask; s.ask = null; duelRound(s, k); return; }
-        if (s.state === 'won' && (s.t -= dt) <= 0) s.gone = true;
+        if ((s.state === 'won' || s.state === 'lost') && (s.t -= dt) <= 0) s.gone = true;
       } },
   });
 
@@ -26136,10 +26505,17 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Moth shrines rise in the meadow at set times of the night, one at a time (a shrine due while you're in a rift
     // rises when you come home, since the dawn clock is frozen in there).
     const q = run.quest, si = q.shrineN || 0;
-    if (!run.zone && !run.finale && si < SHRINE_T.length && run.t >= SHRINE_T[si] && run.t < DAWN - 30 && !q.home.some(h => h.kind === 'shrine')) {
+    if (!run.zone && !run.finale && !q.shrineMissed && si < SHRINE_T.length && run.t >= SHRINE_T[si] && run.t < DAWN - 30 && !q.home.some(h => h.kind === 'shrine')) {
       q.shrineN = si + 1; const a = Math.random() * TAU, d = rnd(1300, 1800);
       q.home.push({ kind: 'shrine', x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, life: SHRINE_LIFE, prog: 0 });
       banner(`A forgotten moth shrine glimmers far off (${si + 1} of 3). Light it before it fades`, '#fff0c0', true);
+    }
+    // The hexagon altar: rolled once per night (always in #quests), rises once in the meadow at hexAt.
+    if (q.hexAt === undefined) q.hexAt = qRoll(HEX_CHANCE) ? rnd(90, 420) : null;
+    if (q.hexAt != null && !run.zone && !run.finale && run.t >= q.hexAt && run.t < DAWN - 60) {
+      q.hexAt = null; const a = Math.random() * TAU, dd = rnd(1300, 1800);
+      q.home.push({ kind: 'hexaltar', x: P.x + Math.cos(a) * dd, y: P.y + Math.sin(a) * dd, life: HEX_LIFE, onWin: () => queueMicrotask(() => offerQuestWeapon('wave', 'The hexagon yields')) });
+      banner('A hexagon altar rises far off in the meadow… (follow the gold arrow)', '#ffe27a', true); snd.fx('warn');
     }
     if (q.began && q.began.includes('doll') && !q.traded && !peddlerAhead()) questFail(q, 'doll');   // the peddler left: the trade can't finish
     const list = questSpots();
@@ -26420,7 +26796,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     return false;
   }
   function enterZone(def, p) {
-    run.portal = null; run.seen.push(def.id); run.rifts++; traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = [];
+    run.portal = null; run.seen.push(def.id); run.rifts++; traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = []; if (run.weapons.wave) run.weapons.wave.waves = [];
     // The meadow waits, frozen, while you are away.
     run.saved = { foes, motes, bullets, strikes, hazards, shots, x: p.x, y: p.y };
     foes = []; motes = []; bullets = []; strikes = []; hazards = []; shots = [];
@@ -26437,7 +26813,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Glow left in the rift comes home with you, and so does an unopened chest.
     let xp = 0; const chests = [];
     for (const m of motes) { if (m.kind === 'xp') xp += m.v; if (m.kind === 'chest') chests.push(m); }
-    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = [];
+    traps = []; lances = []; frosts = []; wails = []; allies = []; rfx = []; plague = []; burns = []; if (run.weapons.wave) run.weapons.wave.waves = [];
     foes = sv.foes; motes = sv.motes; bullets = []; strikes = sv.strikes; hazards = sv.hazards; shots = sv.shots;
     run.zone = null; run.saved = null; run.boss = null;
     P.x = sv.x; P.y = sv.y; cam.x = P.x; cam.y = P.y; P.inv = 2;
@@ -27448,6 +27824,34 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   // A forgotten moth shrine: a stone pillar with a carved moth and a lamp bowl; the dashed circle is where you hold the
   // light, the gold arc and the flame grow as it lights, and the seconds left show underneath.
+  // Potato Cannon: a lumpy potato on its arc, with a shadow on the ground under it.
+  function drawSpuds(list) {
+    for (const o of list) {
+      if (o.t < 0) continue;
+      const k = Math.min(1, o.t / o.dur), gx = o.x1 + (o.x2 - o.x1) * k, gy = o.y1 + (o.y2 - o.y1) * k, h = o.h * 4 * k * (1 - k);
+      if (!onScreen({ x: gx, y: gy }, 40)) continue;
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(gx, gy + 3, 9 - h * .04, 4 - h * .02, 0, 0, TAU); ctx.fill();
+      ctx.save(); ctx.translate(gx, gy - h); ctx.rotate(o.rot + o.t * 9);
+      ctx.fillStyle = '#b8874a'; ctx.beginPath(); ctx.ellipse(0, 0, 10, 7.5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#d8a866'; ctx.beginPath(); ctx.ellipse(-2.5, -2.5, 4.5, 2.6, -.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#7a5428'; for (const [ex, ey] of [[4, 2], [-4, 3], [1, -4]]) { ctx.beginPath(); ctx.arc(ex, ey, 1.2, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    }
+  }
+  // The hexagon altar: a low hexagonal stone dais with a slowly turning ring of light above it.
+  function drawHexAltar(s, now) {
+    const x = s.x, y = s.y, hx = r => { ctx.beginPath(); for (let i = 0; i <= 6; i++) { const a = i * TAU / 6; if (i) ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r * .55); else ctx.moveTo(x + r, y); } };
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 8, 46, 16, 0, 0, TAU); ctx.fill();
+    hx(42); ctx.fillStyle = '#3a3628'; ctx.fill(); hx(34); ctx.fillStyle = '#4e4936'; ctx.fill();
+    hx(34); ctx.strokeStyle = 'rgba(255,226,122,.5)'; ctx.lineWidth = 2; ctx.stroke();
+    const k = (Math.sin(now * 3) + 1) / 2, r = 18 + 4 * k, cy = y - 34 - 4 * Math.sin(now * 2);
+    ctx.save(); ctx.translate(x, cy); ctx.rotate(now * .8);
+    ctx.beginPath(); for (let i = 0; i <= 6; i++) { const a = i * TAU / 6; if (i) ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.moveTo(r, 0); }
+    ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 4; ctx.stroke();
+    ctx.restore();
+    qLabel(s.tries ? `Hexagon trial · ${triesLeft(QUEST_TRIES - s.tries)}` : 'Hexagon trial', x, y + 34, '#ffe27a', 12);
+    if (s.life != null && !s.started) qLabel(`${Math.ceil(s.life)} s`, x, y + 50, 'rgba(255,240,200,.85)', 11);
+  }
   function drawShrine(s, now) {
     const k = Math.min(1, s.prog / SHRINE_HOLD), x = s.x, y = s.y;
     ctx.strokeStyle = `rgba(255,236,170,${.3 + .15 * Math.sin(now * 3)})`; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
@@ -27867,6 +28271,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     for (const a of allies) if (a.type === 'bane' && onScreen(a, 40)) drawGlow('140,255,80', 26, a.x, a.y, .6);
     for (const e of foes) if (e.burn > 0 && !e.dead && onScreen(e)) drawGlow('255,130,40', 16, e.x, e.y - e.r * .4, .7);
     for (const e of foes) if (e.fearT > 0 && !e.dead && onScreen(e)) drawGlow('205,235,255', 13, e.x, e.y - e.r - 9, .5 + .25 * Math.sin(now * 9 + e.seed));
+    if (run.weapons.frost) for (const e of foes) if (e.chillT > run.clock && !e.dead && onScreen(e)) drawGlow('170,225,255', e.chillK > 1.3 ? 16 : 11, e.x, e.y - e.r * .2, .45);
     if (run.weapons.bow && run.weapons.bow.evo) for (const e of foes) if (e.markT > run.clock && !e.dead && onScreen(e)) drawGlow('190,160,255', 14, e.x, e.y - e.r - 10, .75);
     ctx.globalAlpha = 1;
   }
@@ -28541,6 +28946,23 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       ctx.globalAlpha = 1;
       if (run.weapons.mine && run.weapons.mine.mines) for (const m of run.weapons.mine.mines) if (m.arm <= 0 && onScreen(m, 20)) drawGlow(run.weapons.mine.evo ? '190,255,150' : '140,255,200', m.mini ? 12 : 18, m.x, m.y - 4, .45 + .25 * Math.sin(now * 5 + m.ph));
+      if (run.weapons.wave && run.weapons.wave.waves) for (const v of run.weapons.wave.waves) {
+        // A hexagonal ring of light with a soft echo trailing behind it: inside while it rolls out, outside while a
+        // Resonance wave shrinks back in. A plain wave fades as it nears its full reach; a Resonance wave stays bright and,
+        // over its first 0.35 s back, blends gold → amber while its echo slides from inside to outside.
+        if (v.evo) { v.x = P.x; v.y = P.y; }   // drawn exactly around Hexel, even between simulation steps
+        const k = v.r / v.R, tb = v.back ? Math.min(1, v.bt / .35) : 0;
+        const a0 = !v.evo ? 1 - k * k : v.back ? .65 * Math.min(1, v.r / 50) : 1 - .35 * k * k;
+        ctx.strokeStyle = v.evo ? `rgb(255,${Math.round(216 - 40 * tb)},${Math.round(144 - 32 * tb)})` : '#c8ecff';
+        for (let j = 0; j < 2; j++) {
+          const rr = v.r + (-16 + 32 * tb) * j; if (rr <= 4) continue;
+          ctx.globalAlpha = a0 * (j ? .3 : .85); ctx.lineWidth = j ? 10 : v.back ? 4 : 4 + 3 * (1 - k);
+          ctx.beginPath();
+          for (let c = 0; c <= 6; c++) { const an = v.rot + c * TAU / 6, px = v.x + Math.cos(an) * rr, py = v.y + Math.sin(an) * rr; c ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
       if (run.weapons.wail) { const bob = Math.sin(now * 2.6) * 3; drawGlow(run.weapons.wail.evo ? '220,200,255' : '190,235,255', 20, P.x + 20, P.y - 20 + bob, .55 + .2 * Math.sin(now * 5)); }
       drawRelicGlow(now);
       for (const st of strikes) {
@@ -28630,6 +29052,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (run.peddler && !run.zone && onScreen(run.peddler, 80)) drawPeddler(run.peddler, now);
       drawQuest(now);
       if (run.weapons.mine && run.weapons.mine.mines) for (const m of run.weapons.mine.mines) if (onScreen(m, 20)) drawPuffcap(m, now, run.weapons.mine.evo);
+      if (run.weapons.spud && run.weapons.spud.spuds) drawSpuds(run.weapons.spud.spuds);
       for (const id in run.weapons) if (id === 'bat') for (const b of run.weapons[id].bats) drawBat(b, now, run.weapons[id].evo);
       drawRelicActors(now);
       drawDice(now);
@@ -28818,6 +29241,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   $('lbOlder').addEventListener('click', () => { const l = lbSeasons || [], i = l.indexOf(lbVer); if (i < l.length - 1) { lbVer = l[i + 1]; renderBoards(); } });
   $('lbNewer').addEventListener('click', () => { const l = lbSeasons || [], i = l.indexOf(lbVer); if (i > 0) { lbVer = l[i - 1]; renderBoards(); } });
   $('closeBoards').addEventListener('click', () => { $('boards').hidden = true; });
+  $('openCodex').addEventListener('click', openCodex);
+  $('closeCodex').addEventListener('click', () => { $('codex').hidden = true; });
+  $('cxTabs').addEventListener('click', ev => { const t = ev.target.closest('button'); if (!t) return; cxTab = t.dataset.t; renderCodex(); $('codex').scrollTop = 0; });
   $('lbSend').addEventListener('click', lbSubmit);
   $('lbName').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') lbSubmit(); });
   $('again').addEventListener('click', newRun);
@@ -28928,7 +29354,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (relic) { run.relic = newRelic(relic[0]); run.minis = relic[1]; } else run.relic = null;
       allies = []; renderLoadout();
     } },
-    spots: { get: () => run && (run.zone ? run.quest.spots : run.quest.home) } });
+    spots: { get: () => run && (run.zone ? run.quest.spots : run.quest.home) },
+    // Opens a quest weapon's reward card: fj.questWeapon('rapier').
+    questWeapon: { value: id => offerQuestWeapon(id, 'Debug') } });
 
   /* ---------- Preview tour (open OMEGAgame.html#tour) ----------
      ~20 s of the meadow, then ~20 s of every rift with its guardian arriving 9 s in, so both the regular and the
@@ -29147,6 +29575,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       const now = performance.now();
       box.innerHTML = '<div style="color:#ffe27a;margin-bottom:2px">Sound log</div>' + log.map(l => `<div style="opacity:${Math.max(.35, 1 - (now - l.t) / 4000)}">${l.name} <span style="color:#9aa3c2">${((now - l.t) / 1000).toFixed(1)} s ago</span></div>`).join('');
     }, 150);
+  }
+  // Hexagon trial demo (OMEGAgame.html#hextrial): an unranked game where you can't die, with a hexagon altar right next to
+  // you; touching it starts the trial. Walk off and back on to try again.
+  if (location.hash === '#hextrial') {
+    window.hexTrial = () => hexT;   // peek at the running trial (testing)
+    setInterval(() => {
+      if (!run || state !== 'play' || run.zone) return;
+      run.god = true; run.portalT = 1e9;
+      const q = run.quest;
+      if (q.home.some(s => s.kind === 'hexaltar')) return;
+      q.home.push({ kind: 'hexaltar', x: P.x + 150, y: P.y - 20, onWin: () => queueMicrotask(() => offerQuestWeapon('wave', 'The hexagon yields')) });
+      banner('Demo: touch the hexagon altar to start the trial', '#ffe27a', true);
+    }, 250);
   }
   // Dance practice (OMEGAgame.html#dance): an unranked game where you can't die and the Crooning Keeper waits in the meadow
   // near you. He comes back a few seconds after each win, so the dance-off can be tried again and again.
