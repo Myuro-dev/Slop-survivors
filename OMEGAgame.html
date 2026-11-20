@@ -919,7 +919,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Damage +25%, faster, wider, frightens longer', 'Damage +20%, faster, reaches further, frightens longer', 'Damage +17%, faster, wider, reaches further, frightens longer', 'Damage +21%, faster, wider, frightens longer', 'Damage +18%, faster, wider, reaches further, frightens longer'] },
     frost: { name: 'Moonfrost', desc: 'A cone of frost behind you that chills and slows whatever is chasing you. Chilled enemies turn brittle and take 20% more damage from everything.', evo: 'dusk', evoName: 'Absolute Zero', evoDesc: 'A full-circle blizzard that freezes enemies solid. Frozen enemies take 40% more damage from everything.',
       up: ['Damage +20%, reaches further, chills longer', 'Damage +25%, faster', 'Damage +20%, wider, faster', 'Damage +22%, wider, faster', 'Damage +18%, wider, reaches further'] },
-    wave: { name: 'Hexwave', quest: true, desc: 'Every few seconds Hexel stamps the ground and a hexagonal shockwave rolls slowly outward from where it stood, striking each enemy it passes and shoving it back.', evo: 'ember', evoName: 'Resonance', evoDesc: 'Twin hexwaves reach much farther, then turn around and roll back to you, striking every enemy again on the way home.',
+    wave: { name: 'Hexwave', quest: true, desc: 'Every few seconds Hexel stamps the ground and a hexagonal shockwave rolls slowly outward from where it stood, striking each enemy it passes and shoving it back.', evo: null, evoAt: 100, evoName: 'Resonance', evoDesc: 'Twin hexwaves reach much farther, then turn around and roll back to you, striking every enemy again on the way home.',
       up: ['Damage +25%', 'Damage +20%, reaches further, rolls faster', 'A second wave follows the first', 'Damage +20%, reaches further, stamps more often', 'Damage +20%, reaches further, stamps more often'] },
     // Quest weapons (quest: true) never appear in level-ups, chests or the starting pick; a quest hands them out
     // (offerQuestWeapon). Once owned they level up like any other weapon.
@@ -22973,7 +22973,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (o.type === 'w') {
       const d = WEAPONS[o.id];
       return { cls: 'w', kind: o.lv > 1 ? `Weapon · Lv ${o.lv}` : 'Weapon', isNew: o.lv === 1, name: d.name, desc: o.lv > 1 ? d.up[o.lv - 2] || 'Damage +22%, recharges 10% faster, a little bigger' : d.desc,
-        hint: run.weapons[o.id] && run.weapons[o.id].evo ? `Evolved: ${d.evoName}` : `Evolves at Lv 6 with ${PASSIVES[d.evo].name}` };
+        hint: run.weapons[o.id] && run.weapons[o.id].evo ? `Evolved: ${d.evoName}` : d.evoAt ? `Evolves on its own at level ${d.evoAt}` : `Evolves at Lv 6 with ${PASSIVES[d.evo].name}` };
     }
     const d = PASSIVES[o.id];
     const pair = charmPair(o.id);
@@ -23144,7 +23144,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (!d || !w) return;
       add('b', `${w.evo ? d.evoName : d.name} · Lv ${w.lv}${w.lv >= WMAX ? ' (max)' : ''}`);
       box.appendChild(document.createTextNode(w.evo ? d.evoDesc : d.desc));
-      add('i', w.evo ? `Evolved from ${d.name}` : `Evolves at Lv ${EVO_LV} with ${PASSIVES[d.evo].name}${run.passives[d.evo] ? ' (you have it)' : ''}`);
+      add('i', w.evo ? `Evolved from ${d.name}` : d.evoAt ? `Evolves on its own when you reach level ${d.evoAt}` : `Evolves at Lv ${EVO_LV} with ${PASSIVES[d.evo].name}${run.passives[d.evo] ? ' (you have it)' : ''}`);
     } else if (kind === 'p') {
       const d = PASSIVES[id], lv = run.passives[id];
       if (!d) return;
@@ -23176,7 +23176,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-20b';
+  const BUILD = '2026-11-20c';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23751,6 +23751,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function gainXp(v) {
     run.xp += v * S.growth * HARD.xp;
     while (run.xp >= run.need) { run.xp -= run.need; run.lv++; run.need = needFor(run.lv); run.pending++; }
+    // Weapons with evoAt (the Hexwave) evolve on their own once Hexel reaches that level, at any weapon level, no charm.
+    for (const [id, w] of Object.entries(run.weapons)) {
+      const d = WEAPONS[id];
+      if (d.evoAt && !w.evo && run.lv >= d.evoAt) { w.evo = true; banner(`Level ${d.evoAt}: ${d.name} evolves into ${d.evoName}!`, '#d9b8ff', true); snd.fx('evolve'); renderLoadout(); }
+    }
   }
 
   function nearest(x, y, maxD, skip) {
@@ -24609,7 +24614,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       case 'wave': {
         // A hexagonal shockwave rolls out slowly from where Hexel stamped, hitting each enemy once as it passes.
-        // Resonance (evolved, with Ember Heart): the wave stays centred on Hexel the whole time. It expands, slows over its
+        // Resonance (evolves on its own at player level 100): the wave stays centred on Hexel the whole time. It expands, slows over its
         // last 60 px, turns, eases back up to speed from rest over 0.4 s and shrinks back onto Hexel, hitting everything once more
         // on the way in (no knockback). Being centred on Hexel there is never a gap to close, so it can't lag, speed up,
         // back away or lose its shape however Hexel moves.
@@ -25962,7 +25967,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const d = WEAPONS[id]; if (!d || run.weapons[id]) return;
     const ws = Object.entries(run.weapons), give = (lv, out) => {
       if (out) delete run.weapons[out];
-      run.weapons[id] = Object.assign(newWeapon(), { lv: Math.max(1, Math.min(WMAX, lv)) });
+      run.weapons[id] = Object.assign(newWeapon(), { lv: Math.max(1, Math.min(WMAX, lv)), evo: !!(d.evoAt && run.lv >= d.evoAt) });
       banner(`${d.name} joins your weapons at Lv ${run.weapons[id].lv}`, '#e8ecff', true); snd.fx('evolve');
     };
     if (ws.length < SLOTS) {

@@ -919,7 +919,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Vahinko +25 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +20 %, nopeampi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +17 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +21 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +18 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään'] },
     frost: { name: 'Kuunhalla', desc: 'Hallaviuhka takanasi viilentää ja hidastaa kaikkea, mikä jahtaa sinua. Viilentyneet viholliset haurastuvat ja ottavat 20 % enemmän vahinkoa kaikesta.', evo: 'dusk', evoName: 'Absoluuttinen nolla', evoDesc: 'Täysi lumimyrskyrengas, joka jäädyttää viholliset kohmeeseen. Jäätyneet viholliset ottavat 40 % enemmän vahinkoa kaikesta.',
       up: ['Vahinko +20 %, ulottuu pidemmälle, viilentää pidempään', 'Vahinko +25 %, nopeampi', 'Vahinko +20 %, leveämpi, nopeampi', 'Vahinko +22 %, leveämpi, nopeampi', 'Vahinko +18 %, leveämpi, ulottuu pidemmälle'] },
-    wave: { name: 'Heksaalto', quest: true, desc: 'Muutaman sekunnin välein Hekseli polkaisee maata, ja kuusikulmainen paineaalto vyöryy hitaasti ulospäin siitä, missä se seisoi, iskien jokaista vihollista, jonka ohi se kulkee, ja työntäen sen kauemmas.', evo: 'ember', evoName: 'Resonanssi', evoDesc: 'Kaksi heksaaltoa ulottuu paljon kauemmas, kääntyy sitten ja vyöryy takaisin luoksesi, iskien jokaista vihollista uudelleen paluumatkalla.',
+    wave: { name: 'Heksaalto', quest: true, desc: 'Muutaman sekunnin välein Hekseli polkaisee maata, ja kuusikulmainen paineaalto vyöryy hitaasti ulospäin siitä, missä se seisoi, iskien jokaista vihollista, jonka ohi se kulkee, ja työntäen sen kauemmas.', evo: null, evoAt: 100, evoName: 'Resonanssi', evoDesc: 'Kaksi heksaaltoa ulottuu paljon kauemmas, kääntyy sitten ja vyöryy takaisin luoksesi, iskien jokaista vihollista uudelleen paluumatkalla.',
       up: ['Vahinko +25 %', 'Vahinko +20 %, ulottuu kauemmas, vyöryy nopeammin', 'Toinen aalto seuraa ensimmäistä', 'Vahinko +20 %, ulottuu kauemmas, polkaisee useammin', 'Vahinko +20 %, ulottuu kauemmas, polkaisee useammin'] },
     // Quest weapons (quest: true) never appear in level-ups, chests or the starting pick; a quest hands them out
     // (offerQuestWeapon). Once owned they level up like any other weapon.
@@ -22973,7 +22973,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (o.type === 'w') {
       const d = WEAPONS[o.id];
       return { cls: 'w', kind: o.lv > 1 ? `Ase · T ${o.lv}` : 'Ase', isNew: o.lv === 1, name: d.name, desc: o.lv > 1 ? d.up[o.lv - 2] || 'Vahinko +22 %, latautuu 10 % nopeammin, hieman isompi' : d.desc,
-        hint: run.weapons[o.id] && run.weapons[o.id].evo ? `Kehittynyt: ${d.evoName}` : `Kehittyy tasolla 6, kun mukana on ${PASSIVES[d.evo].name}` };
+        hint: run.weapons[o.id] && run.weapons[o.id].evo ? `Kehittynyt: ${d.evoName}` : d.evoAt ? `Kehittyy itsestään tasolla ${d.evoAt}` : `Kehittyy tasolla 6, kun mukana on ${PASSIVES[d.evo].name}` };
     }
     const d = PASSIVES[o.id];
     const pair = charmPair(o.id);
@@ -23144,7 +23144,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       if (!d || !w) return;
       add('b', `${w.evo ? d.evoName : d.name} · T ${w.lv}${w.lv >= WMAX ? ' (maksimi)' : ''}`);
       box.appendChild(document.createTextNode(w.evo ? d.evoDesc : d.desc));
-      add('i', w.evo ? `Kehittynyt aseesta ${d.name}` : `Kehittyy tasolla ${EVO_LV}, kun mukana on ${PASSIVES[d.evo].name}${run.passives[d.evo] ? ' (sinulla on se)' : ''}`);
+      add('i', w.evo ? `Kehittynyt aseesta ${d.name}` : d.evoAt ? `Kehittyy itsestään, kun saavutat tason ${d.evoAt}` : `Kehittyy tasolla ${EVO_LV}, kun mukana on ${PASSIVES[d.evo].name}${run.passives[d.evo] ? ' (sinulla on se)' : ''}`);
     } else if (kind === 'p') {
       const d = PASSIVES[id], lv = run.passives[id];
       if (!d) return;
@@ -23176,7 +23176,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-20b';
+  const BUILD = '2026-11-20c';
   $('buildStamp').textContent = `Kausi ${seasonName(GAME_VERSION)} · versio ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23751,6 +23751,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function gainXp(v) {
     run.xp += v * S.growth * HARD.xp;
     while (run.xp >= run.need) { run.xp -= run.need; run.lv++; run.need = needFor(run.lv); run.pending++; }
+    // Weapons with evoAt (the Hexwave) evolve on their own once Hexel reaches that level, at any weapon level, no charm.
+    for (const [id, w] of Object.entries(run.weapons)) {
+      const d = WEAPONS[id];
+      if (d.evoAt && !w.evo && run.lv >= d.evoAt) { w.evo = true; banner(`Taso ${d.evoAt}: ${d.name} kehittyy muotoon ${d.evoName}!`, '#d9b8ff', true); snd.fx('evolve'); renderLoadout(); }
+    }
   }
 
   function nearest(x, y, maxD, skip) {
@@ -24609,7 +24614,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
       case 'wave': {
         // A hexagonal shockwave rolls out slowly from where Hexel stamped, hitting each enemy once as it passes.
-        // Resonance (evolved, with Ember Heart): the wave stays centred on Hexel the whole time. It expands, slows over its
+        // Resonance (evolves on its own at player level 100): the wave stays centred on Hexel the whole time. It expands, slows over its
         // last 60 px, turns, eases back up to speed from rest over 0.4 s and shrinks back onto Hexel, hitting everything once more
         // on the way in (no knockback). Being centred on Hexel there is never a gap to close, so it can't lag, speed up,
         // back away or lose its shape however Hexel moves.
@@ -25962,7 +25967,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const d = WEAPONS[id]; if (!d || run.weapons[id]) return;
     const ws = Object.entries(run.weapons), give = (lv, out) => {
       if (out) delete run.weapons[out];
-      run.weapons[id] = Object.assign(newWeapon(), { lv: Math.max(1, Math.min(WMAX, lv)) });
+      run.weapons[id] = Object.assign(newWeapon(), { lv: Math.max(1, Math.min(WMAX, lv)), evo: !!(d.evoAt && run.lv >= d.evoAt) });
       banner(`${d.name} liittyy aseisiisi tasolla ${run.weapons[id].lv}`, '#e8ecff', true); snd.fx('evolve');
     };
     if (ws.length < SLOTS) {
