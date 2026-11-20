@@ -165,7 +165,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .cx { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); box-shadow: 0 0 0 1px var(--line) inset; font-size: 14px; }
 .cx h3 { margin: 0 0 2px; font-size: 17px; }
 .cx .from { font-size: 12px; color: var(--muted); }
-.cx p { margin: 4px 0 6px; color: var(--muted); }
+.cx p { margin: 3px 0 6px; color: var(--muted); font-size: 14px; line-height: 1.32; }   /* tighter than the general card text */
 .cx ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 13px; }
 .cx ol li { display: grid; grid-template-columns: 3.6em minmax(0, 1fr); gap: 6px; }   /* wrapped lines stay in their column */
 .cx ol b { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -174,7 +174,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .cx .cxup { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
 .cx .cxup .chip { display: inline-block; vertical-align: middle; margin: 0 6px 2px 0; }
 .cx .cxup .how { vertical-align: middle; color: var(--muted); }
-.cx .cxup div { margin-top: 3px; }
+.cx .cxup div { margin-top: 3px; line-height: 1.32; }
+.cx ol li { line-height: 1.3; }
+/* Back stays at the bottom of the screen while the list scrolls */
+#closeCodex { position: sticky; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 1; box-shadow: 0 6px 22px rgba(0, 0, 0, .55), 0 0 0 6px rgb(8, 12, 24); }
 #boards { z-index: 6; background: rgba(8, 12, 24, .95); place-items: start center; padding-top: max(24px, 5vh); }
 .lbseason { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .lbarrow { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; width: 30px; height: 30px; font-size: 18px; line-height: 1; cursor: pointer; padding: 0; }
@@ -775,7 +778,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
 
     const FX_KEY = new Set(['boss', 'bossdown', 'level', 'evolve', 'chestdrop', 'revive', 'death', 'dawn', 'hurt', 'warn', 'rift']);
-    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2, wail: .4, quake: .3, lob: .12, splat: .07, thrust: .08, riposte: .15, dice: .2, coins: 4, mask: .5, puff: .08 };
+    const GAP = { hit: .06, kill: .05, xp: .07, bolt: .07, moon: .12, chain: .12, star: .06, nova: .3, bite: .1, hurt: .2, shoot: .3, warn: .5, chestdrop: .2, wail: .4, quake: .3, lob: .12, splat: .07, thrust: .08, riposte: .15, mash: .15, clack: .05, spacebar: .3, dice: .2, coins: 4, mask: .5, puff: .08 };
     const PENT = [74, 77, 79, 81, 84, 86, 88, 89];
     const FX = {
       // Hits and kills are soft tonal taps. They used to be tiny bursts of 2-3 kHz noise, which at ~30 per second in a
@@ -825,6 +828,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       // Potato Cannon: a hollow pop when it fires, a soft wet thud when a potato lands.
       lob: t => { tn('sine', 220, 520, t, .003, .09, .05); nz(t, .05, .02, 'lowpass', 900, .7); },
       splat: t => { tn('sine', 140, 70, t, .003, .1, .035); nz(t, .08, .02, 'lowpass', 700, .7); },
+      // Keyboard Mash: a clatter of keys, a click per hit, and the spacebar's heavy thunk
+      mash: t => { for (let i = 0; i < 3; i++) tn('square', 1700 + i * 260, 1300 + i * 200, t + i * .028, .002, .025, .006); },
+      clack: t => { tn('triangle', 1500, 1100, t, .002, .03, .012); },
+      spacebar: t => { tn('triangle', 420, 160, t, .003, .12, .05); tn('square', 900, 700, t, .002, .04, .01); },
       thrust: t => { tn('triangle', 2200, 1100, t, .002, .07, .016); nz(t, .06, .012, 'highpass', 5000, .7); },
       riposte: t => { tn('triangle', 2600, 1300, t, .002, .09, .022); tn('sine', 3300, 3300, t + .03, .003, .25, .012); nz(t, .07, .015, 'highpass', 5000, .7); },
       wail: t => { tn('sine', 880, 520, t, .04, .5, .03, .6); tn('triangle', 660, 395, t, .06, .45, .012, .6); },
@@ -925,10 +932,15 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Damage +31%', 'A second thrust, thrusts faster, longer reach', 'Damage +24%, thrusts faster, longer reach', 'Damage +19%, longer reach', 'A third thrust, damage +19%, thrusts faster, longer reach'] },
     spud: { name: 'Potato Cannon', quest: true, desc: 'Found inside a runaway loot crate. Lobs potatoes at enemies; each one keeps bouncing onward, splatting everything where it lands.', evo: 'shoe', evoName: 'Spud Barrage', evoDesc: 'Three potatoes at once, five bounces each, and the last bounce bursts in a wide splat of mash that slows enemies.',
       up: ['Damage +25%', '+1 bounce', 'A second potato, fires faster', 'Damage +20%, bigger splat', '+1 bounce, damage +17%, fires faster'] },
+    mash: { name: 'Keyboard Mash', quest: true, desc: "A speedrunner's keyboard, left behind in a rage-quit. Hexel mashes it: keycaps fly at enemies, ricochet from one enemy to the next and bounce off the edges of the screen.", evo: 'wings', evoName: 'Spacebar', evoDesc: 'More keys, mashed faster, and every fourth mash slams a giant spacebar forward that rams through everything in its way.',
+      up: ['Damage +27%', 'One more key, keys ricochet once more, mashes faster', 'Damage +21%, mashes faster', 'One more key, damage +18%, keys ricochet once more, mashes faster', 'One more key, damage +15%, mashes faster'] },
   };
+  // Keyboard Mash's keycap letters
+  const KEYCAPS = ['W', 'A', 'S', 'D', 'Q', 'E', 'R', 'F', 'Z', 'X', 'C', 'V', 'J', 'K', 'L', '1', '2', '3', '!', '?', 'Esc', 'Tab', 'Alt', 'F5'];
   // Weapons level to 8 (levels 7–8 are generic power steps); evolution needs level 6 plus the paired charm.
   const WMAX = 8, EVO_LV = 6, SLOTS = 6;
-  const RAPIER_CRIT = .15;   // the Silver Rapier's own extra crit chance
+  const RAPIER_CRIT = .15;
+  const FROST_BRITTLE = { chill: .2, frozen: .4 };   // Moonfrost: extra damage taken by chilled / frozen enemies   // the Silver Rapier's own extra crit chance
 
   /* ---------- Late-game balance (from the hard-mode fork, ../firefly-jar-hard) ----------
      Flattens how much stronger weapons and relics grow, so the night gets harder toward dawn instead of easier, and
@@ -1001,6 +1013,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         : { cd: [4.2, 4, 3.8, 3.5, 3.2, 3][L], dmg: [8, 10, 12, 14, 17, 20][L], range: [170, 180, 195, 210, 225, 240][L], cone: [1, 1.1, 1.2, 1.35, 1.5, 1.7][L], fear: [1.4, 1.6, 1.8, 2, 2.3, 2.6][L] };
       case 'frost': return evo ? { cd: 1.2, dmg: 34, range: 230, cone: 7, slow: 2.5, freeze: true }
         : { cd: [2.4, 2.2, 2.1, 1.9, 1.7, 1.5][L], dmg: [10, 12, 15, 18, 22, 26][L], range: [120, 130, 140, 150, 160, 175][L], cone: [1.2, 1.2, 1.3, 1.4, 1.5, 1.6][L], slow: [1.2, 1.4, 1.6, 1.8, 2, 2.2][L] };
+      case 'mash': return evo ? { cd: .75, n: 8, dmg: 62, b: 5, sp: 560, life: 1.8, space: 4, sdmg: 260 }
+        : { cd: [1.4, 1.4, 1.3, 1.2, 1.1, 1][L], n: [3, 3, 4, 4, 5, 6][L], dmg: [22, 28, 28, 34, 40, 46][L], b: [2, 2, 3, 3, 4, 4][L], sp: 520, life: 1.6, space: 0, sdmg: 0 };
       case 'spud': return evo ? { cd: 1.3, n: 3, b: 5, dmg: 160, R: 60, fin: 110 }
         : { cd: [2, 2, 2, 1.8, 1.8, 1.6][L], n: [1, 1, 1, 2, 2, 2][L], b: [3, 3, 4, 4, 4, 5][L], dmg: [60, 75, 75, 75, 90, 105][L], R: [45, 45, 45, 45, 52, 52][L], fin: 0 };
       case 'rapier': return evo ? { cd: .65, n: 5, dmg: 85, len: 190, w: 8, fan: .2, ring: 10 }
@@ -23022,10 +23036,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
     {
       const n = evos.length ? bonus : (boss ? (Math.random() < .3 ? 5 : 3) : (Math.random() < .25 ? 3 : 1)) + bonus;
+      let maxed = 0;
       for (let i = 0; i < n; i++) {
         const [o] = sample(choicePool(), 1);
         if (!o) {
-          // Everything is maxed: each prize is +5 max health or +2% speed instead.
+          // Everything is maxed: +5 max health or +2% speed instead, once, plus one more per luck bonus (Clover, Horseshoe).
+          if (maxed++ > bonus) break;
           if (Math.random() < .5) { addMaxHp(5); loot.push({ name: '+5 max health', desc: `You already hold everything. Max health ${Math.round(S.maxHp)}.` }); }
           else { run.chestSpd = (run.chestSpd || 0) + .02; recalc(); loot.push({ name: '+2% speed', desc: `You already hold everything. +${Math.round(run.chestSpd * 100)}% speed from chests.` }); }
           continue;
@@ -23174,7 +23190,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-20d';
+  const BUILD = '2026-11-20g';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -24512,8 +24528,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           if (half < 3 && Math.abs(Math.atan2(Math.sin(df), Math.cos(df))) > half) continue;
           hit(e, st.dmg * might, 40, P.x, P.y);
           e.slowT = st.slow * S.dur; e.frozen = !!st.freeze;
-          // Brittle: chilled enemies take +20% damage from everything, frozen ones (Absolute Zero) +40%.
-          e.chillT = run.clock + st.slow * S.dur; e.chillK = st.freeze ? 1.4 : 1.2;
+          // Brittle: chilled enemies take more damage from everything (FROST_BRITTLE), frozen ones (Absolute Zero) more still.
+          e.chillT = run.clock + st.slow * S.dur; e.chillK = 1 + (st.freeze ? FROST_BRITTLE.frozen : FROST_BRITTLE.chill);
         }
         snd.fx('chain');
         break;
@@ -24591,6 +24607,57 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         for (let i = 0; i < st.n + S.amount; i++) {
           const e = near[(i + Math.floor(Math.random() * near.length)) % near.length], tx = e.x + rnd(-14, 14), ty = e.y + rnd(-14, 14), L = Math.hypot(tx - P.x, ty - P.y) || 1;
           w.spuds.push({ x1: P.x, y1: P.y, x2: tx, y2: ty, dx: (tx - P.x) / L, dy: (ty - P.y) / L, t: -i * .12, dur: .55, h: 70, b: st.b - 1, rot: Math.random() * TAU });
+        }
+        break;
+      }
+      case 'mash': {
+        // Keycaps (w.caps, drawn by drawCaps) fly at enemies within reach; each hit ricochets the cap toward another enemy
+        // nearby (b more hits), and caps bounce off the screen edges until their life runs out. Evolved (Spacebar): every
+        // st.space-th mash also slams a giant spacebar forward that rams through everything in its way, once each.
+        const caps = w.caps || (w.caps = []), hw = W / 2 - 10, hh = H / 2 - 10;
+        for (const c of caps) {
+          c.life -= dt; c.rot += c.spin * dt;
+          c.x += c.vx * dt; c.y += c.vy * dt;
+          if (c.space) {
+            const ux = c.vx / c.sp, uy = c.vy / c.sp, half = 52 * S.area;
+            for (const e of foes) {
+              if (e.dead || c.hit.has(e)) continue;
+              const dx = e.x - c.x, dy = e.y - c.y;
+              if (Math.abs(dx * ux + dy * uy) > 12 + e.r || Math.abs(dx * -uy + dy * ux) > half + e.r) continue;
+              c.hit.add(e); hit(e, c.dmg, 260, c.x - ux * 40, c.y - uy * 40);
+            }
+            continue;
+          }
+          if ((c.x < cam.x - hw && c.vx < 0) || (c.x > cam.x + hw && c.vx > 0)) c.vx = -c.vx;
+          if ((c.y < cam.y - hh && c.vy < 0) || (c.y > cam.y + hh && c.vy > 0)) c.vy = -c.vy;
+          for (const e of foes) {
+            if (e.dead || e === c.last || (e.x - c.x) ** 2 + (e.y - c.y) ** 2 > (e.r + 9) ** 2) continue;
+            hit(e, c.dmg, 50, c.x, c.y); snd.fx('clack');
+            c.last = e;
+            if (c.b-- <= 0) { c.life = 0; break; }
+            // ricochet toward the closest other enemy within 260 px, else off in a random direction
+            let nx = null, nd = 260 * 260;
+            for (const o of foes) { if (o.dead || o === e) continue; const dd = (o.x - c.x) ** 2 + (o.y - c.y) ** 2; if (dd < nd) { nd = dd; nx = o; } }
+            const a = nx ? Math.atan2(nx.y - c.y, nx.x - c.x) : Math.random() * TAU;
+            c.vx = Math.cos(a) * c.sp; c.vy = Math.sin(a) * c.sp; c.spin = -c.spin;
+            break;
+          }
+        }
+        w.caps = caps.filter(c => c.life > 0);
+        w.t -= dt; if (w.t > 0) break;
+        const R = 420, near = foes.filter(e => !e.dead && d2(e, P) < R * R).sort((a, b) => d2(a, P) - d2(b, P)).slice(0, 8);
+        if (!near.length) { w.t = .2; break; }
+        w.t = st.cd * S.cd; w.mashes = (w.mashes || 0) + 1; snd.fx('mash');
+        const n = st.n + S.amount, sp = st.sp * S.projSp;
+        for (let i = 0; i < n; i++) {
+          const e = near[Math.floor(Math.random() * near.length)], a = Math.atan2(e.y - P.y, e.x - P.x) + rnd(-.45, .45);
+          w.caps.push({ x: P.x, y: P.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, sp, life: st.life * S.dur, dmg: st.dmg * might, b: st.b, last: null,
+            rot: rnd(-.5, .5), spin: rnd(6, 14) * (Math.random() < .5 ? -1 : 1), ch: KEYCAPS[Math.floor(Math.random() * KEYCAPS.length)] });
+        }
+        if (st.space && w.mashes % st.space === 0) {
+          const e = near[0], a = Math.atan2(e.y - P.y, e.x - P.x), ss = 380 * S.projSp;
+          w.caps.push({ space: true, x: P.x, y: P.y, vx: Math.cos(a) * ss, vy: Math.sin(a) * ss, sp: ss, life: 1.7 * S.dur, dmg: st.sdmg * might, hit: new Set(), rot: 0, spin: 0, ang: a });
+          snd.fx('spacebar'); pops.push({ x: P.x, y: P.y - 40, txt: 'SPACE!', col: '#e8ecff', life: 0, ttl: .8, big: true });
         }
         break;
       }
@@ -25844,8 +25911,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   /* ---------- Rift quests: one small quest per rift, each paying a keepsake (QUEST_BOONS) ----------
      Each starts at most once per run, with chance RQ[zone] when you enter its rift, and takes a quest slot ('rq:<zone>').
      wc2 peon · moo2 pod · z flag · gw2 waypoint + golem · lol golden cannons · zerg egg · bay doubloons · homm obelisks ·
-     potato crate · spire ? room · temple braziers · monkey insult duel. See the Quests section of CLAUDE.md. */
-  const RQ = { wc2: .55, moo2: .5, z: .55, gw2: .5, lol: .55, zerg: .5, bay: .55, homm: .5, potato: .6, spire: .55, temple: .55, monkey: .6 };
+     potato crate · spire ? room · temple braziers · monkey insult duel · chaos speedrunner race. See the Quests section of CLAUDE.md. */
+  const RQ = { chaos: .6, wc2: .55, moo2: .5, z: .55, gw2: .5, lol: .55, zerg: .5, bay: .55, homm: .5, potato: .6, spire: .55, temple: .55, monkey: .6 };
   const PEON_R = 260, PEON_KILLS = 12, MINE_R = 62, MINE_HOLD = 4;
   const POD_HP = 100, POD_SP = 95, BEACON_D = 1500;
   const FLAG_R = 90, FLAG_HOLD = 6;
@@ -25854,6 +25921,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const EGG_HP = 100, EGG_T = 20;
   const DBL_NEED = 10, DBL_CHANCE = .4;
   const DIG_R = 42, DIG_HOLD = 3, CRATE_T = 15;
+  const SR_CP = 8, SR_D = [360, 520], SR_GHOST = 125;   // the speedrunner's race: checkpoints, their spacing, the ghost's speed (Hexel's base is 150)
   // The insult duel (Grogwater Isle): [insult, the one right comeback]. All original, and none of the zone's own lines.
   const INSULTS = [
     ["I've fought barnacles with more backbone!", 'And lost to them too, by the look of you.'],
@@ -25880,6 +25948,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     potato: { name: 'Lucky Potato', from: 'Potato Fields', k: 'regen', v: .3, text: 'The only thing in the runaway crate. It keeps sprouting, and so do you.' },
     spire: { name: 'Bent Brass Spoon', from: 'The Ascent', k: 'area', v: .06, text: 'Taken from the ? room. Whatever you swing seems to reach a little farther.' },
     temple: { name: 'Serpent Blood Vial', from: 'Temple of the Blood Serpent', k: 'hp', v: 12, text: 'Caught from the fourth brazier as it flared. It beats like a second heart.' },
+    chaos: { name: 'Golden Split', from: 'The Chaos Rift', k: 'speed', v: .05, text: 'A gold split from a run the speedrunner swears you cheated. Your feet still think they are racing.' },
     monkey: { name: "Duellist's Plume", from: 'Grogwater Isle', k: 'crit', v: .04, text: "The swordmaster's hat feather, won with words, not steel. It keeps your eye on the weak spot." },
   });
   // Damage sources quests add (damage stats and leaderboard details).
@@ -25925,6 +25994,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([kx, ky], i) => q.spots.push({ kind: 'brazier', x: cx + kx * 340, y: cy + ky * 280, n: order[i], g, lit: false }));
       banner('Four cold braziers wait in the temple. Light them in the order of their glyphs before the guardian comes', '#ff9a6a', true);
     },
+    chaos(q, add) { add('runner', 500, 750, { state: 'idle' }); banner('"Hey, lamp! Bet you can\'t beat my ghost!" someone shouts across the chaos…', '#7af0ff', true); },
     monkey(q, add) { add('swordmaster', 600, 900, { state: 'idle' }); banner('"Ahoy, lamp! Fancy a duel of wits?" a voice calls…', '#e0b0ff', true); },
   };
   function riftQuestEnter(def, add) {
@@ -26222,6 +26292,32 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         return false;
       } },
     // Grogwater Isle: an insult duel, three rounds; pick the right comeback each time. A wrong one: walk away and retry.
+    // The Chaos Rift: a speedrunner bets you can't beat their ghost. Touch them to race: SR_CP checkpoints across the
+    // patchwork, one at a time, while the ghost runs the same route at SR_GHOST px/s. Reach the last one first to win;
+    // the ghost finishing first is a reset ("Reset!"), and the third reset fails the quest.
+    runner: { r: 24, glow: '140,240,255', arrow: ['#0a2a30', '#7af0ff'], arrowIf: s => s.state === 'idle', draw: drawRunner,
+      touch(s) { if (s.state !== 'idle' || s.cool > 0) return false; startRace(s); return false; },
+      update(s, d, dt) {
+        s.cool = Math.max(0, (s.cool || 0) - dt);
+        const r = s.race;
+        if (s.state === 'race' && r) {
+          if (r.go > 0) { const was = Math.ceil(r.go); r.go -= dt; if (r.go <= 0) { srNextCp(s); banner('GO!', '#7af0ff'); snd.fx('warn'); } else if (Math.ceil(r.go) < was) snd.fx('pick'); return; }
+          r.t += dt; r.gd = Math.min(r.total, r.gd + SR_GHOST * dt);
+          if (r.gd >= r.total) srReset(s);
+        }
+        if ((s.state === 'won' || s.state === 'lost') && (s.t -= dt) <= 0) s.gone = true;
+      } },
+    srcp: { r: 30, glow: '140,240,255', gr: 40, arrow: ['#0a2a30', '#7af0ff'], draw: drawSrCp,
+      touch(s) {
+        const o = s.owner, r = o.race; if (!r || o.state !== 'race') return true;
+        const ghostAt = r.cum[s.n] / SR_GHOST, diff = r.t - ghostAt;
+        pops.push({ x: P.x, y: P.y - 44, txt: `${diff < 0 ? '−' : '+'}${Math.abs(diff).toFixed(1)}`, col: diff < 0 ? '#7aff9a' : '#ff7a8a', life: 0, ttl: 1.1, big: true });
+        burst(s.x, s.y, '#7af0ff', 14, 160); snd.fx('pick');
+        if (s.n >= SR_CP) srWin(o); else srNextCp(o);
+        return true;
+      } },
+    // the speedrunner's ghost running the route (drawn only; it moves along the route in drawSrGhost)
+    srghost: { r: 0, draw: drawSrGhost, update(s) { const r = s.owner.race; if (!r || s.owner.state !== 'race') { s.gone = true; return; } const [x, y] = srAt(r, r.gd); s.face = x < s.x ? -1 : x > s.x ? 1 : s.face || 1; s.x = x; s.y = y; } },
     swordmaster: { r: 26, glow: '255,200,150', arrow: ['#2a1a30', '#e0b0ff'], arrowIf: s => s.state !== 'won' && s.state !== 'lost', draw: drawSwordmaster,
       touch(s) { if (s.state === 'won' || s.state === 'lost' || s.laugh > 0) return false; s.rounds = shuf(INSULTS.map((_, i) => i)).slice(0, 3); duelRound(s, 0); return false; },
       update(s, d, dt) {
@@ -26232,6 +26328,91 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   });
 
   /* ---------- Rift quest figures ---------- */
+  // The speedrunner's race (Chaos Rift). The route starts at the runner and winds through SR_CP checkpoints, each
+  // SR_D px from the last, turning at most ~80 degrees so it never doubles back; r.cum[i] is the route length up to
+  // checkpoint i, so the ghost's split at each checkpoint is r.cum[i] / SR_GHOST.
+  function startRace(s) {
+    const pts = [[s.x, s.y]]; let a = Math.atan2(P.y - s.y, P.x - s.x) + Math.PI + rnd(-.6, .6);
+    for (let i = 0; i < SR_CP; i++) { a += rnd(-1.4, 1.4); const [x, y] = pts[i], d = rnd(SR_D[0], SR_D[1]); pts.push([x + Math.cos(a) * d, y + Math.sin(a) * d]); }
+    const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    s.race = { pts, cum, total: cum[cum.length - 1], t: 0, gd: 0, go: 3, i: 0 };
+    s.state = 'race'; run.quest.race = s;
+    run.quest.spots.push({ kind: 'srghost', x: s.x, y: s.y, owner: s });
+    banner(`"Any%, ${SR_CP} checkpoints, ghost on. Ready?"`, '#7af0ff', true); snd.fx('warn');
+  }
+  function srNextCp(s) {
+    const r = s.race; r.i++;
+    const [x, y] = r.pts[r.i]; run.quest.spots.push({ kind: 'srcp', x, y, n: r.i, owner: s });
+  }
+  function srAt(r, d) {
+    let i = 1; while (i < r.cum.length - 1 && r.cum[i] < d) i++;
+    const k = (d - r.cum[i - 1]) / Math.max(1, r.cum[i] - r.cum[i - 1]), [x0, y0] = r.pts[i - 1], [x1, y1] = r.pts[i];
+    return [x0 + (x1 - x0) * k, y0 + (y1 - y0) * k];
+  }
+  function srClear(s) { for (const o of run.quest.spots) if (o.owner === s) o.gone = true; s.race = null; if (run.quest.race === s) run.quest.race = null; }
+  function srReset(s) {
+    srClear(s); s.tries = (s.tries || 0) + 1; snd.fx('hurt');
+    if (s.tries >= QUEST_TRIES) {
+      s.state = 'lost'; s.t = 4; questFail(run.quest, 'rq:chaos');
+      banner('"Three resets? Unwatchable." The speedrunner ends the stream and logs off', '#7af0ff', true);
+      return;
+    }
+    s.state = 'idle'; s.cool = 1.5;
+    banner(`"Too slow! RESET!" Walk back and touch the speedrunner to race again (${triesLeft(QUEST_TRIES - s.tries)})`, '#7af0ff', true);
+  }
+  function srWin(s) {
+    const t = s.race.t, ghost = s.race.total / SR_GHOST; srClear(s);
+    s.state = 'won'; s.t = 8; snd.fx('chest');
+    banner(`${t.toFixed(2)} s, ${(ghost - t).toFixed(2)} s ahead of the ghost! "That's a world record?! …Whatever. I quit. Take my keyboard."`, '#7af0ff', true);
+    addBoon('chaos');
+    queueMicrotask(() => offerQuestWeapon('mash', 'The speedrunner rage-quits'));
+  }
+  // The speedrunner: a hooded gamer with a headset, a gold timer floating overhead; idle, they bounce on their heels.
+  function drawRunner(s, now, ghost) {
+    const { x } = s, run2 = !!ghost, f = ghost ? s.face || 1 : P.x < s.x ? -1 : 1, bob = run2 ? Math.abs(Math.sin(now * 14)) * 3 : Math.abs(Math.sin(now * 4)) * 2, y = s.y - bob, O = '#101820';
+    if (!ghost) qShadow(x, s.y + 16, 14, 4);
+    ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
+    if (ghost) ctx.globalAlpha = .45;
+    ctx.strokeStyle = O; ctx.lineWidth = 1.5;
+    const lg = run2 ? Math.sin(now * 14) * 5 : 0;
+    ctx.fillStyle = ghost ? '#7af0ff' : '#2a3040'; ctx.fillRect(-6 + lg, 3, 4, 13); ctx.fillRect(2 - lg, 3, 4, 13);
+    ctx.fillStyle = ghost ? '#bff8ff' : '#e8ecf4'; ctx.fillRect(-7 + lg, 13, 7, 4); ctx.fillRect(2 - lg, 13, 7, 4);   // sneakers
+    ctx.fillStyle = ghost ? '#7af0ff' : '#6a3aa8'; ctx.beginPath(); ctx.roundRect(-10, -12, 20, 17, 5); ctx.fill(); ctx.stroke();   // hoodie
+    ctx.fillStyle = ghost ? '#bff8ff' : '#e8b890'; ctx.beginPath(); ctx.arc(0, -19, 7, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = ghost ? '#7af0ff' : '#6a3aa8'; ctx.beginPath(); ctx.arc(0, -20, 8.5, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();   // hood up
+    ctx.fillStyle = O; ctx.fillRect(2, -21, 2, 2);
+    ctx.strokeStyle = '#1a1a24'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -19, 9, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();   // headset band
+    ctx.fillStyle = '#1a1a24'; ctx.fillRect(-10, -21, 3, 6); ctx.beginPath(); ctx.moveTo(-8, -16); ctx.quadraticCurveTo(-4, -11, 3, -13); ctx.stroke();   // ear cup + mic
+    ctx.fillStyle = '#ff4a6a'; ctx.beginPath(); ctx.arc(3, -13, 1.6, 0, TAU); ctx.fill();
+    ctx.restore(); ctx.globalAlpha = 1;
+    if (ghost) { qLabel('Ghost', x, s.y - 40, '#bff8ff', 12); return; }
+    // the floating timer
+    const r = s.race, tt = r ? (r.go > 0 ? `${Math.ceil(r.go)}` : r.t.toFixed(2)) : s.state === 'won' ? 'WR!' : '0.00';
+    ctx.fillStyle = 'rgba(8,10,16,.8)'; ctx.beginPath(); ctx.roundRect(x - 26, s.y - 58, 52, 17, 4); ctx.fill();
+    ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#ffd24a'; ctx.font = '800 12px Grandstander, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(tt, x, s.y - 45);
+    if (s.state === 'won') qLabel('GG…', x, s.y - 66, '#bff8ff', 13);
+    else if (s.state === 'lost') qLabel('*logs off*', x, s.y - 66, '#bff8ff', 13);
+    else if (s.state === 'idle' && s.d < 300) qLabel('Race me!', x, s.y - 66, '#bff8ff', 13);
+  }
+  function drawSrGhost(s, now) { drawRunner(s, now, true); }
+  // A checkpoint: a cyan ring on the ground with a little flag (checkered on the last one) and its number.
+  function drawSrCp(s, now) {
+    const { x, y } = s, last = s.n >= SR_CP, p = .5 + .5 * Math.sin(now * 6);
+    ctx.strokeStyle = `rgba(122,240,255,${.5 + .4 * p})`; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+    ctx.beginPath(); ctx.ellipse(x, y, 30, 16, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#d8dce8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 42); ctx.stroke();
+    if (last) { for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { ctx.fillStyle = (i + j) % 2 ? '#101010' : '#f4f4f4'; ctx.fillRect(x + i * 5, y - 42 + j * 5, 5, 5); } }
+    else { ctx.fillStyle = '#7af0ff'; ctx.beginPath(); ctx.moveTo(x, y - 42); ctx.lineTo(x + 18, y - 36 + Math.sin(now * 8) * 2); ctx.lineTo(x, y - 30); ctx.fill(); }
+    qLabel(last ? 'FINISH' : `${s.n} / ${SR_CP}`, x, y - 50, '#bff8ff', 13);
+  }
+  // During the race, its clock and the gap to the ghost hang under Hexel.
+  function drawRaceTimer() {
+    const s = run.quest.race; if (!s || !s.race || s.race.go > 0 || !run.zone) return;
+    const r = s.race, left = (r.total - r.gd) / SR_GHOST;
+    qLabel(`${r.t.toFixed(1)} s · ghost finishes in ${left.toFixed(1)} s`, P.x, P.y + 44, left < 4 ? '#ff9aa8' : '#bff8ff', 13);
+  }
+
   // A small green orc labourer pinned under a log, waving; freed, he chops with his axe, then rests it on his shoulder.
   function drawPeon(s, now) {
     const { x, y } = s, pinned = s.state === 'pinned' || s.state === 'clear', O = '#1a140c';
@@ -26629,7 +26810,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const q = run.quest;
     if (q.spots.some(s => s.kind === 'signdrop')) { q.sign = true; renderLoadout(); banner('You take the summon sign with you', '#ffd870'); }
     q.spots = [];
-    q.dbl = 0; q.obel = 0;   // doubloons and obelisk map pieces only count inside their rift
+    q.dbl = 0; q.obel = 0; q.race = null;   // doubloons and obelisk map pieces only count inside their rift
     // Quests begun in this rift and not won fail as it closes (their slots free up); the doll trade carries on.
     for (const k of q.here || []) if (!(k === 'doll' && (q.doll || q.ribbon))) questFail(q, k);
     q.here = [];
@@ -27742,7 +27923,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Quest things in the current rift (or the meadow): bodies, dolls, knights, doors, jars…
   function drawQuest(now) {
     for (const s of questSpots()) if (onScreen(s, 70)) SPOTS[s.kind].draw(s, now);
-    if (run.zone) drawQuestMarks(now);
+    if (run.zone) { drawQuestMarks(now); drawRaceTimer(); }
     const ph = run.quest.phantom;
     if (ph && !run.zone && onScreen(ph, 60)) drawKnight(ph, now, true);
   }
@@ -27872,6 +28053,32 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // A forgotten moth shrine: a stone pillar with a carved moth and a lamp bowl; the dashed circle is where you hold the
   // light, the gold arc and the flame grow as it lights, and the seconds left show underneath.
   // Potato Cannon: a lumpy potato on its arc, with a shadow on the ground under it.
+  // Keyboard Mash: spinning keycaps (a light top over a darker side, the letter on top) and Spacebar's giant spacebar
+  // (a long blank key, side-on to its flight, with speed streaks behind it).
+  function drawCaps(list) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const c of list) {
+      if (!onScreen(c, 60)) continue;
+      ctx.save(); ctx.translate(c.x, c.y);
+      if (c.space) {
+        const L = 52 * S.area;
+        ctx.rotate(c.ang);
+        ctx.strokeStyle = 'rgba(220,228,255,.35)'; ctx.lineWidth = 2;
+        ctx.beginPath(); for (let k = -2; k <= 2; k++) { ctx.moveTo(-16, k * L / 2.6); ctx.lineTo(-46 - Math.abs(k) * 6, k * L / 2.6); } ctx.stroke();
+        ctx.fillStyle = '#6a7080'; ctx.beginPath(); ctx.roundRect(-11, -L, 22, L * 2, 6); ctx.fill();
+        ctx.fillStyle = '#e4e8f2'; ctx.beginPath(); ctx.roundRect(-11, -L, 18, L * 2 - 3, 5); ctx.fill();
+        ctx.strokeStyle = '#2a2e3a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(-11, -L, 22, L * 2, 6); ctx.stroke();
+        ctx.restore(); continue;
+      }
+      ctx.rotate(c.rot);
+      ctx.fillStyle = '#7a8090'; ctx.beginPath(); ctx.roundRect(-9, -8, 18, 18, 4); ctx.fill();
+      ctx.fillStyle = '#eef0f6'; ctx.beginPath(); ctx.roundRect(-9, -9, 18, 16, 4); ctx.fill();
+      ctx.strokeStyle = '#2a2e3a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.roundRect(-9, -9, 18, 19, 4); ctx.stroke();
+      ctx.fillStyle = '#2a2e3a'; ctx.font = `800 ${c.ch.length > 1 ? 7 : 10}px Grandstander, system-ui, sans-serif`; ctx.fillText(c.ch, 0, -1);
+      ctx.restore();
+    }
+    ctx.textBaseline = 'alphabetic';
+  }
   function drawSpuds(list) {
     for (const o of list) {
       if (o.t < 0) continue;
@@ -29100,6 +29307,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       drawQuest(now);
       if (run.weapons.mine && run.weapons.mine.mines) for (const m of run.weapons.mine.mines) if (onScreen(m, 20)) drawPuffcap(m, now, run.weapons.mine.evo);
       if (run.weapons.spud && run.weapons.spud.spuds) drawSpuds(run.weapons.spud.spuds);
+      if (run.weapons.mash && run.weapons.mash.caps) drawCaps(run.weapons.mash.caps);
       for (const id in run.weapons) if (id === 'bat') for (const b of run.weapons[id].bats) drawBat(b, now, run.weapons[id].evo);
       drawRelicActors(now);
       drawDice(now);
@@ -29402,6 +29610,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       allies = []; renderLoadout();
     } },
     spots: { get: () => run && (run.zone ? run.quest.spots : run.quest.home) },
+    // Moonfrost's brittle bonus, for testing: fj.frostBrittle = { chill: .1, frozen: .2 }.
+    frostBrittle: { get: () => FROST_BRITTLE, set: v => Object.assign(FROST_BRITTLE, v) },
     // The running hexagon trial's state (null when none is running).
     hexTrial: { get: () => hexT },
     // Opens a quest weapon's reward card: fj.questWeapon('rapier').
