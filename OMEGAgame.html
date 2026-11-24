@@ -23195,7 +23195,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-24f';
+  const BUILD = '2026-11-24h';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23322,10 +23322,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       html += `<div class="cx"><h3>${Au.name}</h3><div class="from">${`${zoneName('zelda')} · a long trade`}</div><p>${Au.desc}</p>`
         + `<div class="cxup"><span class="chip relic">${Au.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} guardians`}</span><div>${Au.megaDesc}</div></div></div>`;
       html += other('Vocation', `${zoneName('tibia')} · the Oracle`, 'Reach the level she asks for and choose a calling for the rest of the night.', Object.values(VOCS).map(v => [v.name, v.desc]));
-      html += other("The Keeper's gifts", `${zoneName('necro')} · the dance-off`, 'Win the dance-off and choose one.', [['Groove', '+6% speed and +5% damage for the rest of the night.'], ['Encore', 'Five level-ups, right now.'], ["The Keeper's Discount", '+4 rerolls, +10 max health and a full heal.']]);
+      html += other("Dance-off gifts", `${zoneName('necro')} · the Crooning Keeper`, 'Win the dance-off and choose one.', [['Groove', '+6% speed and +5% damage for the rest of the night.'], ['Encore', 'Five level-ups, right now.'], ["The Keeper's Discount", '+4 rerolls, +10 max health and a full heal.']]);
       html += other('Summon Sign', `${zoneName('ds')} · the knight of the sun`, 'Keep him alive and he answers his sign at every great battle ahead, fighting by your side against the bosses of the meadow and the dawn.');
       html += other('Mask Shard', `${zoneName('hk')} · the lost grubs`, '+15 max health, a full heal and a shower of glow.');
       html += other("Devil's pacts", `${zoneName('isaac')} · a flawless guardian fight`, 'A red door opens. Trade max health for power, or walk away and an angel may wait in the next rift.', PACTS.map(pc => [pc.name, `−${pc.cost} max health`]));
+      html += other("Angel's gifts", 'The next rift · after turning the devil away', 'A white door may glow in the next rift. Choose one gift, freely given.', ANGEL.map(g => [g.name, g.sub]));
     } else {
       $('cxNote').textContent = `Rift guardians drop relics. You carry one at a time; it grows with every guardian you beat this night (Lv 1–3) and awakens at ${RELIC_MEGA}.`;
       for (const [id, z] of codexRelics()) {
@@ -25990,7 +25991,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     homm: { name: 'Ring of the Wayfarer', from: 'The Land of Might and Magic', k: 'magnet', v: .2, text: 'Dug up where the obelisk map pointed. Treasure seems to roll toward it.' },
     potato: { name: 'Lucky Potato', from: 'Potato Fields', k: 'regen', v: .5, text: 'The only thing in the runaway crate. It keeps sprouting, and so do you.' },
     spire: { name: 'Bent Brass Spoon', from: 'The Ascent', k: 'area', v: .06, text: 'Taken from the ? room. Whatever you swing seems to reach a little farther.' },
-    temple: { name: 'Serpent Blood Vial', from: 'Temple of the Blood Serpent', k: 'hp', v: 12, text: 'Caught from the fourth brazier as it flared. It beats like a second heart.' },
+    temple: { name: 'Serpent Blood Vial', from: 'Temple of the Blood Serpent', k: 'hp', v: 15, text: 'Caught from the fourth brazier as it flared. It beats like a second heart.' },
     chaos: { name: 'Golden Split', from: 'The Chaos Rift', k: 'cd', v: .05, text: 'A gold split from a run the speedrunner swears you cheated. Everything you do feels a frame faster.' },
     monkey: { name: "Duellist's Plume", from: 'Grogwater Isle', k: 'crit', v: .04, text: "The swordmaster's hat feather, won with words, not steel. It keeps your eye on the weak spot." },
   });

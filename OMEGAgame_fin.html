@@ -23195,7 +23195,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-24f';
+  const BUILD = '2026-11-24h';
   $('buildStamp').textContent = `Kausi ${seasonName(GAME_VERSION)} · versio ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23322,10 +23322,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       html += `<div class="cx"><h3>${Au.name}</h3><div class="from">${`${zoneName('zelda')} · pitkä vaihtokauppa`}</div><p>${Au.desc}</p>`
         + `<div class="cxup"><span class="chip relic">${Au.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} vartijaa`}</span><div>${Au.megaDesc}</div></div></div>`;
       html += other('Ammatti', `${zoneName('tibia')} · Oraakkeli`, 'Saavuta hänen pyytämänsä taso ja valitse kutsumus loppuyöksi.', Object.values(VOCS).map(v => [v.name, v.desc]));
-      html += other("Pitäjän lahjat", `${zoneName('necro')} · tanssikilpailu`, 'Voita tanssikilpailu ja valitse yksi.', [['Groove', '+6 % nopeutta ja +5 % vahinkoa loppuyöksi.'], ['Encore', 'Viisi tasonnousua, heti.'], ["Vartijan alennus", '+4 uudelleenarvontaa, +10 maksimiterveyttä ja täysi parannus.']]);
+      html += other("Tanssikilpailun lahjat", `${zoneName('necro')} · Hyräilevä vartija`, 'Voita tanssikilpailu ja valitse yksi.', [['Groove', '+6 % nopeutta ja +5 % vahinkoa loppuyöksi.'], ['Encore', 'Viisi tasonnousua, heti.'], ["Vartijan alennus", '+4 uudelleenarvontaa, +10 maksimiterveyttä ja täysi parannus.']]);
       html += other('Kutsumerkki', `${zoneName('ds')} · auringon ritari`, 'Pidä hänet hengissä, niin hän vastaa merkkiinsä jokaisessa tulevassa suuressa taistelussa ja taistelee rinnallasi niityn ja aamunkoiton pomoja vastaan.');
       html += other('Naamionsiru', `${zoneName('hk')} · kadonneet toukat`, '+15 maksimiterveyttä, täysi parannus ja hehkusade.');
       html += other("Paholaisen sopimukset", `${zoneName('isaac')} · virheetön vartijataistelu`, 'Punainen ovi aukeaa. Vaihda maksimiterveyttä voimaan, tai kävele pois, niin seuraavassa maailmassa saattaa odottaa enkeli.', PACTS.map(pc => [pc.name, `−${pc.cost} maksimiterveyttä`]));
+      html += other("Enkelin lahjat", 'Seuraava maailma · kun käännytit paholaisen', 'Valkoinen ovi saattaa hehkua seuraavassa maailmassa. Valitse yksi lahja, ilmaiseksi annettu.', ANGEL.map(g => [g.name, g.sub]));
     } else {
       $('cxNote').textContent = `Maailmojen vartijat pudottavat reliikkejä. Mukanasi voi olla yksi kerrallaan; se vahvistuu jokaisesta yön aikana voittamastasi vartijasta (T 1–3) ja herää, kun vartijoita on ${RELIC_MEGA}.`;
       for (const [id, z] of codexRelics()) {
@@ -25990,7 +25991,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     homm: { name: 'Vaeltajan sormus', from: 'Mahdin ja magian maa', k: 'magnet', v: .2, text: 'Kaivettu esiin sieltä, minne obeliskikartta osoitti. Aarteet tuntuvat vierivän sitä kohti.' },
     potato: { name: 'Onnenperuna', from: 'Perunapellot', k: 'regen', v: .5, text: 'Karanneen laatikon ainoa sisältö. Se itää koko ajan, ja niin sinäkin.' },
     spire: { name: 'Taipunut messinkilusikka', from: 'Nousu', k: 'area', v: .06, text: 'Otettu ?-huoneesta. Mitä tahansa heilautat, se tuntuu yltävän vähän pidemmälle.' },
-    temple: { name: 'Käärmeenveripullo', from: 'Verikäärmeen temppeli', k: 'hp', v: 12, text: 'Siepattu neljännestä tulisijasta sen leimahtaessa. Se sykkii kuin toinen sydän.' },
+    temple: { name: 'Käärmeenveripullo', from: 'Verikäärmeen temppeli', k: 'hp', v: 15, text: 'Siepattu neljännestä tulisijasta sen leimahtaessa. Se sykkii kuin toinen sydän.' },
     chaos: { name: 'Kultainen väliaika', from: 'Kaaosmaailma', k: 'cd', v: .05, text: 'Kultainen väliaika juoksusta, jonka speedrunner vannoo sinun huijanneen. Kaikki tuntuu tapahtuvan ruudun verran nopeammin.' },
     monkey: { name: "Kaksintaistelijan sulka", from: 'Grogivesisaari', k: 'crit', v: .04, text: "Miekkamestarin hatun sulka, voitettu sanoilla eikä teräksellä. Se pitää katseesi heikossa kohdassa." },
   });
