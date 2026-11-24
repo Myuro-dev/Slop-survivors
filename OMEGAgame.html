@@ -161,6 +161,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 /* Codex: every weapon and relic with its upgrade path */
 #codex { z-index: 6; background: rgb(8, 12, 24); place-items: start center; padding-top: max(24px, 5vh); }   /* opaque: the title card showed through and shaded the cards unevenly */
 #codex .card { max-width: 640px; }
+#profile { z-index: 6; background: rgb(8, 12, 24); }
+#profile .card { max-width: 460px; }
+#profile p { margin: 0; }
+.pfform, .pfbtns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+.pfform input { width: 150px; font: inherit; font-size: 15px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(14, 20, 44, .9); color: var(--ink); }
 .cxlist { width: 100%; display: grid; gap: 10px; text-align: left; }
 .cx { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); box-shadow: 0 0 0 1px var(--line) inset; font-size: 14px; }
 .cx h3 { margin: 0 0 2px; font-size: 17px; }
@@ -180,6 +185,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .cx ul { margin: 2px 0 0; padding-left: 16px; font-size: 13px; line-height: 1.3; }
 .cx ul li { margin: 3px 0; }
 .cx ul b { color: var(--ink); }
+.cx.locked { opacity: .5; }
+.cx.locked h3 { letter-spacing: .2em; }
 .cx .stat { display: inline-block; margin: 2px 0 4px; font-size: 13px; font-weight: 700; color: #bfe8a8; }
 /* Back stays at the bottom of the screen while the list scrolls */
 #closeCodex { position: sticky; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 1; box-shadow: 0 6px 22px rgba(0, 0, 0, .55), 0 0 0 6px rgb(8, 12, 24); }
@@ -280,6 +287,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     <button class="btn" id="newRun">Begin the night</button>
     <button class="btn ghost" id="openBoards">Leaderboards</button>
     <button class="btn ghost" id="openCodex">Weapons &amp; Relics</button>
+    <button class="btn ghost" id="openProfile">Profile</button>
     <div class="vol"><button class="btn ghost aud-music">Music: on</button><input type="range" min="0" max="100" class="vol-music" aria-label="Music volume"><button class="btn ghost aud-sfx">Sound: on</button><input type="range" min="0" max="100" class="vol-sfx" aria-label="Sound volume"></div>
     <span class="sub" id="bestTitle"></span>
     <span class="build" id="buildStamp"></span>
@@ -361,6 +369,27 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     </div>
     <div class="overbtns"><button class="btn" id="again">Try another night</button><button class="btn ghost" id="overBoards">Leaderboards</button><button class="btn ghost" id="toMenu">Main menu</button></div>
     <span class="sub" id="bestOver"></span>
+  </div>
+</div>
+
+<div class="overlay" id="profile" hidden>
+  <div class="card">
+    <span class="eyebrow">Profile</span>
+    <h2>Keep your progress</h2>
+    <div id="pfOut">
+      <p class="lbnote">Pick a name and a 4–6 digit PIN. Your discoveries, best runs and best times are saved on the server, so another browser (or this one, if it forgets) can load them. The name is also yours on the leaderboards.</p>
+      <div class="pfform"><input id="pfName" maxlength="16" placeholder="Name" autocomplete="username" aria-label="Profile name"><input id="pfPin" maxlength="6" inputmode="numeric" type="password" placeholder="PIN" autocomplete="current-password" aria-label="PIN, 4 to 6 digits"></div>
+      <div class="pfbtns"><button class="btn" id="pfLoad">Load profile</button><button class="btn ghost" id="pfCreate">Create profile</button></div>
+      <p class="lbnote">Write your PIN down. If you forget it, ask the game's owner to reset it.</p>
+    </div>
+    <div id="pfIn" hidden>
+      <p>Signed in as <b id="pfWho"></b>. Your progress saves after every run.</p>
+      <p class="lbnote" id="pfWhen"></p>
+      <div class="pfbtns"><button class="btn" id="pfSave">Save now</button><button class="btn ghost" id="pfOutBtn">Sign out</button></div>
+      <p class="lbnote">Signing out keeps everything on this device; it only stops saving to the profile.</p>
+    </div>
+    <span class="lbstatus" id="pfStatus"></span>
+    <button class="btn" id="closeProfile">Back</button>
   </div>
 </div>
 
@@ -22959,6 +22988,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // The first pick never offers the purely defensive weapons: you need something that kills moths from the start.
     const pool = run.start ? Object.keys(WEAPONS).filter(id => !START_SKIP.includes(id) && !WEAPONS[id].quest).map(id => ({ type: 'w', id, lv: 1 })) : choicePool();
     offers = sample(pool, run.start ? 3 : 3 + (Math.random() < .1 * pv('clover') ? 1 : 0));
+    for (const o of offers) if (o.type === 'w') markSeen('w:' + o.id);
     $('picks').classList.toggle('four', offers.length > 3);
     if (!offers.length) offers = [{ type: 'heal' }];
     const el = $('picks'); el.innerHTML = '';
@@ -23004,6 +23034,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   }
   function apply(o) {
     if (o.type === 'w') {
+      markSeen('w:' + o.id);
       if (run.weapons[o.id]) run.weapons[o.id].lv++; else run.weapons[o.id] = newWeapon();
     } else if (o.type === 'p') {
       const before = S.maxHp;
@@ -23062,6 +23093,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     // Rift guardians always drop their zone's relic: equip it, or choose between it and the one you carry.
     let relicChoice = null;
     if (relic && RELICS[relic]) {
+      markSeen('r:' + relic);
       const Rl = RELICS[relic];
       if (!run.relic) { run.relic = newRelic(relic); loot.unshift({ relic: true, name: `Relic: ${Rl.name}`, desc: Rl.desc }); }
       else if (run.relic.id === relic) loot.unshift({ relic: true, name: `${Rl.name} hums`, desc: 'You already carry this relic.' });
@@ -23195,9 +23227,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-24h';
+  const BUILD = '2026-11-24j';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
-  const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
+  const LB_URL = (location.hostname === 'localhost' && new URLSearchParams(location.search).get('lb')) || 'https://till-dawn-lb.edgyhalla.workers.dev';   // ?lb=<url> on localhost: a local test server
   const BOARDS = {
     // A shattered Blood Moon (blood) ranks above every banished Eclipse Moth; each group is sorted by its own time.
     banish: { label: 'Fastest banish', fmt: v => v.toFixed(1) + ' s', key: 'banish_t', low: true, only: r => r.banished, cmp: (a, b) => (secretOf(b) ? 1 : 0) - (secretOf(a) ? 1 : 0) || a.banish_t - b.banish_t },
@@ -23270,7 +23302,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     const placed = recordLocal(lastScore), best = Object.entries(placed).filter(([, n]) => n <= 3);
     $('lbBest').hidden = !best.length;
     $('lbBest').textContent = best.length ? 'Personal best! ' + best.map(([id, n]) => `${BOARDS[id].label} #${n}`).join(' · ') : '';
-    $('lbName').value = lbStore.get('fjr-name', '');
+    $('lbName').value = (profGet() || {}).name || lbStore.get('fjr-name', '');
     $('lbStatus').textContent = LB_URL ? '' : 'Saved to this device\'s Hall of Fame.';
     $('lbSend').hidden = !LB_URL; $('lbName').hidden = !LB_URL;
     $('lbSend').disabled = false; box.hidden = false;
@@ -23282,7 +23314,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     lbStore.set('fjr-name', name);
     $('lbSend').disabled = true; $('lbStatus').textContent = 'Submitting…';
     try {
-      const r = await lbFetch('/runs', { method: 'POST', body: JSON.stringify({ ...lastScore, name }) });
+      const pr = profGet(), pin = pr && pr.name.toLowerCase() === name.toLowerCase() ? pr.pin : undefined;
+      const r = await lbFetch('/runs', { method: 'POST', body: JSON.stringify({ ...lastScore, name, pin }) });
       const ranks = Object.entries(r.ranks || {}).map(([id, n]) => `${BOARDS[id].label} #${n}`);
       $('lbStatus').textContent = 'Submitted! ' + ranks.join(' · ');
       lastScore = null;
@@ -23304,38 +23337,67 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // MEGA form (named by its rift only). Relics with no guardian to drop them (the secret cow level's, the quest-only Aurora Ribbon, the unused
   // Peg Leg) stay hidden.
   let cxTab = 'w';
+  // Discovery (fjr-seen): the codex shows only what this browser has met, the rest as locked "???" cards. Keys: w:<weapon>
+  // (offered on a card, in a chest or by a quest), r:<relic> (offered by a chest), q:<quest> (the quest appeared: the
+  // questBegin keys such as q:oracle or q:rq:monkey, plus q:angel and q:hex) and b:<keepsake> (earned). Test modes don't
+  // record (SEEN_OFF) and show everything (SEEN_ALL). The first load seeds it from the runs saved in fjr-hof.
+  const SEEN_OFF = /^#(debug|arena|tour|bestiary|soundlog|quests)/.test(location.hash), SEEN_ALL = /^#(debug|quests)/.test(location.hash);
+  const seenKeys = new Set(lbStore.get('fjr-seen', null) || seedSeen());
+  function seedSeen() {
+    const out = [];
+    for (const list of Object.values(lbStore.get('fjr-hof', {}))) for (const r of list || []) {
+      let b; try { b = JSON.parse(r.build || '{}'); } catch { continue; }
+      for (const id of Object.keys(b.w || {})) out.push('w:' + id);
+      if (b.r && b.r[0]) out.push('r:' + b.r[0]);
+      const q = b.q || {};
+      if (q.voc) out.push('q:oracle');
+      if (q.groove) out.push('q:keeper');
+      if (q.mask) out.push('q:grubs');
+      for (const id of Array.isArray(q.boons) ? q.boons : []) out.push('b:' + id, id === 'kid' ? 'q:doll' : 'q:rq:' + id);
+    }
+    lbStore.set('fjr-seen', [...new Set(out)]);
+    return out;
+  }
+  function markSeen(k) { if (SEEN_OFF || seenKeys.has(k)) return; seenKeys.add(k); lbStore.set('fjr-seen', [...seenKeys]); profDirty(); }
+  const isSeen = (...ks) => SEEN_ALL || ks.some(k => seenKeys.has(k));
+  const QW_QUEST = { rapier: 'q:rq:monkey', spud: 'q:rq:potato', mash: 'q:rq:chaos', wave: 'q:hex' };
+  const lockedCard = hint => `<div class="cx locked"><h3>???</h3><p>${hint}</p></div>`;
   function codexRelics() { return ZONES.filter(z => !QUEST_ZONES.includes(z.id) && RELICS[z.id]).map(z => [z.id, z]); }
   function renderCodex() {
     for (const b of $('cxTabs').children) b.classList.toggle('sel', b.dataset.t === cxTab);
-    let html = '';
+    let html = '', found = 0, total = 0;
+    const card = (ok, body, hint) => { total++; if (ok) { found++; html += body(); } else html += lockedCard(hint); };
+    let note;
     if (cxTab === 'w') {
-      $('cxNote').textContent = 'Weapons level up to 8. A weapon at level 6 plus its paired charm evolves when you open a chest.';
-      for (const [id, d] of Object.entries(WEAPONS)) if (!d.quest) html += cxWeapon(d);   // quest weapons are on the Quests tab
+      note = 'Weapons level up to 8. A weapon at level 6 plus its paired charm evolves when you open a chest.';
+      for (const [id, d] of Object.entries(WEAPONS)) if (!d.quest) card(isSeen('w:' + id), () => cxWeapon(d), 'Not found yet. It may be offered when you level up.');   // quest weapons are on the Quests tab
     } else if (cxTab === 'q') {
-      $('cxNote').textContent = 'Rift quests and a few rare encounters. At most two rift quests start in a night (now and then a third).';
+      note = 'Rift quests and a few rare encounters. At most two rift quests start in a night (now and then a third).';
       html += `<div class="cxh">${'Quest weapons'}</div>`;
-      for (const [id, d] of Object.entries(WEAPONS)) if (d.quest) html += cxWeapon(d, `${d.qzone ? zoneName(d.qzone) : 'The meadow'} · ${d.qfrom}`);
+      for (const [id, d] of Object.entries(WEAPONS)) if (d.quest) card(isSeen('w:' + id, QW_QUEST[id]), () => cxWeapon(d, `${d.qzone ? zoneName(d.qzone) : 'The meadow'} · ${d.qfrom}`), 'A quest weapon you have not found yet.');
       html += `<div class="cxh">${'Keepsakes'}</div>`;
-      for (const b of Object.values(QUEST_BOONS)) html += `<div class="cx"><h3>${b.name}</h3><div class="from">${b.from}</div><span class="stat">${boonText(b)}</span><p>${b.text}</p></div>`;
+      for (const [id, b] of Object.entries(QUEST_BOONS)) card(isSeen('b:' + id, id === 'kid' ? 'q:doll' : 'q:rq:' + id), () => `<div class="cx"><h3>${b.name}</h3><div class="from">${b.from}</div><span class="stat">${boonText(b)}</span><p>${b.text}</p></div>`, 'A keepsake from a quest you have not met yet.');
       html += `<div class="cxh">${'Other rewards'}</div>`;
       const Au = RELICS.aurora, other = (name, from, text, list) => `<div class="cx"><h3>${name}</h3><div class="from">${from}</div><p>${text}</p>${list ? `<ul>${list.map(([n, t]) => `<li><b>${n}</b>: ${t}</li>`).join('')}</ul>` : ''}</div>`;
-      html += `<div class="cx"><h3>${Au.name}</h3><div class="from">${`${zoneName('zelda')} · a long trade`}</div><p>${Au.desc}</p>`
-        + `<div class="cxup"><span class="chip relic">${Au.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} guardians`}</span><div>${Au.megaDesc}</div></div></div>`;
-      html += other('Vocation', `${zoneName('tibia')} · the Oracle`, 'Reach the level she asks for and choose a calling for the rest of the night.', Object.values(VOCS).map(v => [v.name, v.desc]));
-      html += other("Dance-off gifts", `${zoneName('necro')} · the Crooning Keeper`, 'Win the dance-off and choose one.', [['Groove', '+6% speed and +5% damage for the rest of the night.'], ['Encore', 'Five level-ups, right now.'], ["The Keeper's Discount", '+4 rerolls, +10 max health and a full heal.']]);
-      html += other('Summon Sign', `${zoneName('ds')} · the knight of the sun`, 'Keep him alive and he answers his sign at every great battle ahead, fighting by your side against the bosses of the meadow and the dawn.');
-      html += other('Mask Shard', `${zoneName('hk')} · the lost grubs`, '+15 max health, a full heal and a shower of glow.');
-      html += other("Devil's pacts", `${zoneName('isaac')} · a flawless guardian fight`, 'A red door opens. Trade max health for power, or walk away and an angel may wait in the next rift.', PACTS.map(pc => [pc.name, `−${pc.cost} max health`]));
-      html += other("Angel's gifts", 'The next rift · after turning the devil away', 'A white door may glow in the next rift. Choose one gift, freely given.', ANGEL.map(g => [g.name, g.sub]));
+      const qh = 'A quest you have not met yet.';
+      card(isSeen('r:aurora', 'q:doll'), () => `<div class="cx"><h3>${Au.name}</h3><div class="from">${`${zoneName('zelda')} · a long trade`}</div><p>${Au.desc}</p>`
+        + `<div class="cxup"><span class="chip relic">${Au.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} guardians`}</span><div>${Au.megaDesc}</div></div></div>`, qh);
+      card(isSeen('q:oracle'), () => other('Vocation', `${zoneName('tibia')} · the Oracle`, 'Reach the level she asks for and choose a calling for the rest of the night.', Object.values(VOCS).map(v => [v.name, v.desc])), qh);
+      card(isSeen('q:keeper'), () => other("Dance-off gifts", `${zoneName('necro')} · the Crooning Keeper`, 'Win the dance-off and choose one.', [['Groove', '+6% speed and +5% damage for the rest of the night.'], ['Encore', 'Five level-ups, right now.'], ["The Keeper's Discount", '+4 rerolls, +10 max health and a full heal.']]), qh);
+      card(isSeen('q:knight'), () => other('Summon Sign', `${zoneName('ds')} · the knight of the sun`, 'Keep him alive and he answers his sign at every great battle ahead, fighting by your side against the bosses of the meadow and the dawn.'), qh);
+      card(isSeen('q:grubs'), () => other('Mask Shard', `${zoneName('hk')} · the lost grubs`, '+15 max health, a full heal and a shower of glow.'), qh);
+      card(isSeen('q:devil'), () => other("Devil's pacts", `${zoneName('isaac')} · a flawless guardian fight`, 'A red door opens. Trade max health for power, or walk away and an angel may wait in the next rift.', PACTS.map(pc => [pc.name, `−${pc.cost} max health`])), qh);
+      card(isSeen('q:angel'), () => other("Angel's gifts", 'The next rift · after turning the devil away', 'A white door may glow in the next rift. Choose one gift, freely given.', ANGEL.map(g => [g.name, g.sub])), qh);
     } else {
-      $('cxNote').textContent = `Rift guardians drop relics. You carry one at a time; it grows with every guardian you beat this night (Lv 1–3) and awakens at ${RELIC_MEGA}.`;
+      note = `Rift guardians drop relics. You carry one at a time; it grows with every guardian you beat this night (Lv 1–3) and awakens at ${RELIC_MEGA}.`;
       for (const [id, z] of codexRelics()) {
         const Rl = RELICS[id], who = z.name;   // the rift only, never its guardian's name
-        html += `<div class="cx"><h3>${Rl.name}</h3><div class="from">${who}</div><p>${Rl.desc}</p>`
+        card(isSeen('r:' + id), () => `<div class="cx"><h3>${Rl.name}</h3><div class="from">${who}</div><p>${Rl.desc}</p>`
           + `<ol><li><b>Lv 1–3</b>${'Stronger with each rift guardian beaten'}</li></ol>`
-          + `<div class="cxup"><span class="chip relic">${Rl.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} guardians`}</span><div>${Rl.megaDesc}</div></div></div>`;
+          + `<div class="cxup"><span class="chip relic">${Rl.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} guardians`}</span><div>${Rl.megaDesc}</div></div></div>`, 'Not found yet. A rift guardian keeps it.');
       }
     }
+    $('cxNote').textContent = `${note} Found: ${found} of ${total}.`;
     $('cxList').innerHTML = html;
   }
   const zoneName = id => (ZONES.find(z => z.id === id) || {}).name || '';
@@ -23348,6 +23410,101 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       + `<div class="cxup"><span class="chip evo">${d.evoName}</span><span class="how">${ch ? `Lv ${EVO_LV} + ${ch.name}` : `Hexel reaches level ${d.evoAt}`}</span>`
       + `<div>${d.evoDesc}</div>${ch ? `<div class="from">${ch.name}: ${ch.desc}</div>` : ''}</div></div>`;
   }
+
+  /* ---------- Profiles: a name and a 4–6 digit PIN that keep this browser's saved data on the leaderboard server ----------
+     The title's Profile button opens #profile. Creating or loading a profile stores { name, pin } in fjr-profile; from then
+     on the data in PROF_KEYS syncs (profSync: load the server copy, merge it into this browser, save the result) when the
+     page opens, after every run, a little after a codex unlock, and when the tab is hidden. Merging never loses anything:
+     discoveries are joined, local bests keep the top 10 of both, best times and win counts keep the higher one, and audio
+     settings stay this device's own. A profile also protects its name on the boards (lbSubmit sends the PIN). */
+  const PROF_KEYS = ['fjr-seen', 'fjr-hof', 'fjr-name', 'fjr-hexbest', 'fjt-best', 'fjt-banished', 'fjt-bloodmoon', 'fjt-light', 'fjt-audio'];
+  const PROF_MAX = ['fjr-hexbest', 'fjt-best', 'fjt-banished', 'fjt-bloodmoon', 'fjt-light'];
+  const profGet = () => lbStore.get('fjr-profile', null);
+  const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+  function profData() { const d = {}; for (const k of PROF_KEYS) { const v = lsGet(k); if (v != null) d[k] = v; } return d; }
+  const hofOrder = b => (x, y) => b.cmp ? b.cmp(x, y) : b.low ? x[b.key] - y[b.key] : y[b.key] - x[b.key];
+  function profMerge(remote) {
+    if (!remote || typeof remote !== 'object') return;
+    const js = (v, d) => { try { return JSON.parse(v) ?? d; } catch { return d; } };
+    for (const k of PROF_KEYS) {
+      const r = remote[k], l = lsGet(k);
+      if (typeof r !== 'string') continue;
+      if (l == null) { if (k === 'fjr-seen') for (const s of js(r, [])) seenKeys.add(s); lsSet(k, r); continue; }
+      if (k === 'fjr-seen') { for (const s of js(r, [])) seenKeys.add(s); lsSet(k, JSON.stringify([...seenKeys])); }
+      else if (k === 'fjr-hof') {
+        const a = js(l, {}), b = js(r, {}), out = {};
+        for (const [id, bd] of Object.entries(BOARDS)) {
+          const all = [...(a[id] || []), ...(b[id] || [])], keep = new Map();
+          for (const row of all) if (row && typeof row === 'object') keep.set(`${row.created}|${row.name}`, row);
+          const list = [...keep.values()].sort(hofOrder(bd)).slice(0, 10);
+          if (list.length) out[id] = list;
+        }
+        lsSet(k, JSON.stringify(out));
+      } else if (PROF_MAX.includes(k)) lsSet(k, String(Math.max(+l || 0, +r || 0)));
+      // fjr-name follows the profile; fjt-audio stays this device's own
+    }
+  }
+  let profBusy = null, profTimer = 0;
+  function profSync() {
+    const pr = profGet();
+    if (!pr || pr.bad || !LB_URL || SEEN_OFF) return Promise.resolve(false);
+    if (profBusy) { profBusy.again = true; return profBusy; }
+    profBusy = (async () => {
+      try {
+        do {
+          if (profBusy) profBusy.again = false;
+          const r = await lbFetch('/profile/load', { method: 'POST', body: JSON.stringify({ name: pr.name, pin: pr.pin }) });
+          profMerge(r.data);
+          await lbFetch('/profile/save', { method: 'POST', body: JSON.stringify({ name: pr.name, pin: pr.pin, data: profData() }) });
+        } while (profBusy && profBusy.again);
+        lbStore.set('fjr-profile', { ...pr, at: Date.now() });
+        return true;
+      } catch (e) {
+        // A wrong PIN (reset by the admin) or a deleted profile stops syncing until the player signs in again.
+        if (/wrong PIN|no profile|locked/.test(e.message)) lbStore.set('fjr-profile', { ...pr, bad: e.message });
+        return false;
+      } finally { profBusy = null; if (!$('profile').hidden) renderProfile(); renderProfileBtn(); }
+    })();
+    return profBusy;
+  }
+  // A codex unlock syncs a little later, so a level-up's three new cards make one save, not three.
+  function profDirty() { if (profGet() && !profTimer) profTimer = setTimeout(() => { profTimer = 0; profSync(); }, 20000); }
+  addEventListener('visibilitychange', () => {
+    const pr = profGet();
+    if (document.visibilityState !== 'hidden' || !profTimer || !pr || pr.bad || !LB_URL) return;
+    clearTimeout(profTimer); profTimer = 0;
+    try { fetch(LB_URL + '/profile/save', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: pr.name, pin: pr.pin, data: profData() }) }).catch(() => {}); } catch {}
+  });
+  async function profEnter(create) {
+    const name = $('pfName').value.trim().replace(/\s+/g, ' '), pin = $('pfPin').value.trim(), st = $('pfStatus');
+    if (!/^[A-Za-z0-9 _-]{3,16}$/.test(name)) { st.textContent = 'Names are 3–16 letters, digits, spaces, _ or -.'; return; }
+    if (!/^\d{4,6}$/.test(pin)) { st.textContent = 'The PIN is 4 to 6 digits.'; return; }
+    if (!LB_URL) { st.textContent = 'Profiles need the leaderboard server, which is not connected.'; return; }
+    st.textContent = create ? 'Creating…' : 'Loading…';
+    try {
+      const r = create ? await lbFetch('/profile/create', { method: 'POST', body: JSON.stringify({ name, pin, data: profData() }) })
+        : await lbFetch('/profile/load', { method: 'POST', body: JSON.stringify({ name, pin }) });
+      const nm = r.name || name;   // the profile's own spelling
+      lbStore.set('fjr-profile', { name: nm, pin }); lbStore.set('fjr-name', nm);
+      $('pfPin').value = '';
+      await profSync();
+      renderProfile();
+      st.textContent = create ? 'Profile created. Your progress now saves automatically.' : 'Profile loaded and merged with this browser.';
+    } catch (e) {
+      st.textContent = e.message === 'offline' || e instanceof TypeError ? 'The server could not be reached. Try again later.' : e.message === 'not found' ? 'Profiles are not available on the server yet.' : e.message.charAt(0).toUpperCase() + e.message.slice(1) + '.';
+    }
+  }
+  function renderProfile() {
+    const pr = profGet();
+    $('pfOut').hidden = !!pr; $('pfIn').hidden = !pr;
+    if (pr) {
+      $('pfWho').textContent = pr.name;
+      $('pfWhen').textContent = pr.bad ? `Not saving: ${pr.bad}. Sign out and load the profile again.` : pr.at ? `Last saved ${new Date(pr.at).toLocaleString()}.` : 'Not saved yet.';
+    }
+  }
+  function renderProfileBtn() { const pr = profGet(); $('openProfile').textContent = pr ? `Profile: ${pr.name}` : 'Profile'; }
+  function openProfile() { $('profile').hidden = false; $('pfStatus').textContent = ''; renderProfile(); }
   function openCodex() { $('codex').hidden = false; renderCodex(); $('codex').scrollTop = 0; }
 
   async function openBoards() {
@@ -23488,6 +23645,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     $('finalLoadout').innerHTML = chips();
     $('dmgStats').innerHTML = dmgStats(); $('dmgStats').hidden = !$('dmgStats').innerHTML;
     lbOnOver(how);
+    profSync();
     run.endHow = ['perfect', 'fled', 'bloodfled', 'light', 'lightfled'].includes(how) ? how : how === 'blood' ? 'bloodmoon' : how === 'quit' ? 'quit' : 'death'; playPing('end'); run.rid = null;
     renderLoadout();
     showBest();
@@ -25722,7 +25880,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   function addBoon(id) {
     const b = QUEST_BOONS[id], q = run.quest, before = S.maxHp;
     if (!b || (q.boonIds || []).includes(id)) return;
-    questWin(q, 'rq:' + id); q.boons = q.boons || {}; q.boons[b.k] = (q.boons[b.k] || 0) + b.v; if (b.k2) q.boons[b.k2] = (q.boons[b.k2] || 0) + b.v2; (q.boonIds = q.boonIds || []).push(id);
+    markSeen('b:' + id); questWin(q, 'rq:' + id); q.boons = q.boons || {}; q.boons[b.k] = (q.boons[b.k] || 0) + b.v; if (b.k2) q.boons[b.k2] = (q.boons[b.k2] || 0) + b.v2; (q.boonIds = q.boonIds || []).push(id);
     recalc(); if (S.maxHp > before) run.hp += S.maxHp - before;
     renderLoadout(); banner(`${b.name}: ${boonText(b)}`, '#bfe8a8', true); snd.fx('evolve');
   }
@@ -26121,6 +26279,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // it evolves with an existing charm, which comes the usual way.
   function offerQuestWeapon(id, eyebrow) {
     const d = WEAPONS[id]; if (!d || run.weapons[id]) return;
+    markSeen('w:' + id);
     const ws = Object.entries(run.weapons), give = (lv, out) => {
       if (out) delete run.weapons[out];
       run.weapons[id] = Object.assign(newWeapon(), { lv: Math.max(1, Math.min(WMAX, lv)), evo: !!(d.evoAt && run.lv >= d.evoAt) });
@@ -26788,7 +26947,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (q.hexAt === undefined) q.hexAt = qRoll(HEX_CHANCE) ? rnd(90, 420) : null;
     if (q.hexAt != null && !run.zone && !run.finale && run.t >= q.hexAt && run.t < DAWN - 60) {
       q.hexAt = null; const a = Math.random() * TAU, dd = rnd(1300, 1800);
-      q.home.push({ kind: 'hexaltar', x: P.x + Math.cos(a) * dd, y: P.y + Math.sin(a) * dd, life: HEX_LIFE, onWin: () => queueMicrotask(() => offerQuestWeapon('wave', 'The hexagon yields')) });
+      markSeen('q:hex'); q.home.push({ kind: 'hexaltar', x: P.x + Math.cos(a) * dd, y: P.y + Math.sin(a) * dd, life: HEX_LIFE, onWin: () => queueMicrotask(() => offerQuestWeapon('wave', 'The hexagon yields')) });
       banner('A hexagon altar rises far off in the meadow… (follow the gold arrow)', '#ffe27a', true); snd.fx('warn');
     }
     if (q.began && q.began.includes('doll') && !q.traded && !peddlerAhead()) questFail(q, 'doll');   // the peddler left: the trade can't finish
@@ -26821,7 +26980,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const QUEST_TEST = location.hash === '#quests';
   const qRoll = p => QUEST_TEST || Math.random() < p;   // a quest's spawn chance (always passes in test mode)
   const questOpen = (q, k) => QUEST_TEST || !(q.won || []).includes(k) && !(q.failed || []).includes(k) && (q.began.includes(k) || q.began.length < QUEST_SLOTS || (q.began.length < QUEST_MAX && q.extraRoom));
-  const questBegin = (q, k) => { if (!q.began.includes(k)) q.began.push(k); q.here = q.here || []; if (!q.here.includes(k)) q.here.push(k); };
+  const questBegin = (q, k) => { markSeen('q:' + k); if (!q.began.includes(k)) q.began.push(k); q.here = q.here || []; if (!q.here.includes(k)) q.here.push(k); };
   function questWin(q, k) { q.won = q.won || []; if (!q.won.includes(k) && (q.began || []).includes(k)) q.won.push(k); }
   function questFail(q, k) {
     if ((q.won || []).includes(k) || !(q.began || []).includes(k)) return;
@@ -26849,7 +27008,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     }
     if (id === 'necro' && !q.danced && questOpen(q, 'keeper') && qRoll(KEEPER_CHANCE)) { questBegin(q, 'keeper'); add('keeper', 600, 900, { state: 'idle' }); banner('Somewhere in the crypt, someone is singing…', '#ffc890', true); }
     riftQuestEnter(def, add);
-    if (q.angel) { q.angel = false; if (Math.random() < ANGEL_CHANCE) { add('angel', 330, 460); banner('A white door glows softly nearby…', '#f0f4ff', true); } }
+    if (q.angel) { q.angel = false; if (Math.random() < ANGEL_CHANCE) { markSeen('q:angel'); add('angel', 330, 460); banner('A white door glows softly nearby…', '#f0f4ff', true); } }
     if (id !== 'cow' && (q.flies || 0) + (q.jar || 0) < JAR_FULL && Math.random() < FLY_CHANCE) { add('firefly', 900, 1400, { ph: Math.random() * 6, a: Math.random() * TAU }); banner('A lost firefly glimmers somewhere in this rift', '#ffe27a'); }
   }
   function questExit() {
@@ -29543,6 +29702,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   $('lbNewer').addEventListener('click', () => { const l = lbSeasons || [], i = l.indexOf(lbVer); if (i > 0) { lbVer = l[i - 1]; renderBoards(); } });
   $('closeBoards').addEventListener('click', () => { $('boards').hidden = true; });
   $('openCodex').addEventListener('click', openCodex);
+  $('openProfile').addEventListener('click', openProfile);
+  $('closeProfile').addEventListener('click', () => { $('profile').hidden = true; });
+  $('pfLoad').addEventListener('click', () => profEnter(false));
+  $('pfCreate').addEventListener('click', () => profEnter(true));
+  $('pfSave').addEventListener('click', async () => { $('pfStatus').textContent = 'Saving…'; $('pfStatus').textContent = await profSync() ? 'Saved.' : 'Could not save right now.'; });
+  $('pfOutBtn').addEventListener('click', () => { try { localStorage.removeItem('fjr-profile'); } catch {} $('pfStatus').textContent = 'Signed out.'; renderProfile(); renderProfileBtn(); });
+  for (const id of ['pfName', 'pfPin']) $(id).addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') profEnter(false); });
+  renderProfileBtn(); profSync();
   $('closeCodex').addEventListener('click', () => { $('codex').hidden = true; });
   $('cxTabs').addEventListener('click', ev => { const t = ev.target.closest('button'); if (!t) return; cxTab = t.dataset.t; renderCodex(); $('codex').scrollTop = 0; });
   $('lbSend').addEventListener('click', lbSubmit);
@@ -29890,7 +30057,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       run.god = true; run.portalT = 1e9;
       const q = run.quest;
       if (q.home.some(s => s.kind === 'hexaltar')) return;
-      q.home.push({ kind: 'hexaltar', x: P.x + 150, y: P.y - 20, onWin: () => queueMicrotask(() => offerQuestWeapon('wave', 'The hexagon yields')) });
+      markSeen('q:hex'); q.home.push({ kind: 'hexaltar', x: P.x + 150, y: P.y - 20, onWin: () => queueMicrotask(() => offerQuestWeapon('wave', 'The hexagon yields')) });
       banner('Demo: touch the hexagon altar to start the trial', '#ffe27a', true);
     }, 250);
   }
