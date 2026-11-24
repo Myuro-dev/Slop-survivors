@@ -176,6 +176,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .cx .cxup .how { vertical-align: middle; color: var(--muted); }
 .cx .cxup div { margin-top: 3px; line-height: 1.32; }
 .cx ol li { line-height: 1.3; }
+.cxh { margin: 8px 2px -2px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.cx ul { margin: 2px 0 0; padding-left: 16px; font-size: 13px; line-height: 1.3; }
+.cx ul li { margin: 3px 0; }
+.cx ul b { color: var(--ink); }
+.cx .stat { display: inline-block; margin: 2px 0 4px; font-size: 13px; font-weight: 700; color: #bfe8a8; }
 /* Back stays at the bottom of the screen while the list scrolls */
 #closeCodex { position: sticky; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 1; box-shadow: 0 6px 22px rgba(0, 0, 0, .55), 0 0 0 6px rgb(8, 12, 24); }
 #boards { z-index: 6; background: rgba(8, 12, 24, .95); place-items: start center; padding-top: max(24px, 5vh); }
@@ -363,7 +368,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   <div class="card">
     <span class="eyebrow">Kokoelma</span>
     <h2>Aseet &amp; reliikit</h2>
-    <div class="lbtabs" id="cxTabs"><button class="btn ghost sel" data-t="w">Aseet</button><button class="btn ghost" data-t="r">Reliikit</button></div>
+    <div class="lbtabs" id="cxTabs"><button class="btn ghost sel" data-t="w">Aseet</button><button class="btn ghost" data-t="r">Reliikit</button><button class="btn ghost" data-t="q">Tehtävät</button></div>
     <p class="lbnote" id="cxNote"></p>
     <div class="cxlist" id="cxList"></div>
     <button class="btn" id="closeCodex">Takaisin</button>
@@ -924,15 +929,15 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       up: ['Vahinko +25 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +20 %, nopeampi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +17 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään', 'Vahinko +21 %, nopeampi, leveämpi, kauhistuttaa pidempään', 'Vahinko +18 %, nopeampi, leveämpi, ulottuu pidemmälle, kauhistuttaa pidempään'] },
     frost: { name: 'Kuunhalla', desc: 'Hallaviuhka takanasi viilentää ja hidastaa kaikkea, mikä jahtaa sinua. Viilentyneet viholliset haurastuvat ja ottavat 20 % enemmän vahinkoa kaikesta.', evo: 'dusk', evoName: 'Absoluuttinen nolla', evoDesc: 'Täysi lumimyrskyrengas, joka jäädyttää viholliset kohmeeseen. Jäätyneet viholliset ottavat 40 % enemmän vahinkoa kaikesta.',
       up: ['Vahinko +20 %, ulottuu pidemmälle, viilentää pidempään', 'Vahinko +25 %, nopeampi', 'Vahinko +20 %, leveämpi, nopeampi', 'Vahinko +22 %, leveämpi, nopeampi', 'Vahinko +18 %, leveämpi, ulottuu pidemmälle'] },
-    wave: { name: 'Heksaalto', quest: true, desc: 'Muutaman sekunnin välein Hekseli polkaisee maata, ja kuusikulmainen paineaalto vyöryy hitaasti ulospäin siitä, missä se seisoi, iskien jokaista vihollista, jonka ohi se kulkee, ja työntäen sen kauemmas.', evo: null, evoAt: 100, evoName: 'Resonanssi', evoDesc: 'Kaksi heksaaltoa ulottuu paljon kauemmas, kääntyy sitten ja vyöryy takaisin luoksesi, iskien jokaista vihollista uudelleen paluumatkalla.',
+    wave: { name: 'Heksaalto', quest: true, qfrom: 'kuusikulmion koetus, harvinaisina öinä', qzone: null, desc: 'Muutaman sekunnin välein Hekseli polkaisee maata, ja kuusikulmainen paineaalto vyöryy hitaasti ulospäin siitä, missä se seisoi, iskien jokaista vihollista, jonka ohi se kulkee, ja työntäen sen kauemmas.', evo: null, evoAt: 100, evoName: 'Resonanssi', evoDesc: 'Kaksi heksaaltoa ulottuu paljon kauemmas, kääntyy sitten ja vyöryy takaisin luoksesi, iskien jokaista vihollista uudelleen paluumatkalla.',
       up: ['Vahinko +25 %', 'Vahinko +20 %, ulottuu kauemmas, vyöryy nopeammin', 'Toinen aalto seuraa ensimmäistä', 'Vahinko +20 %, ulottuu kauemmas, polkaisee useammin', 'Vahinko +20 %, ulottuu kauemmas, polkaisee useammin'] },
     // Quest weapons (quest: true) never appear in level-ups, chests or the starting pick; a quest hands them out
     // (offerQuestWeapon). Once owned they level up like any other weapon.
-    rapier: { name: 'Hopearapiiri', quest: true, desc: "Miekkamestarin terä, voitettu sanoilla. Syöksähtää lähimpään viholliseen lävistäen kaiken pistonsa linjalla ja löytää heikot kohdat (+15 % kriittisen osuman mahdollisuus). Osuman ottaminen virittää vastaiskun, joka iskee kaksinkertaisesti.", evo: 'keen', evoName: 'Viimeinen sana', evoDesc: 'Viiden piston ryöppy, ja jokainen vastaisku vastaa pistojen renkaalla kaikkialle ympärillesi.',
+    rapier: { name: 'Hopearapiiri', quest: true, qfrom: 'loukkauskaksintaistelu', qzone: 'monkey', desc: "Miekkamestarin terä, voitettu sanoilla. Syöksähtää lähimpään viholliseen lävistäen kaiken pistonsa linjalla ja löytää heikot kohdat (+15 % kriittisen osuman mahdollisuus). Osuman ottaminen virittää vastaiskun, joka iskee kaksinkertaisesti.", evo: 'keen', evoName: 'Viimeinen sana', evoDesc: 'Viiden piston ryöppy, ja jokainen vastaisku vastaa pistojen renkaalla kaikkialle ympärillesi.',
       up: ['Vahinko +31 %', 'Toinen pisto, pistää nopeammin, pidempi ulottuvuus', 'Vahinko +24 %, pistää nopeammin, pidempi ulottuvuus', 'Vahinko +19 %, pidempi ulottuvuus', 'Kolmas pisto, vahinko +19 %, pistää nopeammin, pidempi ulottuvuus'] },
-    spud: { name: 'Perunatykki', quest: true, desc: 'Löytyi karkuun lähteneestä saalisarkusta. Lennättää perunoita vihollisiin; kukin pomppii eteenpäin ja litistää kaiken, mihin se osuu.', evo: 'shoe', evoName: 'Perunavyöry', evoDesc: 'Kolme perunaa kerralla, viisi pomppua kukin, ja viimeinen pomppu räjähtää laajaksi muusiroiskeeksi, joka hidastaa vihollisia.',
+    spud: { name: 'Perunatykki', quest: true, qfrom: 'karannut aarrearkku', qzone: 'potato', desc: 'Löytyi karkuun lähteneestä saalisarkusta. Lennättää perunoita vihollisiin; kukin pomppii eteenpäin ja litistää kaiken, mihin se osuu.', evo: 'shoe', evoName: 'Perunavyöry', evoDesc: 'Kolme perunaa kerralla, viisi pomppua kukin, ja viimeinen pomppu räjähtää laajaksi muusiroiskeeksi, joka hidastaa vihollisia.',
       up: ['Vahinko +25 %', '+1 pomppu', 'Toinen peruna, ampuu nopeammin', 'Vahinko +20 %, isompi roiske', '+1 pomppu, vahinko +17 %, ampuu nopeammin'] },
-    mash: { name: 'Näppäimistömättö', quest: true, desc: "Speedrunnerin näppäimistö, raivolla hylätty. Hekseli hakkaa sitä: näppäimet lentävät vihollisiin, kimpoavat vihollisesta toiseen ja pomppivat ruudun reunoista.", evo: 'wings', evoName: 'Välilyönti', evoDesc: 'Enemmän näppäimiä, nopeampaa hakkaamista, ja joka neljäs isku paiskaa jättimäisen välilyöntinäppäimen eteenpäin, joka jyrää kaiken tieltään.',
+    mash: { name: 'Näppäimistömättö', quest: true, qfrom: 'speedrunnerin kisa', qzone: 'chaos', desc: "Speedrunnerin näppäimistö, raivolla hylätty. Hekseli hakkaa sitä: näppäimet lentävät vihollisiin, kimpoavat vihollisesta toiseen ja pomppivat ruudun reunoista.", evo: 'wings', evoName: 'Välilyönti', evoDesc: 'Enemmän näppäimiä, nopeampaa hakkaamista, ja joka neljäs isku paiskaa jättimäisen välilyöntinäppäimen eteenpäin, joka jyrää kaiken tieltään.',
       up: ['Vahinko +27 %', 'Yksi näppäin lisää, näppäimet kimpoavat kerran enemmän, hakkaa nopeammin', 'Vahinko +21 %, hakkaa nopeammin', 'Yksi näppäin lisää, vahinko +18 %, näppäimet kimpoavat kerran enemmän, hakkaa nopeammin', 'Yksi näppäin lisää, vahinko +15 %, hakkaa nopeammin'] },
   };
   // Keyboard Mash's keycap letters
@@ -22864,19 +22869,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     S = {
       area: 1 + .13 * pv('net') + (bn.area || 0),
       cd: 1 - .07 * pv('steady') - (bn.cd || 0),
-      might: 1 + .1 * pv('ember') + (run.bonus || 0) + (voc === 'sorcerer' ? .2 : 0) + (run.quest.groove ? .08 : 0) + (bn.might || 0),
-      crit: .07 * pv('keen') + (voc === 'paladin' ? .08 : 0) + (bn.crit || 0),
+      might: 1 + .1 * pv('ember') + (run.bonus || 0) + (voc === 'sorcerer' ? .08 : 0) + (run.quest.groove ? .05 : 0) + (bn.might || 0),
+      crit: .07 * pv('keen') + (voc === 'paladin' ? .04 : 0) + (bn.crit || 0),
       ignite: .04 * pv('kindle'),
-      maxHp: Math.max(30, Math.round(100 * (1 + .2 * pv('heart')) * (voc === 'knight' ? 1.3 : 1) + (run.quest.hp || 0) + (bn.hp || 0))),
-      speed: 150 * (1 + .1 * pv('wings')) * (run.quest.groove ? 1.12 : 1) * (1 + (bn.speed || 0) + (run.chestSpd || 0)),
+      maxHp: Math.max(30, Math.round(100 * (1 + .2 * pv('heart')) * (voc === 'knight' ? 1.15 : 1) + (run.quest.hp || 0) + (bn.hp || 0))),
+      speed: 150 * (1 + .1 * pv('wings')) * (run.quest.groove ? 1.06 : 1) * (1 + (bn.speed || 0) + (run.chestSpd || 0)),
       magnet: 110 * (1 + .3 * pv('magnet')) * (1 + (bn.magnet || 0)),
       dur: 1 + .12 * pv('linger'),
-      projSp: 1 + .1 * pv('linger') + (voc === 'paladin' ? .25 : 0),
-      regen: .25 * pv('dew') + (voc === 'druid' ? 1.2 : 0) + (bn.regen || 0),
-      reachK: voc === 'paladin' ? 1.2 : 1,
-      healK: voc === 'druid' ? 1.5 : 1,
+      projSp: 1 + .1 * pv('linger') + (voc === 'paladin' ? .1 : 0),
+      regen: .25 * pv('dew') + (voc === 'druid' ? 1 : 0) + (bn.regen || 0),
+      reachK: voc === 'paladin' ? 1.1 : 1,
+      healK: voc === 'druid' ? 1.25 : 1,
       growth: 1 + .1 * pv('gold') + .12 * pv('dusk') + (bn.growth || 0),
-      armor: pv('wax') + (voc === 'knight' ? 2 : 0) + (bn.armor || 0),
+      armor: pv('wax') + (voc === 'knight' ? 1 : 0) + (bn.armor || 0),
       amount: pv('echo'),
       frail: 1 + .15 * pv('echo'),   // Echo Charm's downside: damage taken
       brute: .05 * pv('brace'),
@@ -23190,7 +23195,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-20h';
+  const BUILD = '2026-11-24f';
   $('buildStamp').textContent = `Kausi ${seasonName(GAME_VERSION)} · versio ${BUILD}`;
   const LB_URL = 'https://till-dawn-lb.edgyhalla.workers.dev';
   const BOARDS = {
@@ -23305,15 +23310,22 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     let html = '';
     if (cxTab === 'w') {
       $('cxNote').textContent = 'Aseet nousevat tasolle 8 asti. Tason 6 ase kehittyy pariamulettinsa kanssa, kun avaat arkun.';
-      for (const [id, d] of Object.entries(WEAPONS)) {
-        if (d.quest) continue;   // quest weapons stay a secret
-        const ch = PASSIVES[d.evo];
-        html += `<div class="cx"><h3>${d.name}</h3><p>${d.desc}</p><ol>`
-          + d.up.map((u, i) => `<li><b>T ${i + 2}</b>${u}</li>`).join('')
-          + `<li><b>T 7–8</b>${'Vahinko +22 %, nopeampi ja isompi joka tasolla'}</li></ol>`
-          + `<div class="cxup"><span class="chip evo">${d.evoName}</span><span class="how">${`T ${EVO_LV} + ${ch.name}`}</span>`
-          + `<div>${d.evoDesc}</div><div class="from">${ch.name}: ${ch.desc}</div></div></div>`;
-      }
+      for (const [id, d] of Object.entries(WEAPONS)) if (!d.quest) html += cxWeapon(d);   // quest weapons are on the Quests tab
+    } else if (cxTab === 'q') {
+      $('cxNote').textContent = 'Maailmojen tehtävät ja muutama harvinainen kohtaaminen. Yhden yön aikana alkaa enintään kaksi maailmatehtävää (silloin tällöin kolmas).';
+      html += `<div class="cxh">${'Tehtäväaseet'}</div>`;
+      for (const [id, d] of Object.entries(WEAPONS)) if (d.quest) html += cxWeapon(d, `${d.qzone ? zoneName(d.qzone) : 'Niitty'} · ${d.qfrom}`);
+      html += `<div class="cxh">${'Muistoesineet'}</div>`;
+      for (const b of Object.values(QUEST_BOONS)) html += `<div class="cx"><h3>${b.name}</h3><div class="from">${b.from}</div><span class="stat">${boonText(b)}</span><p>${b.text}</p></div>`;
+      html += `<div class="cxh">${'Muut palkinnot'}</div>`;
+      const Au = RELICS.aurora, other = (name, from, text, list) => `<div class="cx"><h3>${name}</h3><div class="from">${from}</div><p>${text}</p>${list ? `<ul>${list.map(([n, t]) => `<li><b>${n}</b>: ${t}</li>`).join('')}</ul>` : ''}</div>`;
+      html += `<div class="cx"><h3>${Au.name}</h3><div class="from">${`${zoneName('zelda')} · pitkä vaihtokauppa`}</div><p>${Au.desc}</p>`
+        + `<div class="cxup"><span class="chip relic">${Au.mega}</span><span class="how">${`MEGA · ${RELIC_MEGA} vartijaa`}</span><div>${Au.megaDesc}</div></div></div>`;
+      html += other('Ammatti', `${zoneName('tibia')} · Oraakkeli`, 'Saavuta hänen pyytämänsä taso ja valitse kutsumus loppuyöksi.', Object.values(VOCS).map(v => [v.name, v.desc]));
+      html += other("Pitäjän lahjat", `${zoneName('necro')} · tanssikilpailu`, 'Voita tanssikilpailu ja valitse yksi.', [['Groove', '+6 % nopeutta ja +5 % vahinkoa loppuyöksi.'], ['Encore', 'Viisi tasonnousua, heti.'], ["Vartijan alennus", '+4 uudelleenarvontaa, +10 maksimiterveyttä ja täysi parannus.']]);
+      html += other('Kutsumerkki', `${zoneName('ds')} · auringon ritari`, 'Pidä hänet hengissä, niin hän vastaa merkkiinsä jokaisessa tulevassa suuressa taistelussa ja taistelee rinnallasi niityn ja aamunkoiton pomoja vastaan.');
+      html += other('Naamionsiru', `${zoneName('hk')} · kadonneet toukat`, '+15 maksimiterveyttä, täysi parannus ja hehkusade.');
+      html += other("Paholaisen sopimukset", `${zoneName('isaac')} · virheetön vartijataistelu`, 'Punainen ovi aukeaa. Vaihda maksimiterveyttä voimaan, tai kävele pois, niin seuraavassa maailmassa saattaa odottaa enkeli.', PACTS.map(pc => [pc.name, `−${pc.cost} maksimiterveyttä`]));
     } else {
       $('cxNote').textContent = `Maailmojen vartijat pudottavat reliikkejä. Mukanasi voi olla yksi kerrallaan; se vahvistuu jokaisesta yön aikana voittamastasi vartijasta (T 1–3) ja herää, kun vartijoita on ${RELIC_MEGA}.`;
       for (const [id, z] of codexRelics()) {
@@ -23324,6 +23336,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       }
     }
     $('cxList').innerHTML = html;
+  }
+  const zoneName = id => (ZONES.find(z => z.id === id) || {}).name || '';
+  // One weapon card: description, levels 2–8 and its evolution (with the charm, or the level that evolves it).
+  function cxWeapon(d, from) {
+    const ch = d.evo ? PASSIVES[d.evo] : null;
+    return `<div class="cx"><h3>${d.name}</h3>${from ? `<div class="from">${from}</div>` : ''}<p>${d.desc}</p><ol>`
+      + d.up.map((u, i) => `<li><b>T ${i + 2}</b>${u}</li>`).join('')
+      + `<li><b>T 7–8</b>${'Vahinko +22 %, nopeampi ja isompi joka tasolla'}</li></ol>`
+      + `<div class="cxup"><span class="chip evo">${d.evoName}</span><span class="how">${ch ? `T ${EVO_LV} + ${ch.name}` : `Hekseli saavuttaa tason ${d.evoAt}`}</span>`
+      + `<div>${d.evoDesc}</div>${ch ? `<div class="from">${ch.name}: ${ch.desc}</div>` : ''}</div></div>`;
   }
   function openCodex() { $('codex').hidden = false; renderCodex(); $('codex').scrollTop = 0; }
 
@@ -25100,7 +25122,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         };
         for (const e of foes) {
           if (e.dead || (e.cds.aur || 0) > run.clock || e.x < x0 - w - e.r || e.x > x1 + w + e.r || e.y < y0 - w - e.r || e.y > y1 + w + e.r) continue;
-          if (near(e.x, e.y, w + e.r)) { e.cds.aur = run.clock + .4; hit(e, (mega ? 22 : 14) * pow, 40, P.x, P.y); }
+          if (near(e.x, e.y, w + e.r)) { e.cds.aur = run.clock + .4; hit(e, (mega ? 32 : 21) * pow, 40, P.x, P.y); }
         }
         if (mega) for (const b of bullets) if (b.life > 0 && b.x > x0 - w && b.x < x1 + w && b.y > y0 - w && b.y < y1 + w && near(b.x, b.y, w + b.r)) { b.life = 0; burst(b.x, b.y, '#9affd0', 4, 90); }
         break;
@@ -25612,7 +25634,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const SHRINE_T = [40, 200, 370], SHRINE_LIFE = 75, SHRINE_R = 95, SHRINE_HOLD = 5;
   // The Crooning Keeper's dance-off (the crypt rift): DANCE_STEPS beats of KEEP_STEP s on a 3×3 pad of KEEP_PAD px tiles.
   const DANCE_STEPS = 8, DANCE_NEED = 6, KEEP_STEP = .7, KEEP_PAD = 60, KEEP_PADY = 110;
-  const DOLL_CHANCE = .5, KNIGHT_CHANCE = .5, ORACLE_CHANCE = .6, GRUB_CHANCE = .5, FLY_CHANCE = 1, ANGEL_CHANCE = .6;
+  const DOLL_CHANCE = .5, DOLL_BY = 270, KEEPER_CHANCE = .55, KNIGHT_CHANCE = .5, ORACLE_CHANCE = .6, GRUB_CHANCE = .5, FLY_CHANCE = 1, ANGEL_CHANCE = .6;
   const JAR_FULL = 5, SHARD_T = { luna: 24, stag: 45, queen: 40 }, SHARD_BOSSES = Object.keys(SHARD_T);
   const peddlerAhead = () => !!run.peddler || EVENTS.slice(run.ev).some(e => e.kind === 'peddler');
   const bossAhead = () => EVENTS.slice(run.ev).some(e => e.kind === 'boss');
@@ -25621,10 +25643,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // The Oracle asks for about the level a good run has reached at that hour, plus a few: reach it inside the rift.
   const oracleLv = () => Math.max(12, Math.round(7.5 * run.t / 60) + 4);
   const VOCS = {
-    knight: { name: 'Ritari', desc: '+30 % maksimiterveyttä ja +2 panssaria.' },
-    paladin: { name: 'Paladiini', desc: 'Aseet ja reliikit ulottuvat 20 % kauemmas, ammukset lentävät 25 % nopeammin, +8 % kriittisen osuman mahdollisuutta.' },
-    sorcerer: { name: 'Velho', desc: '+20 % vahinkoa.' },
-    druid: { name: 'Druidi', desc: 'Palauttaa 1.2 terveyttä sekunnissa, ja jokainen parannus on 50 % voimakkaampi.' },
+    knight: { name: 'Ritari', desc: '+15 % maksimiterveyttä ja +1 panssari.' },
+    paladin: { name: 'Paladiini', desc: 'Aseet ja reliikit ulottuvat 10 % kauemmas, ammukset lentävät 10 % nopeammin, +4 % kriittisen osuman mahdollisuus.' },
+    sorcerer: { name: 'Velho', desc: '+8 % vahinkoa.' },
+    druid: { name: 'Druidi', desc: 'Palauttaa 1 terveyden sekunnissa, ja jokainen parannus on 25 % voimakkaampi.' },
   };
   // [name, description, hint] for each quest chip (pause screen).
   const QUEST_INFO = {
@@ -25638,8 +25660,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     jar: [() => `Tulikärpäspurkki · ${run.quest.jar}/${JAR_FULL}`, () => 'Maailmoista kotiin tuomasi tulikärpäset. Täysi purkki valaisee finaalin: Hekseli tekee 25 % enemmän vahinkoa aamunkoiton pomoon.', () => jarFull() ? 'Täynnä!' : 'Eksyneet tulikärpäset piileskelevät maailmoissa'],
     shards: [() => `Kuunsirut · ${run.quest.shards}/3`, () => `Voita pääkartan pomo nopeasti ansaitaksesi sirun: Suuri kuukehrääjä ${SHARD_T.luna} s:ssa, Tammihärkä ${SHARD_T.stag} s:ssa, Yöperhoskuningatar ${SHARD_T.queen} s:ssa (seuraa ☾-merkkiä sen terveyspalkissa).`, () => run.quest.shards >= 3 ? 'Aamunkoitteessa voit kutsua oudomman kuun' : 'Kolme sirua voi kutsua oudomman kuun aamunkoitteessa'],
     voc: [() => VOCS[run.quest.voc].name, () => VOCS[run.quest.voc].desc, () => 'Ammatti valittu Oraakkelilta'],
-    mask: [() => 'Naamionsiru', () => '+20 maksimiterveyttä, lahja Toukkaisältä.', () => 'Tehtäväpalkinto'],
-    groove: [() => 'Groove', () => '+12 % nopeutta ja +8 % vahinkoa loppuyöksi. Tanssit Hyräilevän vartijan kanssa etkä hukannut ainuttakaan iskua (no, melkein).', () => 'Tehtäväpalkinto'],
+    mask: [() => 'Naamionsiru', () => '+15 maksimiterveyttä, lahja Toukkaisältä.', () => 'Tehtäväpalkinto'],
+    groove: [() => 'Groove', () => '+6 % nopeutta ja +5 % vahinkoa loppuyöksi. Tanssit Hyräilevän vartijan kanssa etkä hukannut ainuttakaan iskua (no, melkein).', () => 'Tehtäväpalkinto'],
     dbl: [() => `Dublonit · ${run.quest.dbl}/${DBL_NEED}`, () => 'Kirottua kultaa luurankomiehistöltä. Laiturin aavekapteeni haluaa niitä kymmenen.', () => 'Tehtäväesine: vie ne laiturin arkkuun (menetät ne, jos poistut lahdelta)'],
     obel: [() => `Palapelikartta · ${run.quest.obel}/4`, () => 'Palasia vanhasta kartasta, yksi kustakin obeliskista. Yhdessä ne näyttävät, minne aarre on haudattu.', () => 'Tehtäväesine: käy kaikilla neljällä obeliskilla (menetät ne, jos poistut maailmasta)'],
     shrines: [() => `Yöperhospyhäköt · ${run.quest.shrines}/3`, () => 'Pyhäkköjä valolle, jota yöperhoset kerran palvoivat. Niitylle nousee joka yö kolme (0:40, 3:20 ja 6:10); seiso yhdessä 5 sekuntia sytyttääksesi sen ennen kuin se hiipuu. Jos yksi sammuu, uusia ei enää nouse tänä yönä.',
@@ -25695,11 +25717,11 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     growth: ['hehkua (XP)', v => `+${Math.round(v * 100)} %`], hp: ['maksimiterveyttä', v => `+${v}`], armor: ['armor', v => `+${v}`], regen: ['terveyttä sekunnissa', v => `+${v}`],
   };
   const QUEST_BOONS = {};
-  const boonText = b => `${BOON_STAT[b.k][1](b.v)} ${BOON_STAT[b.k][0]}`;
+  const boonText = b => `${BOON_STAT[b.k][1](b.v)} ${BOON_STAT[b.k][0]}` + (b.k2 ? `, ${BOON_STAT[b.k2][1](b.v2)} ${BOON_STAT[b.k2][0]}` : '');
   function addBoon(id) {
     const b = QUEST_BOONS[id], q = run.quest, before = S.maxHp;
     if (!b || (q.boonIds || []).includes(id)) return;
-    questWin(q, 'rq:' + id); q.boons = q.boons || {}; q.boons[b.k] = (q.boons[b.k] || 0) + b.v; (q.boonIds = q.boonIds || []).push(id);
+    questWin(q, 'rq:' + id); q.boons = q.boons || {}; q.boons[b.k] = (q.boons[b.k] || 0) + b.v; if (b.k2) q.boons[b.k2] = (q.boons[b.k2] || 0) + b.v2; (q.boonIds = q.boonIds || []).push(id);
     recalc(); if (S.maxHp > before) run.hp += S.maxHp - before;
     renderLoadout(); banner(`${b.name}: ${boonText(b)}`, '#bfe8a8', true); snd.fx('evolve');
   }
@@ -25718,10 +25740,10 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   ];
   const ANGEL = [
     { ok: () => true, name: 'Elinvoiman siunaus', sub: '+20 maksimiterveyttä, ja paranet täysin.', take() { addMaxHp(20); run.hp = S.maxHp; } },
-    { ok: () => true, name: 'Sädekehä', sub: '+8 % vahinkoa loppuyöksi.', take() { run.bonus = (run.bonus || 0) + .08; recalc(); } },
-    { ok: () => true, name: 'Pyhä valo', sub: '+3 uudelleenarvontaa.', take() { run.rerolls += 3; } },
-    { ok: () => Object.entries(run.passives).some(([id, k]) => k < PASSIVES[id].max), name: 'Armon sulka', sub: 'Satunnainen kantamasi amuletti nousee tason.',
-      take() { const ids = Object.keys(run.passives).filter(id => run.passives[id] < PASSIVES[id].max), id = ids[Math.floor(Math.random() * ids.length)], before = S.maxHp; run.passives[id]++; recalc(); if (S.maxHp > before) run.hp += S.maxHp - before; banner(`${PASSIVES[id].name} vahvistuu`, '#f0f4ff'); } },
+    { ok: () => true, name: 'Sädekehä', sub: '+5 % vahinkoa loppuyöksi.', take() { run.bonus = (run.bonus || 0) + .05; recalc(); } },
+    { ok: () => true, name: 'Pyhä valo', sub: 'Valosta putoaa kolme aarrearkkua.', take() { for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + (i - 1) * .9; motes.push({ kind: 'chest', x: P.x + Math.cos(a) * 90, y: P.y + Math.sin(a) * 90, boss: false, bob: i }); } burst(P.x, P.y - 60, '#f0f4ff', 30, 220); } },
+    { ok: () => Object.entries(run.passives).some(([id, k]) => k < PASSIVES[id].max), name: 'Armon sulka', sub: 'Amulettisi saavat kolme tasoa, kukin satunnaiselle kantamallesi amuletille.',
+      take() { const before = S.maxHp, grown = []; for (let k = 0; k < 3; k++) { const ids = Object.keys(run.passives).filter(id => run.passives[id] < PASSIVES[id].max); if (!ids.length) break; const id = ids[Math.floor(Math.random() * ids.length)]; run.passives[id]++; grown.push(PASSIVES[id].name); } recalc(); if (S.maxHp > before) run.hp += S.maxHp - before; renderLoadout(); banner(`${[...new Set(grown)].join(', ')} vahvistu${grown.length > 1 ? 'vat' : 'u'}`, '#f0f4ff'); } },
   ];
 
   const SPOTS = {
@@ -25769,9 +25791,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       } },
     grubfather: { r: 40, glow: '230,235,210', arrow: ['#3a3a28', '#f0f0d0'], draw: drawGrubfather,
       touch(s) {
-        run.quest.mask = true; questWin(run.quest, 'grubs'); addMaxHp(20); heal(S.maxHp);
+        run.quest.mask = true; questWin(run.quest, 'grubs'); addMaxHp(15); heal(S.maxHp);
         for (let i = 0; i < 25; i++) dropXp(s.x + rnd(-70, 70), s.y + rnd(-50, 50), 10);
-        banner('Toukkaisä antaa sinulle Naamionsirun: +20 maksimiterveyttä', '#f0f0d0', true); snd.fx('evolve'); burst(s.x, s.y, '#f0f0d0', 30, 220);
+        banner('Toukkaisä antaa sinulle Naamionsirun: +15 maksimiterveyttä', '#f0f0d0', true); snd.fx('evolve'); burst(s.x, s.y, '#f0f0d0', 30, 220);
         return true;
       } },
     // Fireflies for the jar: a lost firefly flitting about a rift, and the jar in the meadow.
@@ -25830,9 +25852,9 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         s.state = 'won'; run.quest.danced = true; questWin(run.quest, 'keeper');
         openQuest({ eyebrow: `Tanssikisa · ${s.hits}/${DANCE_STEPS}`, title: '"Mitkä liikkeet! Ota jotain matkaevääksi"', text: 'Hyräilevä vartija kumartaa yhä hyräillen. Valitse yksi lahja.',
           options: [
-            { name: 'Groove', sub: '+12 % nopeutta ja +8 % vahinkoa loppuyöksi.', btn: 'Ota tämä', fn: () => { run.quest.groove = true; recalc(); } },
-            { name: 'Encore', sub: 'Kaksi tasonnousua, heti.', btn: 'Ota tämä', fn: () => { run.pending += 2; } },
-            { name: "Vartijan alennus", sub: '+3 uudelleenarvontaa ja täysi parannus.', btn: 'Ota tämä', fn: () => { run.rerolls += 3; run.hp = S.maxHp; } },
+            { name: 'Groove', sub: '+6 % nopeutta ja +5 % vahinkoa loppuyöksi.', btn: 'Ota tämä', fn: () => { run.quest.groove = true; recalc(); } },
+            { name: 'Encore', sub: 'Viisi tasonnousua, heti.', btn: 'Ota tämä', fn: () => { run.pending += 5; } },
+            { name: "Vartijan alennus", sub: '+4 uudelleenarvontaa, +10 maksimiterveyttä ja täysi parannus.', btn: 'Ota tämä', fn: () => { run.rerolls += 4; addMaxHp(10); run.hp = S.maxHp; } },
           ].map(o => ({ ...o, fn: () => { o.fn(); s.gone = true; burst(s.x, s.y - 20, '#ffc890', 26, 200); snd.fx('evolve'); } })) });
       } },
     // A forgotten moth shrine in the meadow: stand in its circle for SHRINE_HOLD s to light it (progress drains while
@@ -25942,7 +25964,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const EGG_HP = 100, EGG_T = 20;
   const DBL_NEED = 10, DBL_CHANCE = .4;
   const DIG_R = 42, DIG_HOLD = 3, CRATE_T = 15;
-  const SR_CP = 8, SR_D = [360, 520], SR_GHOST = 125;   // the speedrunner's race: checkpoints, their spacing, the ghost's speed (Hexel's base is 150)
+  const SR_CP = 8, SR_D = [360, 520], SR_GHOST = .85;   // the speedrunner's race: checkpoints, their spacing, the ghost's speed as a share of Hexel's when the race starts
   // The insult duel (Grogwater Isle): [insult, the one right comeback]. All original, and none of the zone's own lines.
   const INSULTS = [
     ["Olen nähnyt merirokkoja, joilla on enemmän selkärankaa!", 'Ja hävisit niillekin, ulkonäöstäsi päätellen.'],
@@ -25957,19 +25979,19 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ['Haiset pilssiin unohdetulta lyhdyltä!', "Ainakaan en ole se pilssi."],
   ];
   Object.assign(QUEST_BOONS, {
-    kid: { name: "Lapsen kiitos", from: 'Koholaidin matalikot', k: 'armor', v: 2, text: 'Itkevä lapsi sitoi ympärillesi onneksi palan vaaleanpunaista rusettia ennen kuin antoi loput. Aallot tuntuvat nyt lempeämmiltä.' },
-    wc2: { name: 'Onnenkultahippu', from: "Gruntin kahlaamo", k: 'growth', v: .1, text: 'Ensimmäinen hippu kaivoksesta, jolle vapautettu työläinen hakkasi tiensä. "Hyvää työtä!"' },
+    kid: { name: "Lapsen kiitos", from: 'Koholaidin matalikot', k: 'armor', v: 2, k2: 'hp', v2: 5, text: 'Itkevä lapsi sitoi ympärillesi onneksi palan vaaleanpunaista rusettia ennen kuin antoi loput. Aallot tuntuvat nyt lempeämmiltä.' },
+    wc2: { name: 'Onnenkultahippu', from: "Gruntin kahlaamo", k: 'growth', v: .15, text: 'Ensimmäinen hippu kaivoksesta, jolle vapautettu työläinen hakkasi tiensä. "Hyvää työtä!"' },
     moo2: { name: 'Antaranin navigointiydin', from: 'Antaranin syvyys', k: 'speed', v: .05, text: 'Pelastetun pelastuskapselin navigointiydin. Se hurisee yhä vanhoja tähtiajokarttoja.' },
-    z: { name: 'Vallattu viiri', from: 'Robottisodat', k: 'armor', v: 1, text: 'Puolueeton lippu, nyt sinun väreissäsi. Robotit vihaavat sitä.' },
+    z: { name: 'Vallattu viiri', from: 'Robottisodat', k: 'armor', v: 2, text: 'Puolueeton lippu, nyt sinun väreissäsi. Robotit vihaavat sitä.' },
     gw2: { name: 'Reittipisteen siru', from: 'Poltearpien erämaa', k: 'cd', v: .05, text: 'Siru puolustamastasi reittipistekristallista. Kaikki tuntuu palaavan vähän aiemmin.' },
     lol: { name: 'Viimeisen iskun kolikko', from: 'Maailmankaista', k: 'crit', v: .05, text: 'Kultaa kolmesta täydellisestä viimeisestä iskusta. Jokainen kolikko on kuolinisku.' },
     zerg: { name: 'Sikiökuori', from: 'Kutualtaat', k: 'hp', v: 15, text: 'Levy vartioimastasi munasta, yhä lämmin. Se kovettuu iskusta.' },
     bay: { name: "Kapteenin dublooni", from: 'Merirosvolahti', k: 'might', v: .05, text: 'Aavekapteeni heitti yhden takaisin laidallisen jälkeen. Se puree.' },
-    homm: { name: 'Vaeltajan sormus', from: 'Mahdin ja magian maa', k: 'magnet', v: .1, text: 'Kaivettu esiin sieltä, minne obeliskikartta osoitti. Aarteet tuntuvat vierivän sitä kohti.' },
-    potato: { name: 'Onnenperuna', from: 'Perunapellot', k: 'regen', v: .3, text: 'Karanneen laatikon ainoa sisältö. Se itää koko ajan, ja niin sinäkin.' },
+    homm: { name: 'Vaeltajan sormus', from: 'Mahdin ja magian maa', k: 'magnet', v: .2, text: 'Kaivettu esiin sieltä, minne obeliskikartta osoitti. Aarteet tuntuvat vierivän sitä kohti.' },
+    potato: { name: 'Onnenperuna', from: 'Perunapellot', k: 'regen', v: .5, text: 'Karanneen laatikon ainoa sisältö. Se itää koko ajan, ja niin sinäkin.' },
     spire: { name: 'Taipunut messinkilusikka', from: 'Nousu', k: 'area', v: .06, text: 'Otettu ?-huoneesta. Mitä tahansa heilautat, se tuntuu yltävän vähän pidemmälle.' },
     temple: { name: 'Käärmeenveripullo', from: 'Verikäärmeen temppeli', k: 'hp', v: 12, text: 'Siepattu neljännestä tulisijasta sen leimahtaessa. Se sykkii kuin toinen sydän.' },
-    chaos: { name: 'Kultainen väliaika', from: 'Kaaosmaailma', k: 'speed', v: .05, text: 'Kultainen väliaika juoksusta, jonka speedrunner vannoo sinun huijanneen. Jalkasi luulevat yhä kilpailevansa.' },
+    chaos: { name: 'Kultainen väliaika', from: 'Kaaosmaailma', k: 'cd', v: .05, text: 'Kultainen väliaika juoksusta, jonka speedrunner vannoo sinun huijanneen. Kaikki tuntuu tapahtuvan ruudun verran nopeammin.' },
     monkey: { name: "Kaksintaistelijan sulka", from: 'Grogivesisaari', k: 'crit', v: .04, text: "Miekkamestarin hatun sulka, voitettu sanoilla eikä teräksellä. Se pitää katseesi heikossa kohdassa." },
   });
   // Damage sources quests add (damage stats and leaderboard details).
@@ -26044,7 +26066,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       pops.push({ x: e.x, y: e.y - 30, txt: 'Viimeinen isku!', col: '#ffcf4a', life: 0, ttl: 1.2, big: true });
       for (let i = 0; i < 4; i++) dropXp(e.x + rnd(-20, 20), e.y + rnd(-20, 20), 5);
     } else pops.push({ x: e.x, y: e.y - 30, txt: 'Ohi!', col: '#c8b8a0', life: 0, ttl: 1.2, big: true });
-    if (s.hits >= GOLD_NEED) { s.gone = true; addBoon('lol'); return; }
+    if (s.hits >= GOLD_NEED) { s.gone = true; motes.push({ kind: 'chest', x: e.x, y: e.y, boss: false, bob: 0 }); addBoon('lol'); return; }
     if (s.hits + GOLD_MINIONS - s.n < GOLD_NEED) { s.gone = true; questFail(run.quest, 'rq:lol'); banner('Liian monta viimeistä iskua meni ohi. Kultaiset kätyrit lakkaavat tulemasta', '#c8b8a0', true); return; }
     banner(ok ? `Viimeinen isku! (${s.hits}/${GOLD_NEED})` : `Viimeinen isku meni ohi: ole lähellä, kun se kaatuu (${s.hits}/${GOLD_NEED})`, ok ? '#ffcf4a' : '#d8c8a8');
   }
@@ -26159,7 +26181,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const near = foesNear(s.x, s.y, 22);
         if (near.length) { s.hp -= near.length * 4 * dt; s.hurt = .15; }
         if (s.hp <= 0) { s.gone = b.gone = true; questFail(run.quest, 'rq:moo2'); burst(s.x, s.y, '#9ad8ff', 30, 220); banner('Kapseli hajoaa… sen signaali vaikenee', '#8aa0c0', true); snd.fx('bossdown'); return; }
-        if (Math.hypot(b.x - s.x, b.y - s.y) < 70) { s.gone = true; b.won = true; b.t = 3; burst(b.x, b.y - 30, '#9ad8ff', 30, 220); banner('"Signaali vastaanotettu. Kiitos, pikku valo!"', '#9ad8ff', true); addBoon('moo2'); }
+        if (Math.hypot(b.x - s.x, b.y - s.y) < 70) { s.gone = true; b.won = true; b.t = 3; burst(b.x, b.y - 30, '#9ad8ff', 30, 220); banner('"Signaali vastaanotettu. Kiitos, pikku valo!"', '#9ad8ff', true); motes.push({ kind: 'chest', x: b.x, y: b.y + 30, boss: false, bob: 0 }); addBoon('moo2'); }
       } },
     beacon: { r: 0, glow: '140,230,255', arrow: ['#10243a', '#9ad8ff'], arrowIf: s => !s.won, draw: drawBeacon, update(s, d, dt) { if (s.won && (s.t -= dt) <= 0) s.gone = true; } },
     // The Robot Wars: hold the neutral flag's circle for FLAG_HOLD s while robots roll in.
@@ -26193,7 +26215,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const near = foesNear(s.x, s.y, 26);
         if (near.length) { s.hp -= near.length * 3 * dt; s.hurt = .15; }
         if (s.hp <= 0) { s.phase = 'done'; s.gone = true; questFail(run.quest, 'rq:gw2'); burst(s.x, s.y, '#a0b0d0', 30, 220); banner('Tapahtuma epäonnistui: golem tuhoutui', '#a08cb0', true); snd.fx('bossdown'); return; }
-        if (dd < 24) { s.phase = 'done'; s.gone = true; burst(s.x, s.y - 20, '#d8b8ff', 30, 220); banner('Tapahtuma suoritettu! Golem pääsi leiriin', '#e0b8ff', true); addBoon('gw2'); }
+        if (dd < 24) { s.phase = 'done'; s.gone = true; burst(s.x, s.y - 20, '#d8b8ff', 30, 220); banner('Tapahtuma suoritettu! Golem pääsi leiriin', '#e0b8ff', true); motes.push({ kind: 'chest', x: s.x, y: s.y + 30, boss: false, bob: 0 }); addBoon('gw2'); }
       } },
     // The Riftbound Lane: up to GOLD_MINIONS golden cannon minions (×3 HP); be within GOLD_R px when one dies. GOLD_NEED wins.
     goldlane: { r: 0, arrow: ['#3a2a08', '#ffcf4a'], arrowIf: s => !!s.e, draw: () => {},
@@ -26260,6 +26282,8 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       touch(s) { const q = run.quest; q.dbl++; snd.fx('coins'); pops.push({ x: s.x, y: s.y - 16, txt: `${q.dbl}/${DBL_NEED}`, col: '#ffd25a', life: 0, ttl: .8, big: q.dbl === DBL_NEED }); if (q.dbl === DBL_NEED) banner('Kymmenen dubloonia! Vie ne kapteenin arkulle', '#8ff0d8', true); return true; } },
     // The Land of Might and Magic: four obelisks, each a map piece; all four reveal an X; dig there DIG_HOLD s.
     obelisk: { r: 24, glow: '255,220,140', arrow: ['#3a2a10', '#ffd890'], nearest: true, draw: drawObelisk,
+      // each obelisk is guarded: coming near wakes a small stack around it
+      update(s, d) { if (s.stirred || d > 340) return; s.stirred = true; snd.fx('warn'); qSpawn(['pike', 'pike', 'wolf', 'archer', 'garg', 'pike'], s.x, s.y, 6, 260); pops.push({ x: s.x, y: s.y - 70, txt: 'Vartioitu!', col: '#ffd890', life: 0, ttl: 1.2, big: true }); },
       touch(s) {
         const q = run.quest; q.obel = (q.obel || 0) + 1; burst(s.x, s.y - 40, '#ffd890', 20, 160); snd.fx('chest');
         pops.push({ x: s.x, y: s.y - 70, txt: `Karttapala ${q.obel}/4`, col: '#ffd890', life: 0, ttl: 1.2, big: true });
@@ -26314,7 +26338,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       } },
     // Grogwater Isle: an insult duel, three rounds; pick the right comeback each time. A wrong one: walk away and retry.
     // The Chaos Rift: a speedrunner bets you can't beat their ghost. Touch them to race: SR_CP checkpoints across the
-    // patchwork, one at a time, while the ghost runs the same route at SR_GHOST px/s. Reach the last one first to win;
+    // patchwork, one at a time, while the ghost runs the same route at SR_GHOST of Hexel's speed. Reach the last one first to win;
     // the ghost finishing first is a reset ("Reset!"), and the third reset fails the quest.
     runner: { r: 24, glow: '140,240,255', arrow: ['#0a2a30', '#7af0ff'], arrowIf: s => s.state === 'idle', draw: drawRunner,
       touch(s) { if (s.state !== 'idle' || s.cool > 0) return false; startRace(s); return false; },
@@ -26323,7 +26347,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
         const r = s.race;
         if (s.state === 'race' && r) {
           if (r.go > 0) { const was = Math.ceil(r.go); r.go -= dt; if (r.go <= 0) { srNextCp(s); banner('MENE!', '#7af0ff'); snd.fx('warn'); } else if (Math.ceil(r.go) < was) snd.fx('pick'); return; }
-          r.t += dt; r.gd = Math.min(r.total, r.gd + SR_GHOST * dt);
+          r.t += dt; r.gd = Math.min(r.total, r.gd + r.gs * dt);
           if (r.gd >= r.total) srReset(s);
         }
         if ((s.state === 'won' || s.state === 'lost') && (s.t -= dt) <= 0) s.gone = true;
@@ -26331,7 +26355,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     srcp: { r: 30, glow: '140,240,255', gr: 40, arrow: ['#0a2a30', '#7af0ff'], draw: drawSrCp,
       touch(s) {
         const o = s.owner, r = o.race; if (!r || o.state !== 'race') return true;
-        const ghostAt = r.cum[s.n] / SR_GHOST, diff = r.t - ghostAt;
+        const ghostAt = r.cum[s.n] / r.gs, diff = r.t - ghostAt;
         pops.push({ x: P.x, y: P.y - 44, txt: `${diff < 0 ? '−' : '+'}${Math.abs(diff).toFixed(1)}`, col: diff < 0 ? '#7aff9a' : '#ff7a8a', life: 0, ttl: 1.1, big: true });
         burst(s.x, s.y, '#7af0ff', 14, 160); snd.fx('pick');
         if (s.n >= SR_CP) srWin(o); else srNextCp(o);
@@ -26351,12 +26375,12 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   /* ---------- Rift quest figures ---------- */
   // The speedrunner's race (Chaos Rift). The route starts at the runner and winds through SR_CP checkpoints, each
   // SR_D px from the last, turning at most ~80 degrees so it never doubles back; r.cum[i] is the route length up to
-  // checkpoint i, so the ghost's split at each checkpoint is r.cum[i] / SR_GHOST.
+  // checkpoint i, so the ghost's split at each checkpoint is r.cum[i] / r.gs.
   function startRace(s) {
     const pts = [[s.x, s.y]]; let a = Math.atan2(P.y - s.y, P.x - s.x) + Math.PI + rnd(-.6, .6);
     for (let i = 0; i < SR_CP; i++) { a += rnd(-1.4, 1.4); const [x, y] = pts[i], d = rnd(SR_D[0], SR_D[1]); pts.push([x + Math.cos(a) * d, y + Math.sin(a) * d]); }
     const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-    s.race = { pts, cum, total: cum[cum.length - 1], t: 0, gd: 0, go: 3, i: 0 };
+    s.race = { pts, cum, total: cum[cum.length - 1], t: 0, gd: 0, go: 3, i: 0, gs: S.speed * SR_GHOST };
     s.state = 'race'; run.quest.race = s;
     run.quest.spots.push({ kind: 'srghost', x: s.x, y: s.y, owner: s });
     banner(`"Any%, ${SR_CP} tarkistuspistettä, haamu päällä. Valmiina?"`, '#7af0ff', true); snd.fx('warn');
@@ -26382,7 +26406,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     banner(`"Liian hidas! RESET!" Kävele takaisin ja kosketa speedrunneria kilpaillaksesi uudestaan (${triesLeft(QUEST_TRIES - s.tries)})`, '#7af0ff', true);
   }
   function srWin(s) {
-    const t = s.race.t, ghost = s.race.total / SR_GHOST; srClear(s);
+    const t = s.race.t, ghost = s.race.total / s.race.gs; srClear(s);
     s.state = 'won'; s.t = 8; snd.fx('chest');
     banner(`${t.toFixed(2)} s, ${(ghost - t).toFixed(2)} s haamua edellä! "Onko tuo maailmanennätys?! …Ihan sama. Lopetan. Ota näppäimistöni."`, '#7af0ff', true);
     addBoon('chaos');
@@ -26430,7 +26454,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // During the race, its clock and the gap to the ghost hang under Hexel.
   function drawRaceTimer() {
     const s = run.quest.race; if (!s || !s.race || s.race.go > 0 || !run.zone) return;
-    const r = s.race, left = (r.total - r.gd) / SR_GHOST;
+    const r = s.race, left = (r.total - r.gd) / r.gs;
     qLabel(`${r.t.toFixed(1)} s · haamu maalissa ${left.toFixed(1)} s päästä`, P.x, P.y + 44, left < 4 ? '#ff9aa8' : '#bff8ff', 13);
   }
 
@@ -26791,7 +26815,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // Quests begun in the current rift are listed in q.here; when the rift closes (questExit) every one of them that
   // isn't won fails, except the trading sequence while you still carry the doll or ribbon (it fails once the peddler
   // has gone without the trade, checked in updateQuest).
-  const QUEST_SLOTS = 2, QUEST_EXTRA = .1, QUEST_MAX = 3;
+  const QUEST_SLOTS = 2, QUEST_EXTRA = .25, QUEST_MAX = 3;
   // Quest test mode (OMEGAgame.html#quests): every quest appears every time its rift is entered (see the block near the end).
   const QUEST_TEST = location.hash === '#quests';
   const qRoll = p => QUEST_TEST || Math.random() < p;   // a quest's spawn chance (always passes in test mode)
@@ -26813,7 +26837,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     if (id === 'd2' && !q.leg && !q.used && (QUEST_TEST || peddlerAhead())) { add('wirt', 1100, 1500); banner('Jossain kryptissä makaa kaatunut poika… (seuraa punaista nuolta)', '#ff8a7a', true); }
     // The leg and tome are spent opening the pasture.
     if (id === 'cow' && q.leg && q.tome) { q.leg = q.tome = false; q.used = true; renderLoadout(); }
-    if (id === 'zelda' && !q.doll && (QUEST_TEST || (!q.ribbon && !q.traded && !q.dollSeen && peddlerAhead())) && questOpen(q, 'doll') && qRoll(DOLL_CHANCE)) { q.dollSeen = true; questBegin(q, 'doll'); add('doll', 800, 1200); banner('Jokin pieni kimaltaa rannalla…', '#a8e898'); }
+    if (id === 'zelda' && !q.doll && (QUEST_TEST || (!q.ribbon && !q.traded && !q.dollSeen && peddlerAhead() && run.t < DOLL_BY)) && questOpen(q, 'doll') && qRoll(DOLL_CHANCE)) { q.dollSeen = true; questBegin(q, 'doll'); add('doll', 800, 1200); banner('Jokin pieni kimaltaa rannalla…', '#a8e898'); }
     else if (q.doll && id !== 'cow') { add('kid', 700, 1000); banner('Jossain itkee lapsi…', '#ffc8dc', true); }
     if (id === 'ds' && !q.sign && !q.knightSeen && (QUEST_TEST || bossAhead()) && questOpen(q, 'knight') && qRoll(KNIGHT_CHANCE)) { q.knightSeen = true; questBegin(q, 'knight'); add('knight', 650, 950, { state: 'wait' }); banner('Joku huutaa apua suolla…', '#ffd870', true); }
     if (id === 'tibia' && (QUEST_TEST || !q.voc) && questOpen(q, 'oracle') && qRoll(ORACLE_CHANCE)) { questBegin(q, 'oracle'); const s = add('oracle', 550, 850, { need: oracleLv() }); banner(`Oraakkeli odottaa saarella. Hän ottaa vastaan tason ${s.need} sankareita`, '#c8b8ff', true); }
@@ -26822,7 +26846,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       for (let i = 0; i < 5; i++) { const a = a0 + i / 5 * TAU + rnd(-.3, .3), d = rnd(450, 1250); q.spots.push({ kind: 'grub', x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d, ph: Math.random() * 6 }); }
       banner('Vaimeita huutoja kaikuu lasipurkeista joka puolelta…', '#d0e4ff', true);
     }
-    if (id === 'necro' && !q.danced && questOpen(q, 'keeper')) { questBegin(q, 'keeper'); add('keeper', 600, 900, { state: 'idle' }); banner('Jossain kryptassa joku laulaa…', '#ffc890', true); }
+    if (id === 'necro' && !q.danced && questOpen(q, 'keeper') && qRoll(KEEPER_CHANCE)) { questBegin(q, 'keeper'); add('keeper', 600, 900, { state: 'idle' }); banner('Jossain kryptassa joku laulaa…', '#ffc890', true); }
     riftQuestEnter(def, add);
     if (q.angel) { q.angel = false; if (Math.random() < ANGEL_CHANCE) { add('angel', 330, 460); banner('Valkoinen ovi hehkuu hiljaa lähellä…', '#f0f4ff', true); } }
     if (id !== 'cow' && (q.flies || 0) + (q.jar || 0) < JAR_FULL && Math.random() < FLY_CHANCE) { add('firefly', 900, 1400, { ph: Math.random() * 6, a: Math.random() * TAU }); banner('Eksynyt tulikärpänen kimmeltää jossain tässä maailmassa', '#ffe27a'); }
