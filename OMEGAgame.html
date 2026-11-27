@@ -17553,6 +17553,546 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     };
   })());
 
+  // ===== Zone: snow =====
+  // Zone snow: Snowmurmur Caverns, a snowy pine forest under a mountain where friendly-ish monsters stand sentry,
+  // tell terrible puns and leave puzzles lying around. A nod to Undertale (original names, art and music).
+  ZONES.push((() => {
+    // ---- palette: muted night snow so the bright creatures pop --------------------------------------------------
+    const SNOW = '#56627e', SNOW_L = '#616d89', SNOW_D = '#4b5671', PATH = '#6b7792', PATH_D = '#5d6884', PRINT = '#4a5570';
+    const PINE = '#1d3140', PINE_D = '#152430', CAP = '#8792ab', TRUNK = '#3a2c26', WOOD = '#6b4a32', WOOD_D = '#4a3222', INK = '#141824';
+    const TAU = Math.PI * 2;
+
+    // ---- winding paths (shared by the floor, the trees and the sentry booths) -------------------------------------
+    const ROW = 1100, COL = 1300;
+    const rowY = (j, x) => j * ROW + 380 + Math.sin(x / 310 + j * 1.7) * 70 + Math.sin(x / 97 + j) * 14;
+    const colX = (i, y) => i * COL + 520 + Math.sin(y / 280 + i * 2.3) * 80;
+    function nearPath(x, y, m) {
+      const j = Math.round((y - 380) / ROW), i = Math.round((x - 520) / COL);
+      return Math.abs(y - rowY(j, x)) < m || Math.abs(x - colX(i, y)) < m;
+    }
+
+    // ---- speech bubbles ----------------------------------------------------------------------------------------
+    function say(e, text, dur = 2.2) { e.say = text; e.sayEnd = e.ph + dur; }
+    // Regular foes only speak while fewer than 3 others are talking (the guardian always may).
+    function sayMaybe(e, Z, text, dur) { let n = 0; for (const f of Z.foes()) if (f !== e && f.say && f.ph < f.sayEnd) n++; if (n < 3) say(e, text, dur); }
+    function bubble(c, e, white, lift = 0, big = false) {
+      if (white || !e.say || !(e.ph < e.sayEnd)) return;
+      c.save();
+      c.globalAlpha = Math.max(0, Math.min(1, (e.sayEnd - e.ph) * 3));
+      c.font = `bold ${big ? 12 : 10}px "Bricolage Grotesque", sans-serif`;
+      const h = big ? 19 : 16, w = c.measureText(e.say).width + 12, x = e.x - w / 2, y = e.y - e.r - 34 - lift;
+      c.fillStyle = '#ffffff'; c.strokeStyle = INK; c.lineWidth = 2;
+      c.beginPath(); c.rect(x, y, w, h); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(e.x - 4, y + h - 1); c.lineTo(e.x + 1, y + h + 7); c.lineTo(e.x + 5, y + h - 1); c.closePath(); c.fill();
+      c.fillStyle = INK; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(e.say, e.x, y + h / 2 + .5);
+      c.restore();
+    }
+    const pick = a => a[Math.floor(Math.random() * a.length)];
+    function chatter(e, Z, lines, p = .18) {
+      if (e.sayT === undefined) e.sayT = Z.rnd(2, 9);
+      if ((e.sayT -= Z.dt) > 0) return;
+      e.sayT = 8;
+      if (Math.random() < p && Z.dist(e) < 460) {
+        let n = 0; for (const f of Z.foes()) if (f.say && f.ph < f.sayEnd) n++;
+        if (n < 3) say(e, pick(lines));
+      }
+    }
+    const PUNS = ["I've got a bone to pick with you.", 'Snow way you dodge this!', 'Ice to meet you.', 'This is snow joke.', "I'm feeling ulna-rable.",
+      "Tibia honest, you're cool.", 'Freeze! Get it?', "Don't be so cold.", 'Sentry duty is sedentary.', 'I have a skele-ton of these.'];
+    const COMPLIMENTS = ['You look very determined today!', 'Nice hexagon!', "Ribbit. (That's a compliment.)", 'Your glow is lovely.', 'I like your antenna!', 'Have a nice day! Attacking now.'];
+
+    // A white bone drawn upright (shaft and knobs); used by sentries, the guardian and the floor.
+    function bone(p, x, y, h, w = 5) {
+      const k = w * .75;
+      p.rect(x - w / 2, y - h / 2, w, h);
+      p.moveTo(x - w / 2 + k, y - h / 2); p.arc(x - w / 2, y - h / 2, k, 0, TAU);
+      p.moveTo(x + w / 2 + k, y - h / 2); p.arc(x + w / 2, y - h / 2, k, 0, TAU);
+      p.moveTo(x - w / 2 + k, y + h / 2); p.arc(x - w / 2, y + h / 2, k, 0, TAU);
+      p.moveTo(x + w / 2 + k, y + h / 2); p.arc(x + w / 2, y + h / 2, k, 0, TAU);
+    }
+
+    // A bone lying along the unit vector (ux, uy), centred on (x, y).
+    function boneAlong(p, x, y, ux, uy, len, w) {
+      const vx = -uy, vy = ux, hl = len / 2, hw = w / 2, k = w * .62;
+      p.moveTo(x - ux * hl - vx * hw, y - uy * hl - vy * hw); p.lineTo(x + ux * hl - vx * hw, y + uy * hl - vy * hw);
+      p.lineTo(x + ux * hl + vx * hw, y + uy * hl + vy * hw); p.lineTo(x - ux * hl + vx * hw, y - uy * hl + vy * hw); p.closePath();
+      for (const sg of [-1, 1]) for (const sv of [-1, 1]) { const cx = x + ux * hl * sg + vx * hw * sv, cy = y + uy * hl * sg + vy * hw * sv; p.moveTo(cx + k, cy); p.arc(cx, cy, k, 0, TAU); }
+    }
+    // ---- floor (cached per chunk) -----------------------------------------------------------------------------
+    function ground(Z, x0, y0, x1, y1) {
+      const c = Z.ctx;
+      // snow mottles
+      const lite = new Path2D(), dark = new Path2D(), C = 64;
+      for (let cy = Math.floor(y0 / C); cy <= Math.floor(y1 / C); cy++)
+        for (let cx = Math.floor(x0 / C); cx <= Math.floor(x1 / C); cx++) {
+          const h = Z.hash(cx, cy), x = cx * C + Z.hash(cx * 3, cy * 7) * C, y = cy * C + Z.hash(cx * 11, cy * 5) * C, r = 14 + h * 26;
+          const p = h < .35 ? lite : h > .8 ? dark : null;
+          if (p) { p.moveTo(x + r, y); p.ellipse(x, y, r, r * .55, 0, 0, TAU); }
+        }
+      c.fillStyle = SNOW_L; c.fill(lite); c.fillStyle = SNOW_D; c.fill(dark);
+      // packed-snow paths with footprints
+      const path = new Path2D(), edge = new Path2D(), prints = new Path2D();
+      for (let j = Math.floor((y0 - 600) / ROW); j <= Math.ceil((y1 + 200) / ROW); j++)
+        for (let x = Math.floor(x0 / 36) * 36; x <= x1; x += 36) {
+          const y = rowY(j, x); if (y < y0 - 90 || y > y1 + 90) continue;
+          edge.moveTo(x + 64, y + 4); edge.ellipse(x, y + 4, 64, 54, 0, 0, TAU);
+          path.moveTo(x + 58, y); path.ellipse(x, y, 58, 48, 0, 0, TAU);
+          if ((x / 36 | 0) % 2 === 0) { const o = ((x / 72 | 0) % 2 ? 8 : -8); prints.moveTo(x + 4, y + o); prints.ellipse(x, y + o, 4, 2.6, 0, 0, TAU); }
+        }
+      for (let i = Math.floor((x0 - 700) / COL); i <= Math.ceil((x1 + 200) / COL); i++)
+        for (let y = Math.floor(y0 / 36) * 36; y <= y1; y += 36) {
+          const x = colX(i, y); if (x < x0 - 90 || x > x1 + 90) continue;
+          edge.moveTo(x + 60, y + 4); edge.ellipse(x, y + 4, 60, 56, 0, 0, TAU);
+          path.moveTo(x + 54, y); path.ellipse(x, y, 54, 50, 0, 0, TAU);
+          if ((y / 36 | 0) % 2 === 0) { const o = ((y / 72 | 0) % 2 ? 8 : -8); prints.moveTo(x + o + 2.6, y); prints.ellipse(x + o, y, 2.6, 4, 0, 0, TAU); }
+        }
+      c.fillStyle = PATH_D; c.fill(edge); c.fillStyle = PATH; c.fill(path); c.fillStyle = PRINT; c.fill(prints);
+
+      // puzzle tile patches (pink, green, blue, purple, muted) with dark grout
+      const PZ = 1400;
+      for (let gy = Math.floor(y0 / PZ) - 1; gy <= Math.floor(y1 / PZ); gy++)
+        for (let gx = Math.floor(x0 / PZ) - 1; gx <= Math.floor(x1 / PZ); gx++) {
+          if (Z.hash(gx * 5 + 1, gy * 9 + 2) > .55) continue;
+          const ox = gx * PZ + 200 + Z.hash(gx, gy * 3) * 800, oy = gy * PZ + 200 + Z.hash(gx * 7, gy) * 800, T = 30, nx = 6, ny = 4;
+          if (ox > x1 + 40 || oy > y1 + 40 || ox + nx * T < x0 - 40 || oy + ny * T < y0 - 40) continue;
+          c.fillStyle = INK; c.fillRect(ox - 4, oy - 4, nx * T + 8, ny * T + 8);
+          const TC = ['#8a5a74', '#5a7c5e', '#56689a', '#6e5a8e', '#8a7a52'];
+          for (let ty = 0; ty < ny; ty++) for (let tx = 0; tx < nx; tx++) {
+            c.fillStyle = TC[Math.floor(Z.hash(gx * 31 + tx, gy * 17 + ty) * TC.length)];
+            c.fillRect(ox + tx * T + 1.5, oy + ty * T + 1.5, T - 3, T - 3);
+          }
+        }
+
+      // snow-poff mounds
+      const mound = new Path2D(), mshade = new Path2D(), M = 170;
+      for (let cy = Math.floor(y0 / M); cy <= Math.floor(y1 / M); cy++)
+        for (let cx = Math.floor(x0 / M); cx <= Math.floor(x1 / M); cx++) {
+          if (Z.hash(cx * 13, cy * 3 + 1) > .12) continue;
+          const x = cx * M + 30 + Z.hash(cx, cy * 5) * 110, y = cy * M + 30 + Z.hash(cx * 5, cy) * 110;
+          mshade.moveTo(x + 26, y + 6); mshade.ellipse(x, y + 6, 26, 11, 0, 0, TAU);
+          mound.moveTo(x + 22, y); mound.ellipse(x, y, 22, 13, 0, Math.PI, TAU); mound.lineTo(x + 22, y);
+        }
+      c.fillStyle = 'rgba(20,24,40,.35)'; c.fill(mshade); c.fillStyle = '#7f8aa4'; c.fill(mound);
+
+      // sentry booths beside the paths (wooden counter, snowy roof, a tiny lamp)
+      const BX = 900;
+      for (let j = Math.floor((y0 - 600) / ROW); j <= Math.ceil((y1 + 200) / ROW); j++)
+        for (let bi = Math.floor(x0 / BX) - 1; bi <= Math.floor(x1 / BX) + 1; bi++) {
+          if (Z.hash(bi * 7 + 3, j * 11) > .55) continue;
+          const x = bi * BX + 250 + Z.hash(bi, j) * 400, y = rowY(j, x) - 110;
+          if (x < x0 - 120 || x > x1 + 120 || y < y0 - 120 || y > y1 + 120) continue;
+          c.fillStyle = 'rgba(20,24,40,.35)'; c.fillRect(x - 46, y + 18, 96, 10);
+          c.fillStyle = WOOD_D; c.fillRect(x - 40, y - 46, 6, 62); c.fillRect(x + 34, y - 46, 6, 62);
+          c.fillStyle = WOOD; c.fillRect(x - 44, y - 6, 88, 26);
+          c.fillStyle = WOOD_D; for (let k = 0; k < 4; k++) c.fillRect(x - 44, y - 6 + k * 7, 88, 1.5);
+          c.fillStyle = INK; c.lineWidth = 2; c.strokeStyle = INK; c.strokeRect(x - 44, y - 6, 88, 26);
+          c.fillStyle = WOOD; c.fillRect(x - 50, y - 56, 100, 12);
+          c.fillStyle = '#9aa5be'; c.fillRect(x - 52, y - 62, 104, 8);
+          c.fillStyle = '#ffe9a6'; c.fillRect(x + 22, y - 38, 6, 8);
+        }
+
+      // joke signposts
+      const SG = 760;
+      for (let cy = Math.floor(y0 / SG) - 1; cy <= Math.floor(y1 / SG); cy++)
+        for (let cx = Math.floor(x0 / SG) - 1; cx <= Math.floor(x1 / SG); cx++) {
+          if (Z.hash(cx * 19 + 5, cy * 23) > .35) continue;
+          const x = cx * SG + 100 + Z.hash(cx * 3, cy * 13) * 500, y = cy * SG + 100 + Z.hash(cx * 17, cy * 2) * 500;
+          if (x < x0 - 60 || x > x1 + 60 || y < y0 - 60 || y > y1 + 60) continue;
+          c.fillStyle = WOOD_D; c.fillRect(x - 2, y - 26, 5, 30);
+          c.fillStyle = WOOD; c.fillRect(x - 20, y - 40, 40, 18); c.strokeStyle = INK; c.lineWidth = 2; c.strokeRect(x - 20, y - 40, 40, 18);
+          c.fillStyle = '#3a2618'; for (let k = 0; k < 2; k++) c.fillRect(x - 14, y - 35 + k * 6, 14 + Z.hash(cx + k, cy) * 14, 2);
+          c.fillStyle = '#9aa5be'; c.fillRect(x - 21, y - 42, 42, 4);
+        }
+
+      // pine trees, off the paths
+      const T = 96, trunks = new Path2D(), pine = new Path2D(), pineD = new Path2D(), caps = new Path2D(), shad = new Path2D(), list = [];
+      for (let cy = Math.floor((y0 - 80) / T); cy <= Math.floor((y1 + 140) / T); cy++)
+        for (let cx = Math.floor((x0 - 60) / T); cx <= Math.floor((x1 + 60) / T); cx++) {
+          const h = Z.hash(cx * 7 + 2, cy * 5 + 9); if (h > .2) continue;
+          const x = cx * T + 15 + Z.hash(cx, cy * 9) * 66, y = cy * T + 15 + Z.hash(cx * 9, cy) * 66;
+          if (nearPath(x, y, 110)) continue;
+          list.push([x, y, .8 + Z.hash(cx * 3, cy * 3) * .6]);
+        }
+      list.sort((a, b) => a[1] - b[1]);
+      for (const [x, y, s] of list) {
+        shad.moveTo(x + 30 * s, y + 4); shad.ellipse(x, y + 4, 30 * s, 9 * s, 0, 0, TAU);
+        trunks.rect(x - 4 * s, y - 14 * s, 8 * s, 18 * s);
+        for (let k = 0; k < 3; k++) {
+          const w = (34 - k * 8) * s, top = y - (40 + k * 22) * s, base = y - (12 + k * 22) * s;
+          pine.moveTo(x - w, base); pine.lineTo(x, top); pine.lineTo(x + w, base); pine.closePath();
+          pineD.moveTo(x, top); pineD.lineTo(x + w, base); pineD.lineTo(x + w * .3, base); pineD.closePath();
+          caps.moveTo(x - w * .45, top + (base - top) * .45); caps.lineTo(x, top); caps.lineTo(x + w * .45, top + (base - top) * .45);
+          caps.lineTo(x + w * .15, top + (base - top) * .38); caps.lineTo(x, top + (base - top) * .5); caps.lineTo(x - w * .2, top + (base - top) * .4); caps.closePath();
+        }
+      }
+      c.fillStyle = 'rgba(16,20,34,.4)'; c.fill(shad);
+      c.fillStyle = TRUNK; c.fill(trunks);
+      c.fillStyle = PINE; c.fill(pine); c.fillStyle = PINE_D; c.fill(pineD);
+      c.strokeStyle = INK; c.lineWidth = 1.5; c.stroke(pine);
+      c.fillStyle = CAP; c.fill(caps);
+    }
+
+    // ---- animated layer: the guardian's blue bones and the puzzle telegraphs live here (before enemies) ----------
+    function under(Z) {
+      const c = Z.ctx;
+      for (const e of Z.foes()) {
+        if (!e.blue) continue;
+        const b = e.blue, ux = -b.dy, uy = b.dx, n = Math.floor(b.L / 24), p = new Path2D(), o = new Path2D();
+        for (let i = 0; i < n; i++) {
+          const s = -b.L / 2 + (i + .5) * b.L / n;
+          boneAlong(o, b.x + ux * s, b.y + uy * s, ux, uy, 22, 9); boneAlong(p, b.x + ux * s, b.y + uy * s, ux, uy, 19, 5.5);
+        }
+        c.fillStyle = INK; c.fill(o); c.fillStyle = '#5ab8ff'; c.fill(p);
+      }
+    }
+    // ---- snowfall, booth lamps and the blue bones' glow (after the darkness) -------------------------------------
+    function ambient(Z) {
+      const c = Z.ctx, now = Z.now, P = Z.P, w = Z.W * .6 + 60, h = Z.H * .6 + 60, flakes = new Path2D();
+      for (let i = 0; i < 110; i++) {
+        // world-fixed flakes drifting down, wrapped into a box around Hexel
+        const wx = i * 211.7 + Math.sin(now * .7 + i) * 18, wy = i * 97.3 + now * (22 + (i % 7) * 6);
+        const x = P.x + (((wx - P.x + w) % (w * 2)) + w * 2) % (w * 2) - w, y = P.y + (((wy - P.y + h) % (h * 2)) + h * 2) % (h * 2) - h;
+        const r = i % 3 ? 1.3 : 2.1; flakes.rect(x - r, y - r, r * 2, r * 2);
+      }
+      c.fillStyle = 'rgba(235,242,255,.75)'; c.fill(flakes);
+      for (const e of Z.foes()) if (e.blue) Z.glow('90,180,255', 60, e.blue.x, e.blue.y, .35);
+    }
+
+    // ---- regular foes ------------------------------------------------------------------------------------------
+    // Snowpuff: a hopping snowball creature; some lob snowballs at Hexel's spot.
+    const snowpuff = { hp: 11, sp: 62, dmg: 6, xp: 1, r: 11, eye: false,
+      init(e) { e.thrower = Math.random() < .3; e.t1 = 1 + Math.random() * 3; },
+      update(e, Z) {
+        const d = Z.dist(e);
+        if (e.thrower && d < 360 && d > 130) {
+          const a = Z.angTo(e); Z.move(e, Math.cos(a + 1.3) * e.sp * .5, Math.sin(a + 1.3) * e.sp * .5); e.ang = a;
+          if ((e.t1 -= Z.dt) <= 0) { e.t1 = 3.4; e.throwT = .35; Z.hazard(Z.P.x + Z.rnd(-24, 24), Z.P.y + Z.rnd(-24, 24), { r: 34, t: 1, dmg: 7, col: '210,235,255' }); }
+        } else Z.chase(e);
+        if (e.throwT > 0) e.throwT -= Z.dt;
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, hop = Math.abs(Math.sin(e.ph * 7 + e.seed)) * 5, y = e.y - hop, r = e.r, sq = 1 + (hop < 1 ? .1 : 0);
+        c.fillStyle = INK; c.beginPath(); c.ellipse(e.x, y, r * sq + 2, r / sq + 2, 0, 0, TAU); c.fill();
+        c.fillStyle = white ? '#fff' : '#eef4ff'; c.beginPath(); c.ellipse(e.x, y, r * sq, r / sq, 0, 0, TAU); c.fill();
+        if (white) return;
+        c.fillStyle = '#c3d1ea'; c.beginPath(); c.ellipse(e.x + 2, y + r * .35, r * .8, r * .45, 0, 0, Math.PI); c.fill();
+        c.fillStyle = INK; c.fillRect(e.x - 5, y - 3, 2.5, 3.5); c.fillRect(e.x + 3, y - 3, 2.5, 3.5);
+        c.fillStyle = '#ff9bb3'; c.fillRect(e.x - 8, y + 2, 3, 2); c.fillRect(e.x + 6, y + 2, 3, 2);
+        if (e.thrower) { c.fillStyle = '#ffffff'; c.strokeStyle = INK; c.lineWidth = 1.5; c.beginPath(); c.arc(e.x + r * .9, y - r * (e.throwT > 0 ? 1 : .2), 4, 0, TAU); c.fill(); c.stroke(); }
+      } };
+
+    // Croakling: a polite frog that pays you a compliment, crouches, then leaps onto where you stood.
+    const croak = { hp: 28, sp: 46, dmg: 10, xp: 3, r: 12, eye: false,
+      init(e) { e.mode = 'walk'; e.t1 = 1.5 + Math.random() * 2; },
+      update(e, Z) {
+        const d = Z.dist(e);
+        if (e.mode === 'walk') {
+          Z.chase(e);
+          if ((e.t1 -= Z.dt) <= 0 && d < 280) {
+            e.mode = 'crouch'; e.mt = .7; e.lx = Z.P.x; e.ly = Z.P.y; e.sx = e.x; e.sy = e.y;
+            if (Math.random() < .5) sayMaybe(e, Z, pick(COMPLIMENTS), 1.6);
+            Z.hazard(e.lx, e.ly, { r: 40, t: 1.15, dmg: 11, col: '150,240,170' });
+          }
+        } else if (e.mode === 'crouch') {
+          if ((e.mt -= Z.dt) <= 0) { e.mode = 'air'; e.mt = .45; e.sx = e.x; e.sy = e.y; }
+        } else if (e.mode === 'air') {
+          e.mt -= Z.dt; const k = Math.min(1, 1 - e.mt / .45);
+          e.x = e.sx + (e.lx - e.sx) * k; e.y = e.sy + (e.ly - e.sy) * k;
+          if (e.mt <= 0) { e.mode = 'walk'; e.t1 = 3.5 + Math.random() * 1.5; Z.burst(e.x, e.y, '#dfeaff', 8, 120); }
+        }
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, r = e.r, crouch = e.mode === 'crouch' ? .78 : 1;
+        const lift = e.mode === 'air' ? Math.sin(Math.min(1, 1 - e.mt / .45) * Math.PI) * 26 : 0, y = e.y - lift;
+        c.save(); c.translate(e.x, y); c.scale(1, crouch);
+        c.fillStyle = INK; c.beginPath(); c.ellipse(0, 0, r + 2, r * .8 + 2, 0, 0, TAU); c.arc(-r * .5, -r * .7, r * .38 + 2, 0, TAU); c.arc(r * .5, -r * .7, r * .38 + 2, 0, TAU); c.fill();
+        c.fillStyle = white ? '#fff' : '#a6e6b0'; c.beginPath(); c.ellipse(0, 0, r, r * .8, 0, 0, TAU); c.arc(-r * .5, -r * .7, r * .38, 0, TAU); c.arc(r * .5, -r * .7, r * .38, 0, TAU); c.fill();
+        if (!white) {
+          c.fillStyle = '#e9f8e6'; c.beginPath(); c.ellipse(0, r * .25, r * .6, r * .4, 0, 0, TAU); c.fill();
+          c.fillStyle = INK; c.fillRect(-r * .6, -r * .8, 3, 3); c.fillRect(r * .45, -r * .8, 3, 3);
+          c.strokeStyle = INK; c.lineWidth = 1.5; c.beginPath(); c.arc(0, -r * .1, r * .35, .3, Math.PI - .3); c.stroke();
+          c.fillStyle = '#ff9bb3'; c.fillRect(-r * .75, -r * .1, 3, 2); c.fillRect(r * .6, -r * .1, 3, 2);
+        }
+        c.restore();
+        bubble(c, e, white, lift);
+      } };
+
+    // Pun Sentry: a small skeleton in a hooded parka. Keeps its distance, tells a pun, then throws a row of bones.
+    const sentry = { hp: 34, sp: 52, dmg: 8, xp: 3, r: 12, eye: false,
+      init(e) { e.t1 = 2 + Math.random() * 2; },
+      update(e, Z) {
+        const d = Z.dist(e), a = Z.angTo(e);
+        if (e.punT > 0) {
+          e.ang = a;
+          if ((e.punT -= Z.dt) <= 0) {
+            const pa = a + Math.PI / 2;
+            for (let i = -2; i <= 2; i++) Z.shoot(e.x + Math.cos(pa) * i * 16, e.y + Math.sin(pa) * i * 16, a, 190, { r: 6, dmg: 8, col: '235,242,255', life: 4 });
+            Z.sfx('shoot');
+          }
+          return;
+        }
+        const k = d > 300 ? 1 : d < 200 ? -.7 : 0;
+        Z.move(e, Math.cos(a) * e.sp * k + Math.cos(a + 1.57) * e.sp * .4, Math.sin(a) * e.sp * k + Math.sin(a + 1.57) * e.sp * .4); e.ang = a;
+        if ((e.t1 -= Z.dt) <= 0 && d < 420) { e.t1 = 4.2 + Math.random(); e.punT = 1.1; if (Math.random() < .6) sayMaybe(e, Z, pick(PUNS), 1.6); }
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, r = e.r, bob = Math.sin(e.ph * 6 + e.seed) * 1.5, x = e.x, y = e.y + bob;
+        // parka
+        c.fillStyle = INK; c.beginPath(); c.roundRect(x - r - 2, y - r * .4 - 2, r * 2 + 4, r * 1.6 + 4, 6); c.fill();
+        c.fillStyle = white ? '#fff' : '#4a7fd0'; c.beginPath(); c.roundRect(x - r, y - r * .4, r * 2, r * 1.6, 5); c.fill();
+        // skull in a fur-trimmed hood
+        c.fillStyle = INK; c.beginPath(); c.arc(x, y - r * .75, r * .85 + 2, 0, TAU); c.fill();
+        c.fillStyle = white ? '#fff' : '#e8dcc8'; c.beginPath(); c.arc(x, y - r * .75, r * .85, 0, TAU); c.fill();
+        c.fillStyle = white ? '#fff' : '#f4f4f8'; c.beginPath(); c.arc(x, y - r * .7, r * .6, 0, TAU); c.fill();
+        if (!white) {
+          c.fillStyle = INK; c.beginPath(); c.arc(x - r * .25, y - r * .8, r * .17, 0, TAU); c.arc(x + r * .25, y - r * .8, r * .17, 0, TAU); c.fill();
+          c.fillStyle = '#fff'; c.fillRect(x - r * .27, y - r * .83, 2, 2); c.fillRect(x + r * .23, y - r * .83, 2, 2);
+          c.strokeStyle = INK; c.lineWidth = 1.3; c.beginPath(); c.moveTo(x - r * .3, y - r * .45); c.lineTo(x + r * .3, y - r * .45); c.stroke();
+          if (e.punT > 0) { const p = new Path2D(); bone(p, x + r * 1.1, y - r * .4, 14, 4); c.fillStyle = INK; c.fill(p); c.fillStyle = '#f4f6ff'; c.fill(p); }
+        }
+        bubble(c, e, white);
+      } };
+
+    // Snowsniffer: a royal guard hound that can only see things that move. Stand still and it loses you.
+    const hound = { hp: 55, sp: 100, dmg: 12, xp: 4, r: 14, eye: false,
+      init(e) { e.lost = 9; e.wa = Math.random() * TAU; e.t2 = 1; },
+      update(e, Z) {
+        if (Z.P.moving) e.lost = 0; else e.lost += Z.dt;
+        if (e.lost < .35) { if (!e.seen) { e.seen = true; say(e, '!', .8); } Z.chase(e); return; }
+        if (e.seen) { e.seen = false; say(e, '?', 1.2); }
+        if ((e.t2 -= Z.dt) <= 0) { e.t2 = 1 + Math.random(); e.wa = Z.angTo(e) + Z.rnd(-2, 2); }
+        Z.move(e, Math.cos(e.wa) * 30, Math.sin(e.wa) * 30); e.ang = e.wa;
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, r = e.r, f = Math.cos(e.ang) < 0 ? -1 : 1, run = e.lost < .35, leg = Math.sin(e.ph * (run ? 16 : 6)) * 3;
+        c.save(); c.translate(e.x, e.y); c.scale(f, 1);
+        c.fillStyle = INK;
+        c.fillRect(-r * .7 - 1, r * .3, 5, r * .6 + leg); c.fillRect(r * .4 - 1, r * .3, 5, r * .6 - leg);
+        c.beginPath(); c.ellipse(0, 0, r + 2, r * .65 + 2, 0, 0, TAU); c.arc(r * .85, -r * .45, r * .55 + 2, 0, TAU); c.fill();
+        c.fillStyle = white ? '#fff' : '#dfe3ea';
+        c.fillRect(-r * .7, r * .3, 3, r * .6 + leg - 1); c.fillRect(r * .4, r * .3, 3, r * .6 - leg - 1);
+        c.beginPath(); c.ellipse(0, 0, r, r * .65, 0, 0, TAU); c.arc(r * .85, -r * .45, r * .55, 0, TAU); c.fill();
+        if (!white) {
+          c.fillStyle = '#b8c0d0'; c.beginPath(); c.moveTo(r * .55, -r * .9); c.lineTo(r * .7, -r * 1.35); c.lineTo(r * .9, -r * .95); c.fill();
+          c.fillStyle = '#d23a4a'; c.fillRect(r * .3, -r * .2, r * .55, 4);
+          c.fillStyle = INK; c.fillRect(r * 1.05, -r * .6, 2.5, 2.5); c.fillRect(r * 1.3, -r * .4, 3, 3);
+          c.fillStyle = '#c9a24a'; c.fillRect(-r * 1.1, -r * .9, 2, r * 1.2);
+          c.fillStyle = '#e8eef8'; c.beginPath(); c.moveTo(-r * 1.1 - 3, -r * .9); c.lineTo(-r * 1.1 + 1, -r * 1.3); c.lineTo(-r * 1.1 + 5, -r * .9); c.fill();
+          c.strokeStyle = '#dfe3ea'; c.lineWidth = 3; c.beginPath(); c.moveTo(-r, -r * .1); c.lineTo(-r * 1.4, -r * .5 + Math.sin(e.ph * 12) * 3); c.stroke();
+        }
+        c.restore();
+        bubble(c, e, white);
+      } };
+
+    // ---- the guardian: The Great Sternum, a lanky skeleton who would very much like to join the royal guard -----
+    const BOSS_LINES = { walls: 'BEHOLD! A WALL OF BONES!', blue: "BLUE BONES! DON'T MOVE AND IT WON'T HURT!", leap: 'TA-DAAA! A HEROIC LEAP!',
+      pasta: 'TRY MY FAMOUS SNOW-PASTA!', summon: 'SENTRIES! HOUNDS! TO ME!', combo: 'THE DELUXE COMBO!' };
+    const ORDER = ['walls', 'blue', 'leap', 'walls', 'pasta', 'summon', 'blue', 'walls', 'leap'];
+    function wall(Z, a, dist, sp, gapK = true) {
+      // A line of bones 760 px long, starting `dist` px from Hexel on the far side and marching across with one gap.
+      const P = Z.P, dx = Math.cos(a), dy = Math.sin(a), px = -dy, py = dx, cx = P.x - dx * dist, cy = P.y - dy * dist;
+      const gap = gapK ? Z.rnd(-150, 150) : 9e9;
+      for (let s = -380; s <= 380; s += 22) {
+        if (Math.abs(s - gap) < 40) continue;
+        Z.shoot(cx + px * s, cy + py * s, a, sp, { r: 7, dmg: 11, col: '240,244,255', life: 4.5 });
+      }
+    }
+    function startBlue(e, Z, a) {
+      const dx = Math.cos(a), dy = Math.sin(a);
+      e.blue = { x: Z.P.x - dx * 380, y: Z.P.y - dy * 380, dx, dy, L: 760, sp: 250, life: 3.3, cd: 0, gap: null };
+    }
+    const boss = {
+      name: 'The Great Sternum, Royal Guard Hopeful', hp: 3800, sp: 58, dmg: 24, xp: 0, r: 40, heavy: true, eye: false,
+      init(e) { e.mode = 'walk'; e.t1 = 2.5; e.step = 0; e.cool = false; },
+      update(e, Z) {
+        const dt = Z.dt, d = Z.dist(e), a = Z.angTo(e), mad = e.hp < e.max * .4;
+        if (mad && !e.cool) {
+          e.cool = true; say(e, 'HEH-HEH-HUZZAH! NOW WITH SUNGLASSES!', 2.6);
+          Z.banner('The Great Sternum puts on his cool sunglasses!', '#7ac8ff', true); Z.sfx('warn'); Z.shake(6);
+        }
+        // the blue bones sweep on their own (they only hurt a moving Hexel)
+        if (e.blue) {
+          const b = e.blue; b.x += b.dx * b.sp * dt; b.y += b.dy * b.sp * dt; b.cd -= dt;
+          const rx = Z.P.x - b.x, ry = Z.P.y - b.y, along = rx * b.dx + ry * b.dy, side = -rx * b.dy + ry * b.dx;
+          if (Math.abs(along) < 16 + Z.P.r && Math.abs(side) < b.L / 2 && Z.P.moving && b.cd <= 0) { b.cd = .6; Z.hazard(Z.P.x, Z.P.y, { r: 22, t: .04, dmg: 14, col: '90,170,255' }); }
+          if ((b.life -= dt) <= 0) e.blue = null;
+        }
+        if (e.comboT > 0 && (e.comboT -= dt) <= 0) wall(Z, e.comboA, 380, 230);
+        if (e.pastaT > 0 && (e.pastaT -= dt) <= 0) { e.hp = Math.min(e.max, e.hp + e.max * .03); say(e, 'MMM! STILL DELICIOUS!', 1.6); Z.burst(e.x, e.y - 60, '#ff9a5a', 10, 120); }
+        if (e.mode === 'leapUp') {
+          if ((e.mt -= dt) <= 0) { e.mode = 'air'; e.mt = .55; e.sx = e.x; e.sy = e.y; }
+          return;
+        }
+        if (e.mode === 'air') {
+          e.mt -= dt; const k = Math.min(1, 1 - e.mt / .55);
+          e.x = e.sx + (e.lx - e.sx) * k; e.y = e.sy + (e.ly - e.sy) * k;
+          if (e.mt <= 0) { e.mode = 'walk'; Z.shake(9); Z.burst(e.x, e.y, '#e8eeff', 20, 220); Z.ring(e.x, e.y, mad ? 14 : 10, 150, { r: 7, dmg: 10, col: '240,244,255' }, Math.random()); Z.sfx('nova'); }
+          return;
+        }
+        // walk: keep a showman's distance and strut sideways
+        const k = d > 260 ? 1 : d < 170 ? -.6 : 0, sp = e.sp * (mad ? 1.3 : 1);
+        Z.move(e, Math.cos(a) * sp * k + Math.cos(a + 1.57) * sp * .45 * Math.sin(e.ph * .7), Math.sin(a) * sp * k + Math.sin(a + 1.57) * sp * .45 * Math.sin(e.ph * .7)); e.ang = a;
+        if ((e.t1 -= dt) > 0) return;
+        let move = ORDER[e.step++ % ORDER.length];
+        if (mad && move === 'blue') move = 'combo';
+        e.t1 = mad ? 2.4 : 3.3; e.pose = .9;
+        say(e, BOSS_LINES[move], 1.8);
+        if (move === 'walls') {
+          const a0 = Math.random() * TAU; wall(Z, a0, 400, 210);
+          if (mad) wall(Z, a0 + Math.PI / 2, 460, 210);
+          Z.sfx('charge');
+        } else if (move === 'blue') { startBlue(e, Z, Math.random() * TAU); Z.sfx('warn'); }
+        else if (move === 'combo') { const a0 = Math.random() * TAU; startBlue(e, Z, a0); e.comboT = 1.1; e.comboA = a0 + Math.PI; Z.sfx('warn'); }
+        else if (move === 'leap') {
+          e.mode = 'leapUp'; e.mt = .5; e.lx = Z.P.x; e.ly = Z.P.y;
+          Z.hazard(e.lx, e.ly, { r: 110, t: 1.05, dmg: 22, col: '255,210,120' });
+        } else if (move === 'pasta') {
+          Z.hazard(Z.P.x, Z.P.y, { r: 60, t: 1.1, dmg: 12, col: '255,140,90' });
+          for (let i = 0; i < (mad ? 5 : 3); i++) { const b = Math.random() * TAU, r = Z.rnd(90, 180); Z.hazard(Z.P.x + Math.cos(b) * r, Z.P.y + Math.sin(b) * r, { r: 60, t: 1.2 + i * .1, dmg: 12, col: '255,140,90' }); }
+          e.pastaT = 1.4; Z.sfx('shoot');
+        } else if (move === 'summon') {
+          for (let i = 0; i < (mad ? 6 : 4); i++) { const b = i / (mad ? 6 : 4) * TAU; Z.spawn(i % 2 ? 'hound' : 'sentry', e.x + Math.cos(b) * 90, e.y + Math.sin(b) * 90); }
+          Z.burst(e.x, e.y, '#9ad0ff', 16, 180);
+        }
+      },
+      draw(e, Z, white) {
+        const c = Z.ctx, x = e.x, f = Math.cos(e.ang || 0) < 0 ? -1 : 1, now = e.ph;
+        const lift = e.mode === 'air' ? Math.sin(Math.min(1, 1 - e.mt / .55) * Math.PI) * 70 : 0, crouch = e.mode === 'leapUp' ? 8 : 0;
+        const y = e.y - lift + crouch, step = Math.sin(now * 5) * 5, arm = e.pose > 0 ? 1 : 0;
+        if (e.pose > 0) e.pose -= 1 / 60;
+        const W = white ? '#ffffff' : null, BONE = W || '#f2f2f6', CAPE = W || '#3f6fd8', CAPE_D = W || '#2c4fa4', GOLD = W || '#f2c14a', BOOT = W || '#2a3a6a', ARMOR = W || '#e6e8f0';
+        c.save(); c.translate(x, y); c.scale(f, 1);
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        // cape, flowing behind
+        const wave = Math.sin(now * 4) * 6;
+        c.fillStyle = INK; c.beginPath(); c.moveTo(-14, -44); c.quadraticCurveTo(-40 + wave, -10, -36 - wave, 30); c.lineTo(-8, 22); c.lineTo(-4, -40); c.closePath(); c.fill();
+        c.fillStyle = CAPE_D; c.beginPath(); c.moveTo(-12, -42); c.quadraticCurveTo(-36 + wave, -10, -32 - wave, 27); c.lineTo(-8, 19); c.lineTo(-5, -38); c.closePath(); c.fill();
+        // legs (long femurs) and boots
+        c.strokeStyle = INK; c.lineWidth = 8; c.beginPath(); c.moveTo(-6, -4); c.lineTo(-8 - step, 34); c.moveTo(6, -4); c.lineTo(8 + step, 34); c.stroke();
+        c.strokeStyle = BONE; c.lineWidth = 4.5; c.beginPath(); c.moveTo(-6, -4); c.lineTo(-8 - step, 34); c.moveTo(6, -4); c.lineTo(8 + step, 34); c.stroke();
+        c.fillStyle = INK; c.beginPath(); c.roundRect(-17 - step, 30, 17, 12, 4); c.roundRect(2 + step, 30, 17, 12, 4); c.fill();
+        c.fillStyle = BOOT; c.beginPath(); c.roundRect(-15 - step, 32, 13, 8, 3); c.roundRect(4 + step, 32, 13, 8, 3); c.fill();
+        // torso: homemade battle armour with gold trim
+        c.fillStyle = INK; c.beginPath(); c.roundRect(-17, -50, 34, 48, 8); c.fill();
+        c.fillStyle = ARMOR; c.beginPath(); c.roundRect(-14.5, -47.5, 29, 43, 6); c.fill();
+        c.fillStyle = GOLD; c.fillRect(-14.5, -12, 29, 5); c.fillRect(-2, -46, 4, 34);
+        c.fillStyle = CAPE; c.beginPath(); c.moveTo(-15, -50); c.lineTo(15, -50); c.lineTo(10, -40); c.lineTo(-10, -40); c.closePath(); c.fill();
+        // arms: one on the hip, one flung up in a grand gesture while announcing an attack
+        const up = arm ? -1 : .2;
+        c.strokeStyle = INK; c.lineWidth = 8;
+        c.beginPath(); c.moveTo(-12, -42); c.lineTo(-24, -24); c.lineTo(-14, -10); c.moveTo(12, -42); c.lineTo(28, -42 + up * 22); c.lineTo(36, -46 + up * 40); c.stroke();
+        c.strokeStyle = BONE; c.lineWidth = 4.5;
+        c.beginPath(); c.moveTo(-12, -42); c.lineTo(-24, -24); c.lineTo(-14, -10); c.moveTo(12, -42); c.lineTo(28, -42 + up * 22); c.lineTo(36, -46 + up * 40); c.stroke();
+        c.fillStyle = INK; c.beginPath(); c.arc(-14, -10, 7, 0, TAU); c.arc(36, -46 + up * 40, 7, 0, TAU); c.fill();
+        c.fillStyle = GOLD; c.beginPath(); c.arc(-14, -10, 5, 0, TAU); c.arc(36, -46 + up * 40, 5, 0, TAU); c.fill();
+        // neck and the tall, proud skull
+        c.strokeStyle = INK; c.lineWidth = 7; c.beginPath(); c.moveTo(0, -50); c.lineTo(1, -60); c.stroke();
+        c.strokeStyle = BONE; c.lineWidth = 4; c.stroke();
+        c.fillStyle = INK; c.beginPath(); c.roundRect(-17, -94, 36, 38, 14); c.fill();
+        c.fillStyle = BONE; c.beginPath(); c.roundRect(-14.5, -91.5, 31, 33, 12); c.fill();
+        if (!white) {
+          // grin with teeth
+          c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(-9, -70, 24, 8, 3); c.fill();
+          c.strokeStyle = INK; c.lineWidth = 1.6; c.beginPath(); c.roundRect(-9, -70, 24, 8, 3);
+          for (let k = -4; k <= 11; k += 5) { c.moveTo(k, -70); c.lineTo(k, -62); }
+          c.moveTo(-9, -66); c.lineTo(15, -66); c.stroke();
+          if (e.cool) {
+            c.fillStyle = INK; c.beginPath(); c.roundRect(-12, -84, 30, 9, 3); c.fill();
+            c.fillStyle = '#5ab8ff'; c.fillRect(-9, -82, 9, 3); c.fillRect(5, -82, 9, 3);
+          } else {
+            c.fillStyle = INK; c.beginPath(); c.ellipse(-4, -80, 4.5, 5, 0, 0, TAU); c.ellipse(9, -80, 4.5, 5, 0, 0, TAU); c.fill();
+            c.strokeStyle = INK; c.lineWidth = 2.4; c.beginPath(); c.moveTo(-9, -88); c.lineTo(0, -85); c.moveTo(14, -88); c.lineTo(5, -85); c.stroke();
+            c.fillStyle = '#ffffff'; c.fillRect(-4, -81, 2, 2); c.fillRect(9, -81, 2, 2);
+          }
+        }
+        c.restore();
+        bubble(c, { x, y: y - 74, r: 0, say: e.say, sayEnd: e.sayEnd, ph: e.ph }, white, 6, true);
+      },
+      death(e, Z) {
+        Z.banner('"WELL... I SUPPOSE YOU MAY PASS. BUT ONLY BECAUSE I\'M VERY NICE!"', '#7ac8ff', true);
+        Z.burst(e.x, e.y, '#f2f2f6', 40, 260); Z.burst(e.x, e.y, '#3f6fd8', 20, 200);
+      },
+    };
+
+    // ---- scripted moments --------------------------------------------------------------------------------------
+    function ringOf(Z, kind, n, R) { for (let i = 0; i < n; i++) { const a = i / n * TAU; Z.spawn(kind, Z.P.x + Math.cos(a) * R, Z.P.y + Math.sin(a) * R); } }
+    function puzzle(Z, N) {
+      // A checkerboard of tiles around Hexel: one colour shocks first, then the other.
+      const T = 56, ox = Z.P.x - (N - 1) / 2 * T, oy = Z.P.y - (N - 1) / 2 * T;
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++)
+        Z.hazard(ox + i * T, oy + j * T, { r: 30, t: (i + j) % 2 ? 1.3 : 2.5, dmg: 9, col: (i + j) % 2 ? '255,110,170' : '255,190,90' });
+      Z.banner('A puzzle blocks the path! Pink tiles first, then orange', '#ffb0d8', true); Z.sfx('warn');
+    }
+    const events = [
+      { t: 10, run(Z) { ringOf(Z, 'snowpuff', 9, 340); Z.banner('A flurry of snowpuffs rolls in', '#dfeaff'); } },
+      { t: 30, run(Z) { puzzle(Z, 5); } },
+      { t: 55, run(Z) {
+        const a = Math.random() * TAU; for (let i = 0; i < 4; i++) Z.spawn('hound', Z.P.x + Math.cos(a + i * .25) * 440, Z.P.y + Math.sin(a + i * .25) * 440);
+        Z.banner('The royal hounds caught your scent! (they only see you when you move)', '#dfe3ea', true); Z.sfx('warn');
+      } },
+      { t: 80, run(Z) { const a = Math.random() * TAU; for (let i = -2; i <= 2; i++) Z.spawn('sentry', Z.P.x + Math.cos(a + i * .3) * 380, Z.P.y + Math.sin(a + i * .3) * 380); Z.banner('A sentry squad! Brace yourself for puns', '#9ad0ff', true); } },
+      { t: 105, run(Z) { puzzle(Z, 7); } },
+      { t: 122, run(Z) { ringOf(Z, 'croak', 8, 320); Z.banner("Croaklings! They're very polite about it", '#a6e6b0', true); } },
+      { t: 138, run(Z) { ringOf(Z, 'snowpuff', 12, 360); Z.banner('The snow keeps falling…', '#dfeaff'); } },
+    ];
+
+    // ---- music: a cosy music-box waltz-free stroll in C major; the guardian gets a bouncy D-minor chiptune march --
+    const PROG = ['C', 'Am', 'F', 'G', 'C', 'Em', 'F', 'G', 'Am', 'F', 'C', 'G', 'F', 'G', 'C', 'C'];
+    const CH = { C: [60, 64, 67], Am: [57, 60, 64], F: [57, 60, 65], G: [59, 62, 67], Em: [59, 64, 67] };
+    const RT = { C: 36, Am: 33, F: 29, G: 31, Em: 28 };
+    const MEL = [
+      [76, 0, 79, 0, 84, 0, 83, 79], [81, 0, 0, 76, 77, 0, 76, 72], [77, 0, 81, 0, 84, 0, 81, 77], [79, 0, 0, 0, 74, 76, 77, 79],
+      [76, 0, 72, 0, 79, 0, 76, 0], [79, 0, 83, 0, 79, 76, 71, 0], [72, 0, 77, 0, 81, 79, 77, 76], [74, 0, 0, 0, 0, 0, 0, 0],
+      [72, 76, 81, 0, 79, 0, 76, 0], [77, 0, 76, 74, 72, 0, 69, 0], [72, 0, 76, 0, 79, 0, 84, 0], [83, 0, 81, 0, 79, 0, 74, 0],
+      [81, 0, 0, 79, 77, 0, 76, 0], [74, 0, 77, 0, 79, 0, 83, 0], [84, 0, 0, 0, 79, 0, 76, 0], [72, 0, 0, 0, 0, 0, 0, 0],
+    ];
+    const BPROG = ['Dm', 'Bb', 'C', 'A'];
+    const BCH = { Dm: [62, 65, 69], Bb: [62, 65, 70], C: [64, 67, 72], A: [61, 64, 69] };
+    const BRT = { Dm: 38, Bb: 34, C: 36, A: 33 };
+    const BMEL = [
+      [74, 77, 81, 0, 86, 0, 84, 81], [82, 0, 86, 0, 89, 88, 86, 82], [84, 0, 79, 84, 88, 0, 91, 0], [88, 0, 85, 0, 81, 0, 76, 0],
+      [86, 86, 0, 89, 0, 86, 0, 93], [91, 89, 0, 86, 0, 82, 86, 89], [91, 0, 88, 84, 0, 88, 91, 96], [93, 0, 0, 91, 0, 88, 0, 85],
+    ];
+    const music = {
+      get bpm() { return this._boss ? 160 : 108; }, div: 2, _boss: false,
+      step(s, t, A) {
+        this._boss = !!A.boss;
+        const sp = 60 / (A.boss ? 160 : 108) / 2, bar = Math.floor(s / 8), b = s % 8;
+        if (A.boss) {
+          const name = BPROG[bar % 4], ch = BCH[name], rt = BRT[name], m = BMEL[bar % 8][b];
+          A.tone(t, rt + (b % 2 ? 12 : 0), sp * .9, .055, { type: 'square', decay: true, cutoff: 900, attack: .004 });
+          if (m) A.tone(t, m - 12, sp * .95, .037, { type: 'square', attack: .006, cutoff: 3200 });
+          if (b % 2 === 0) A.tone(t, ch[(b / 2) % 3] + 12, sp * .6, .018, { type: 'triangle', decay: true, attack: .004 });
+          if (b === 0) A.pad(ch, t, sp * 8, .012, { type: 'square', cutoff: 1200, detune: 6 });
+          if (b === 0 || b === 4) A.kick(t, .55);
+          if (b === 2 || b === 6) A.snare(t, .22);
+          if (b % 2) A.hat(t, .03);
+          if (bar % 8 === 7 && b >= 6) A.tom(t, b === 6 ? 180 : 140, .3);
+          return;
+        }
+        const loop = Math.floor(bar / 16), bi = bar % 16, name = PROG[bi], ch = CH[name], rt = RT[name], m = MEL[bi][b];
+        if (b === 0) { A.tone(t, rt + 12, sp * 3.6, .07, { type: 'triangle', decay: true }); A.pad(ch, t, sp * 8, .011, { type: 'triangle', cutoff: 1400, detune: 5 }); }
+        if (b === 4) A.tone(t, rt + 19, sp * 3.6, .05, { type: 'triangle', decay: true });
+        if (b % 2 === 0) A.pluck(ch[[0, 1, 2, 1][(b / 2) % 4]] + 12, t, .32);
+        if (m) {
+          if (loop % 2 === 0) A.bell(m, t, .045);
+          else A.tone(t, m, sp * 1.6, .03, { type: 'square', attack: .008, cutoff: 2400, decay: true });
+        }
+        if ((b === 2 || b === 6) && A.inten > .15) A.noise(t, .05, .006, { type: 'bandpass', f: 4500, q: 2 });
+      },
+    };
+
+    return {
+      id: 'snow', name: 'Snowmurmur Caverns', nod: 'Undertale', portal: '110,170,255', bg: SNOW, dark: .45, dim: .2,
+      ground, under, ambient,
+      mix: { snowpuff: 6, croak: 2, sentry: 1.6, hound: 1.1 },
+      target: 1,
+      foes: { snowpuff, croak, sentry, hound },
+      boss, events, music,
+    };
+  })());
+
   // ===== Zone: spire =====
   // Zone spire: the act map of a deck-building climb, spread across a desk of aged, scorched parchment sheets. Dotted ink
   // paths branch and merge upward between hand-inked node icons (monster, elite, ? event, merchant, campfire, treasure)
@@ -23227,7 +23767,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   const seasonName = v => String(v);
   // Build stamp shown under the title menu, so players (and bug reports) can tell which copy of the game is running;
   // a stale cached OMEGAgame.html once made a fixed quest look broken. Bump it with every pushed change: date plus a letter.
-  const BUILD = '2026-11-24k';
+  const BUILD = '2026-11-27a';
   $('buildStamp').textContent = `Season ${seasonName(GAME_VERSION)} · build ${BUILD}`;
   const LB_URL = (location.hostname === 'localhost' && new URLSearchParams(location.search).get('lb')) || 'https://till-dawn-lb.edgyhalla.workers.dev';   // ?lb=<url> on localhost: a local test server
   const BOARDS = {
@@ -24975,6 +25515,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     monkey: { name: 'Grog Keg', mega: 'Flaming Grog Barrage', desc: 'Rolls a keg of grog at the nearest enemy. It bursts in a splash of grog that leaves a sticky puddle, slowing and dissolving every enemy that wades through it.', megaDesc: 'Three kegs at once, harder-hitting, and every grog puddle catches fire.' },
     necro: { name: 'Dance Floor', mega: 'Rave of the Dead', desc: 'A checkerboard dance floor follows you, flipping its lit tiles on every beat. Enemies caught on a lit tile take a hit each time it lights.', megaDesc: 'A bigger, harder-hitting floor, and every fourth beat the bass drops: the whole floor slams at once and hurls enemies back.' },
     chaos: { name: 'Kaleidoscope Shard', mega: 'Kaleidoscope Storm', desc: 'A shard of the Chaos Rift. It channels two random relics at once, a little weaker each, and reshuffles them every few seconds.', megaDesc: 'Three random relics at once, in their MEGA forms, reshuffled even faster.' },
+    snow:  { name: 'Bone Wall', mega: 'Blue and Orange Gauntlet', desc: 'A row of bones bursts up beside you and marches out toward the nearest enemy, striking everything in its path once.', megaDesc: 'Two walls at once, a blue one forward and an orange one across it: blue bones slow, orange bones set enemies alight.' },
     lol:   { name: 'Allied Minion Wave', mega: 'Empowered Siege Wave', desc: 'Every so often a wave of your own blue minions marches out to fight for you.', megaDesc: 'Bigger waves, faster, with cannon minions.' },
   };
   let pendingRelic = null;
@@ -25183,6 +25724,18 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           burst(e.x, e.y, '#c0102a', 14, 160);
         }
         snd.fx('bite');
+        break;
+      }
+      case 'snow': {
+        // Bone Wall: a row of bones rises beside you and marches out toward the nearest enemy, hitting each foe once.
+        // MEGA: a blue wall forward and an orange wall across it (blue slows, orange burns).
+        if (r.t > 0) break;
+        if (!nearest(P.x, P.y, 520)) { r.t = .4; break; }
+        r.t = (mega ? 2.6 : [0, 4, 3.6, 3.2][lv]) * S.cd;
+        const a0 = aimAt(520), L = (mega ? 420 : [0, 260, 300, 340][lv]) * S.area, side = Math.random() < .5 ? 1 : -1;
+        const walls = mega ? [[a0, 'blue'], [a0 + side * Math.PI / 2, 'orange']] : [[a0, 'white']];
+        for (const [a, col] of walls) allies.push({ type: 'bonewall', x: P.x + Math.cos(a) * 18, y: P.y + Math.sin(a) * 18, dx: Math.cos(a), dy: Math.sin(a), L, sp: 520, life: 1.25, rise: 0, hit: new Set(), dmg: (mega ? 48 : 40) * pow, pow, col });
+        snd.fx('moon'); shake = Math.max(shake, 2);
         break;
       }
       case 'monkey': {
@@ -25466,6 +26019,16 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
           traps.push({ x: a.x, y: a.y, r: (a.mega ? 52 : 44) * S.area, life: 3, max: 3, tick: .2, dmg: 4 * a.pow, acid: true });
           rings.push({ x: a.x, y: a.y, r: Rb, life: 0, ttl: .4, col: '140,255,90' });
           burst(a.x, a.y, '#9cff5a', 16, 240); shake = Math.max(shake, 2.5); snd.fx('star');
+        }
+      } else if (a.type === 'bonewall') {
+        a.x += a.dx * a.sp * dt; a.y += a.dy * a.sp * dt; a.rise = Math.min(1, a.rise + dt * 7);
+        for (const e of foes) {
+          if (e.dead || a.hit.has(e)) continue;
+          const rx = e.x - a.x, ry = e.y - a.y, along = rx * a.dx + ry * a.dy, side = ry * a.dx - rx * a.dy;
+          if (Math.abs(along) > 16 + e.r || Math.abs(side) > a.L / 2 + e.r) continue;
+          a.hit.add(e); hit(e, a.dmg, 260, e.x - a.dx * 40, e.y - a.dy * 40);
+          if (a.col === 'blue') e.slowT = Math.max(e.slowT || 0, 1.2);
+          else if (a.col === 'orange') { e.burn = 3; e.burnSrc = dsrc; e.burnDmg = Math.max(e.burnDmg || 0, 8 * a.pow); }
         }
       } else if (a.type === 'dragon') {
         a.x += a.vx * dt; a.y += a.vy * dt; a.drop -= dt;
@@ -27081,7 +27644,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   // enemy shots and ground hazards per second, and the guardian. A run's first rift always comes from the easy tier.
   const RIFT_TIER = {
     easy: ['isaac', 'ds', 'tibia', 'homm', 'necro', 'd2', 'bay', 'lol'],
-    medium: ['hk', 'z', 'spire', 'temple', 'gw2', 'monkey', 'wc2', 'cow', 'chaos'],
+    medium: ['hk', 'z', 'spire', 'temple', 'gw2', 'monkey', 'wc2', 'cow', 'chaos', 'snow'],
     hard: ['zerg', 'zelda', 'moo2', 'potato'],
   };
   // Glow multiplier per rift, so every rift pays about the same (measured: same strong build, full 150 s, median ~15,000 XP).
@@ -28775,6 +29338,7 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
       else if (a.type === 'flag') drawFlag(a, now);
       else if (a.type === 'minion') drawMinion(a);
       else if (a.type === 'dragon') drawDragonSweep(a, now);
+      else if (a.type === 'bonewall') drawBoneWall(a);
       else if (a.type === 'bane') { ctx.globalAlpha = 1; drawBane(a, now); }
       else if (a.type === 'keg') {
         // A little oak keg with iron hoops, rolling end over end.
@@ -28927,6 +29491,14 @@ button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
     ctx.beginPath(); ctx.moveTo(x + Math.cos(a.dir) * 6, y - bob + Math.sin(a.dir) * 6); ctx.lineTo(x + Math.cos(a.dir) * 15, y - bob + Math.sin(a.dir) * 15); ctx.stroke();
   }
   // The brandwyrm: a faceted crystal dragon flying overhead (its shadow falls well below it).
+  // Bone Wall relic: a row of upright bones (white; MEGA blue or orange) rising out of the snow as it marches.
+  function drawBoneWall(a) {
+    const n = Math.max(4, Math.round(a.L / 20)), h = 30 * a.rise, px = -a.dy, py = a.dx, out = new Path2D(), body = new Path2D();
+    const bn = (pp, x, y, hh, w) => { const k = w * .75; pp.rect(x - w / 2, y - hh, w, hh); for (const [bx, by] of [[x - w / 2, y - hh], [x + w / 2, y - hh], [x - w / 2, y], [x + w / 2, y]]) { pp.moveTo(bx + k, by); pp.arc(bx, by, k, 0, TAU); } };
+    for (let i = 0; i <= n; i++) { const s = -a.L / 2 + i * a.L / n, x = a.x + px * s, y = a.y + py * s + 12; bn(out, x, y, h + 3, 8.5); bn(body, x, y, h, 5.5); }
+    ctx.fillStyle = 'rgba(14,18,30,.85)'; ctx.fill(out);
+    ctx.fillStyle = a.col === 'blue' ? '#5ab8ff' : a.col === 'orange' ? '#ffa03a' : '#f4f6ff'; ctx.fill(body);
+  }
   function drawDragonSweep(a, now) {
     const ang = Math.atan2(a.vy, a.vx), f = Math.sin(now * 10) * .5 + .5, z = a.big ? 1.7 : 1.4;
     ctx.save(); ctx.globalAlpha *= .3; ctx.fillStyle = '#05020a';
